@@ -6,7 +6,7 @@ A package for modeling optimization problems containing piecewise linear functio
 
 [![Coverage Status](https://coveralls.io/repos/joehuchette/PiecewiseLinearOpt.jl/badge.svg?branch=master&service=github)](https://coveralls.io/github/joehuchette/PiecewiseLinearOpt.jl?branch=master)
 
-[![codecov.io](http://codecov.io/github/joehuchette/PiecewiseLinear.jl/coverage.svg?branch=master)](http://codecov.io/github/joehuchette/PiecewiseLinearOpt.jl?branch=master)
+[![codecov.io](http://codecov.io/github/joehuchette/PiecewiseLinearOpt.jl/coverage.svg?branch=master)](http://codecov.io/github/joehuchette/PiecewiseLinearOpt.jl?branch=master)
 
 This package offers helper functions for the [JuMP algebraic modeling language](https://github.com/JuliaOpt/JuMP.jl).
 
