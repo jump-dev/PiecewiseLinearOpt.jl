@@ -112,8 +112,8 @@ function sos2_logarthmic_formulation!(m::JuMP.Model, λ)
     y = JuMP.@variable(m, [1:k], Bin, basename="y_$counter")
     for i in 1:k
         JuMP.@constraints(m, begin
-            H[1][i]*λ[1] + sum(min(H[v][i],H[v-1][i])*λ[v] for v in 2:n-1) + H[n][i]*λ[n] ≤ y[i]
-            H[1][i]*λ[1] + sum(max(H[v][i],H[v-1][i])*λ[v] for v in 2:n-1) + H[n][i]*λ[n] ≥ y[i]
+            H[1][i]*λ[1] + sum(min(H[v][i],H[v-1][i])*λ[v] for v in 2:n) + H[n][i]*λ[n+1] ≤ y[i]
+            H[1][i]*λ[1] + sum(max(H[v][i],H[v-1][i])*λ[v] for v in 2:n) + H[n][i]*λ[n+1] ≥ y[i]
         end)
     end
     nothing
