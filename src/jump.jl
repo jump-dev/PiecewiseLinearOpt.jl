@@ -38,6 +38,21 @@ function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, pwl::UnivariatePWLFunc
             JuMP.@constraint(m, δ[i+1] ≤ y[i])
             JuMP.@constraint(m, y[i] ≤ δ[i])
         end
+    elseif method == :MC
+        x̂ = JuMP.@variable(m, [1:n-1],      basename="x̂_$counter")
+        ẑ = JuMP.@variable(m, [1:n-1],      basename="ẑ_$counter")
+        y = JuMP.@variable(m, [1:n-1], Bin, basename="y_$counter")
+        JuMP.@constraint(m, sum(y) == 1)
+        JuMP.@constraint(m, sum(x̂) == x)
+        JuMP.@constraint(m, sum(ẑ) == z)
+        Δ = [(fd[i+1]-fd[i])/(d[i+1]-d[i]) for i in 1:n-1]
+        for i in 1:n-1
+            JuMP.@constraints(m, begin
+                x̂[i] ≥ d[i]  *y[i]
+                x̂[i] ≤ d[i+1]*y[i]
+                ẑ[i] == fd[i]*y[i] + Δ[i]*(x̂[i]-d[i]*y[i])
+            end)
+        end
     else # V-formulation method
         λ = JuMP.@variable(m, [1:n], lowerbound=0, upperbound=1, basename="λ_$counter")
         JuMP.@constraint(m, sum(λ) == 1)
@@ -47,8 +62,6 @@ function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, pwl::UnivariatePWLFunc
             sos2_logarthmic_formulation!(m, λ)
         elseif method == :CC
             sos2_cc_formulation!(m, λ)
-        elseif method == :MC
-            sos2_mc_formulation!(m, λ)
         end
     end
     m.ext[:PWL].counter = counter + 1
@@ -65,22 +78,25 @@ end
 
 function sos2_cc_formulation!(m::JuMP.Model, λ)
     counter = m.ext[:PWL].counter
-    n = length(λ)-1
-    y = JuMP.@variable(m, [1:n], Bin, basename="y_$counter")
+    n = length(λ)
+    y = JuMP.@variable(m, [1:n-1], Bin, basename="y_$counter")
     JuMP.@constraint(m, sum(y) == 1)
-    for i in 1:n-1
-        JuMP.@constraint(m, λ[i] ≤ y[i] + y[i+1])
+    JuMP.@constraint(m, λ[1] ≤ y[1])
+    for i in 2:n-1
+        JuMP.@constraint(m, λ[i] ≤ y[i-1] + y[i])
     end
+    JuMP.@constraint(m, λ[n] ≤ y[n-1])
     nothing
 end
 
 function sos2_mc_formulation!(m::JuMP.Model, λ)
     counter = m.ext[:PWL].counter
-    n = length(λ)-1
-    γ = JuMP.@variable(m, [1:n,1:n+1], basename="γ_$counter")
-    y = JuMP.@variable(m, [1:n], Bin,  basename="y_$counter")
-    JuMP.@constraint(m, sum(γ[i,:] for i in 1:n) .== λ)
-    for i in 1:n
+    n = length(λ)
+    γ = JuMP.@variable(m, [1:n-1, 1:n],     basename="γ_$counter")
+    y = JuMP.@variable(m, [1:n-1],     Bin, basename="y_$counter")
+    JuMP.@constraint(m, sum(y) == 1)
+    JuMP.@constraint(m, sum(γ[i,:] for i in 1:n-1) .== λ)
+    for i in 1:n-1
         JuMP.@constraint(m, γ[i,i] + γ[i,i+1] ≥ y[i])
     end
     nothing
