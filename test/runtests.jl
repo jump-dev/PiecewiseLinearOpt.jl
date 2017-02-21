@@ -1,7 +1,9 @@
 using PiecewiseLinearOpt
 using Base.Test
 
-using JuMP
+using JuMP, Cbc
+
+const solver = CbcSolver()
 
 let d = linspace(1,2π,8), f = sin
     mCC = Model()
@@ -61,4 +63,46 @@ let d = linspace(1,2π,8), f = sin
     @test solve(mLog) == :Optimal
     @test isapprox(getvalue(xLog), 1.36495, rtol=1e-4)
     @test isapprox(getvalue(zLog), 0.90997, rtol=1e-4)
+end
+
+for instance in ["10104_1_concave_1"]
+    folder = joinpath(Pkg.dir("PiecewiseLinearOpt"),"test","1D-pwl-instances",instance)
+    objs = Dict()
+
+    demand = readdlm(joinpath(folder, "dem.dat"))
+    supply = readdlm(joinpath(folder, "sup.dat"))
+    numdem = size(demand, 1)
+    numsup = size(supply, 1)
+
+    d  = readdlm(joinpath(folder, "mat.dat"))
+    fd = readdlm(joinpath(folder, "obj.dat"))
+    K = size(d, 2)
+
+    for method in (:Incremental,:MC,:CC,:Logarithmic)
+        model = Model(solver=solver)
+        @variable(model, x[1:numsup,1:numdem] ≥ 0)
+        for j in 1:numdem
+            # demand constraint
+            @constraint(model, sum(x[i,j] for i in 1:numsup) == demand[j])
+        end
+        for i in 1:numsup
+            # supply constraint
+            @constraint(model, sum(x[i,j] for j in 1:numdem) == supply[i])
+        end
+
+        idx = 1
+        obj = AffExpr()
+        for i in 1:numsup, j in 1:numdem
+            z = piecewiselinear(model, x[i,j], d[idx,:], fd[idx,:], method=method)
+            obj += z
+        end
+        @objective(model, Min, obj)
+
+        stat = solve(model)
+        objs[method] = getobjectivevalue(model)
+    end
+    vals = collect(values(objs))
+    for i in 2:length(vals)
+        @test isapprox(vals[i-1], vals[i], rtol=1e-4)
+    end
 end
