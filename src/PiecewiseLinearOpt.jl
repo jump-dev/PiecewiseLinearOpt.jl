@@ -1,6 +1,6 @@
 module PiecewiseLinearOpt
 
-import JuMP
+import JuMP, MathProgBase, CPLEX
 
 export PWLFunction, UnivariatePWLFunction, BivariatePWLFunction, piecewiselinear
 
