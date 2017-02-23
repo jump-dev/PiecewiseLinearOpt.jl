@@ -68,14 +68,6 @@ function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, pwl::UnivariatePWLFunc
     z
 end
 
-function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, y::JuMP.Variable, pwl::BivariatePWLFunction; method=defaultmethod(pwl))
-    d = pwl.x
-    fd = pwl.z
-    n = length(d)
-    JuMP.@variable(m, minimum(fd) ≤ z ≤ maximum(fd))
-    error("Bivariate PWL functions currently not implemented")
-end
-
 function sos2_cc_formulation!(m::JuMP.Model, λ)
     counter = m.ext[:PWL].counter
     n = length(λ)
@@ -133,4 +125,98 @@ function sos2_logarthmic_formulation!(m::JuMP.Model, λ)
         end)
     end
     nothing
+end
+
+piecewiselinear(m::JuMP.Model, x::JuMP.Variable, y::JuMP.Variable, dˣ, dʸ, f::Function) =
+    piecewiselinear(m, x, y, BivariatePWLFunction(dˣ, dʸ, f))
+
+function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, y::JuMP.Variable, pwl::BivariatePWLFunction; method=defaultmethod(pwl))
+    initPWL!(m)
+    counter = m.ext[:PWL].counter + 1
+    dˣ = [_x[1] for _x in pwl.x]
+    dʸ = [_x[2] for _x in pwl.x]
+    uˣ, uʸ = unique(dˣ), unique(dʸ)
+    @assert issorted(uˣ)
+    @assert issorted(uʸ)
+
+    nˣ, nʸ = length(uˣ), length(uʸ)
+
+    ˣtoⁱ = Dict(uˣ[i] => i for i in 1:nˣ)
+    ʸtoⁱ = Dict(uʸ[i] => i for i in 1:nʸ)
+
+    fd = Array(Float64, nˣ, nʸ)
+    for (v,fv) in zip(pwl.x, pwl.z)
+        # i is the linear index into pwl.x...really want (i,j) pair
+        fd[ˣtoⁱ[v[1]],ʸtoⁱ[v[2]]] = fv
+    end
+
+    z = JuMP.@variable(m, lowerbound=minimum(fd), upperbound=maximum(fd), basename="z_$counter")
+    λ = JuMP.@variable(m, [1:nˣ,1:nʸ], lowerbound=0, upperbound=1, basename="λ_$counter")
+    JuMP.@constraint(m, sum(λ) == 1)
+    JuMP.@constraint(m, sum(λ[i,j]*uˣ[i]   for i in 1:nˣ, j in 1:nʸ) == x)
+    JuMP.@constraint(m, sum(λ[i,j]*uʸ[j]   for i in 1:nˣ, j in 1:nʸ) == y)
+    JuMP.@constraint(m, sum(λ[i,j]*fd[i,j] for i in 1:nˣ, j in 1:nʸ) == z)
+
+    if method == :Logarithmic
+        for tx in 1:nˣ
+            sos2_logarthmic_formulation!(m, [λ[tx,ty] for ty in 1:nʸ])
+        end
+        for ty in 1:nʸ
+            sos2_logarthmic_formulation!(m, [λ[tx,ty] for tx in 1:nˣ])
+        end
+    elseif method == :CC
+        for tx in 1:nˣ
+            sos2_cc_formulation!(m, [λ[tx,ty] for ty in 1:nʸ])
+        end
+        for ty in 1:nʸ
+            sos2_cc_formulation!(m, [λ[tx,ty] for tx in 1:nˣ])
+        end
+    else
+        error()
+    end
+
+    pattern = pwl.meta[:structure]
+    if pattern == :UnionJack
+        numT = 0
+        minˣ, minʸ = ux[1], uy[1]
+        # find the index of the bottom-left point
+        idx = findfirst(pwl.x) do w; w == (minˣ, minʸ); end
+        for t in pwl.T
+            if idx in t
+                numT += 1
+            end
+        end
+        @assert 1 <= numT <= 2
+
+        w = JuMP.@variable(m, category=:Bin)
+        # If numT==1, then bottom-left is contained in only one point, and so needs separating; otherwise numT==2, and need to offset by one
+        JuMP.@constraints(m, begin
+            sum(λ[tx,ty] for tx in 1:2:nˣ, ty in    numT :2:nʸ) ≤     w
+            sum(λ[tx,ty] for tx in 2:2:nˣ, ty in (3-numT):2:nʸ) ≤ 1 - w
+        end)
+    else
+        w = JuMP.@variable(m, [0:2,0:2], Bin)
+        for oˣ in 0:2, oʸ in 0:2
+            innoT = fill(true, nˣ, nʸ)
+            for (i,j,k) in pwl.T
+                xⁱ, xʲ, xᵏ = pwl.x[i], pwl.x[j], pwl.x[k]
+                iiˣ, iiʸ = ˣtoⁱ[xⁱ[1]], ʸtoⁱ[xⁱ[2]]
+                jjˣ, jjʸ = ˣtoⁱ[xʲ[1]], ʸtoⁱ[xʲ[2]]
+                kkˣ, kkʸ = ˣtoⁱ[xᵏ[1]], ʸtoⁱ[xᵏ[2]]
+                # check to see if one of the points in the triangle falls on the grid
+                if (mod(iiˣ,3) == oˣ && mod(iiʸ,3) == oʸ) || (mod(jjˣ,3) == oˣ && mod(jjʸ,3) == oʸ) || (mod(kkˣ,3) == oˣ && mod(kkʸ,3) == oʸ)
+                    innoT[iiˣ,iiʸ] = false
+                    innoT[jjˣ,jjʸ] = false
+                    innoT[kkˣ,kkʸ] = false
+                end
+            end
+            JuMP.@constraints(m, begin
+                sum(λ[i,j] for i in 1+oˣ:3:nˣ, j in 1+oʸ:3:nʸ) ≤  1 - w[oˣ,oʸ]
+                sum(λ[i,j] for i in 1:nˣ, j in 1:nʸ if !innoT[i,j]) ≤ w[oˣ,oʸ]
+            end)
+        end
+    end
+
+    m.ext[:PWL].counter = counter + 1
+    z
 end

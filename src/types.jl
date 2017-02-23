@@ -82,5 +82,5 @@ function BivariatePWLFunction(x, y, fz::Function; pattern=:BestFit)
         push!(T, t1)
         push!(T, t2)
     end
-    PWLFunction(X, Z, T, Dict(:structure=>pattern))
+    PWLFunction{2}(X, Z, T, Dict(:structure=>pattern))
 end
