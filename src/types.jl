@@ -37,6 +37,7 @@ function BivariatePWLFunction(x, y, fz::Function; pattern=:BestFit)
     T = Vector{Vector{Int}}()
     m = length(x)
     n = length(y)
+    # run for each square on [x[i],x[i+1]] × [y[i],y[i+1]]
     for i in 1:length(x)-1, j in 1:length(y)-1
         SWt, NWt, NEt, SEt = sub2ind((m,n),i,j), sub2ind((m,n),i,j+1), sub2ind((m,n),i+1,j+1), sub2ind((m,n),i+1,j)
         xL, xU, yL, yU = x[i], x[i+1], y[j], y[j+1]
@@ -75,7 +76,15 @@ function BivariatePWLFunction(x, y, fz::Function; pattern=:BestFit)
                 t2 = [SEt,NWt,NEt]
             end
         elseif pattern == :UnionJack
-
+            t1 = [SWt,SEt]
+            t2 = [NWt,NEt]
+            if iseven(i+j)
+                push!(t1, NWt)
+                push!(t2, SEt)
+            else
+                push!(t1, NEt)
+                push!(t2, SWt)
+            end
         else
             error()
         end
