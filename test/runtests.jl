@@ -66,7 +66,7 @@ let d = linspace(1,2π,8), f = sin
 end
 
 for instance in ["10104_1_concave_1"]
-    folder = joinpath(Pkg.dir("PiecewiseLinearOpt"),"test","1D-pwl-instances",instance)
+    folder = joinpath(dirname(@__FILE__),"1D-pwl-instances",instance)
     objs = Dict()
 
     demand = readdlm(joinpath(folder, "dem.dat"))
@@ -109,7 +109,7 @@ end
 
 # for numpieces in [4,8,16,32], variety in 1:5, objective in 1:20
 for numpieces in [4], variety in 1:5, objective in 1:20
-    folder = joinpath(Pkg.dir("PiecewiseLinearOpt"),"test","2D-pwl-instances",string("55",numpieces,"_",variety,"_1"))
+    folder = joinpath(dirname(@__FILE__),"2D-pwl-instances",string("55",numpieces,"_",variety,"_1"))
     objs = Dict()
 
     demand = readdlm(joinpath(folder, "dem.dat"))
@@ -118,7 +118,7 @@ for numpieces in [4], variety in 1:5, objective in 1:20
     numsup = size(supply, 1)
 
     d = readdlm(joinpath(folder, "mat.dat"))
-    fd = readdlm(joinpath(Pkg.dir("PiecewiseLinearOpt"),"test","2D-pwl-instances","objectives",string("55",numpieces,"_",variety,"_",objective)))
+    fd = readdlm(joinpath(dirname(@__FILE__),"2D-pwl-instances","objectives",string("55",numpieces,"_",variety,"_",objective)))
     K = size(d, 2)
 
     for method in (:MC,:CC,:Logarithmic)
