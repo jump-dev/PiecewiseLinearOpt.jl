@@ -1,5 +1,5 @@
 # TODO: choose method based on problem size
-defaultmethod(x) = :Logarithmic
+defaultmethod() = :Logarithmic
 
 type PWLData
     counter::Int
@@ -13,16 +13,16 @@ function initPWL!(m::JuMP.Model)
     nothing
 end
 
-function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, d, f::Function; method=defaultmethod(d))
+function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, d, f::Function; method=defaultmethod())
     initPWL!(m)
     fd = [f(xx) for xx in d]
     piecewiselinear(m, x, d, fd; method=method)
 end
 
-piecewiselinear(m::JuMP.Model, x::JuMP.Variable, d, fd; method=defaultmethod(d)) =
+piecewiselinear(m::JuMP.Model, x::JuMP.Variable, d, fd; method=defaultmethod()) =
     piecewiselinear(m, x, UnivariatePWLFunction(d, fd); method=method)
 
-function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, pwl::UnivariatePWLFunction; method=defaultmethod(pwl))
+function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, pwl::UnivariatePWLFunction; method=defaultmethod())
     initPWL!(m)
     counter = m.ext[:PWL].counter + 1
     d = [_x[1] for _x in pwl.x]
@@ -127,10 +127,10 @@ function sos2_logarthmic_formulation!(m::JuMP.Model, λ)
     nothing
 end
 
-piecewiselinear(m::JuMP.Model, x::JuMP.Variable, y::JuMP.Variable, dˣ, dʸ, f::Function) =
-    piecewiselinear(m, x, y, BivariatePWLFunction(dˣ, dʸ, f))
+piecewiselinear(m::JuMP.Model, x::JuMP.Variable, y::JuMP.Variable, dˣ, dʸ, f::Function; method=defaultmethod()) =
+    piecewiselinear(m, x, y, BivariatePWLFunction(dˣ, dʸ, f); method=method)
 
-function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, y::JuMP.Variable, pwl::BivariatePWLFunction; method=defaultmethod(pwl))
+function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, y::JuMP.Variable, pwl::BivariatePWLFunction; method=defaultmethod())
     initPWL!(m)
     counter = m.ext[:PWL].counter + 1
     dˣ = [_x[1] for _x in pwl.x]
@@ -171,6 +171,13 @@ function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, y::JuMP.Variable, pwl:
         for ty in 1:nʸ
             sos2_cc_formulation!(m, [λ[tx,ty] for tx in 1:nˣ])
         end
+    elseif method == :MC
+        for tx in 1:nˣ
+            sos2_mc_formulation!(m, [λ[tx,ty] for ty in 1:nʸ])
+        end
+        for ty in 1:nʸ
+            sos2_mc_formulation!(m, [λ[tx,ty] for tx in 1:nˣ])
+        end
     else
         error()
     end
@@ -178,7 +185,7 @@ function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, y::JuMP.Variable, pwl:
     pattern = pwl.meta[:structure]
     if pattern == :UnionJack
         numT = 0
-        minˣ, minʸ = ux[1], uy[1]
+        minˣ, minʸ = uˣ[1], uʸ[1]
         # find the index of the bottom-left point
         idx = findfirst(pwl.x) do w; w == (minˣ, minʸ); end
         for t in pwl.T
