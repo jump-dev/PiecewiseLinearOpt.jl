@@ -27,4 +27,16 @@ z = piecewiselinear(m, x, d, fd)
 @objective(m, Min, z) # minimize f(x)
 ```
 
-Current support is limited to modeling the graph of a continuous univariate piecewise linear function, with the goal of adding support for the epigraphs of lower semicontinuous multivariate piecewise linear functions.
+For another example, think of a piecewise linear approximation for for the function $f(x,y) = exp(x+y)$:
+
+```julia
+using JuMP, PiecewiseLinearOpt
+m = Model()
+@variable(m, x)
+@variable(m, y)
+
+z = piecewiselinear(m, x, y, 0:0.1:1, 0:0.1:1, (u,v) -> exp(u+v))
+@objective(m, Min, z)
+```
+
+Current support is limited to modeling the graph of a continuous piecewise linear function, either univariate or bivariate, with the goal of adding support for the epigraphs of lower semicontinuous piecewise linear functions.
