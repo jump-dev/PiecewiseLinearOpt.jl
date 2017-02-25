@@ -24,7 +24,9 @@ piecewiselinear(m::JuMP.Model, x::JuMP.Variable, d, fd; method=defaultmethod()) 
 
 function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, pwl::UnivariatePWLFunction; method=defaultmethod())
     initPWL!(m)
-    counter = m.ext[:PWL].counter + 1
+    counter = m.ext[:PWL].counter
+    counter += 1
+    m.ext[:PWL].counter = counter
     d = [_x[1] for _x in pwl.x]
     fd = pwl.z
     n = length(d)
@@ -64,7 +66,6 @@ function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, pwl::UnivariatePWLFunc
             sos2_cc_formulation!(m, λ)
         end
     end
-    m.ext[:PWL].counter = counter + 1
     z
 end
 
@@ -132,7 +133,9 @@ piecewiselinear(m::JuMP.Model, x::JuMP.Variable, y::JuMP.Variable, dˣ, dʸ, f::
 
 function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, y::JuMP.Variable, pwl::BivariatePWLFunction; method=defaultmethod())
     initPWL!(m)
-    counter = m.ext[:PWL].counter + 1
+    counter = m.ext[:PWL]
+    counter += 1
+    m.ext[:PWL].counter = counter
     dˣ = [_x[1] for _x in pwl.x]
     dʸ = [_x[2] for _x in pwl.x]
     uˣ, uʸ = unique(dˣ), unique(dʸ)
@@ -223,7 +226,5 @@ function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, y::JuMP.Variable, pwl:
             end)
         end
     end
-
-    m.ext[:PWL].counter = counter + 1
     z
 end
