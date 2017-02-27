@@ -65,6 +65,36 @@ let d = linspace(1,2π,8), f = sin
     @test isapprox(getvalue(zLog), 0.90997, rtol=1e-4)
 end
 
+let d = linspace(1,2π,8), f = sin
+    mZZ = Model()
+    @variable(mZZ, xZZ)
+    zZZ = piecewiselinear(mZZ, xZZ, d, sin, method=:ZigZag)
+    @objective(mZZ, Max, zZZ)
+    @test solve(mZZ) == :Optimal
+    @test isapprox(getvalue(xZZ), 1.75474, rtol=1e-4)
+    @test isapprox(getvalue(zZZ), 0.98313, rtol=1e-4)
+
+    @constraint(mZZ, xZZ ≤ 1.5zZZ)
+    @test solve(mZZ) == :Optimal
+    @test isapprox(getvalue(xZZ), 1.36495, rtol=1e-4)
+    @test isapprox(getvalue(zZZ), 0.90997, rtol=1e-4)
+end
+
+let d = linspace(1,2π,8), f = sin
+    mZZI = Model()
+    @variable(mZZI, xZZI)
+    zZZI = piecewiselinear(mZZI, xZZI, d, sin, method=:ZigZagInteger)
+    @objective(mZZI, Max, zZZI)
+    @test solve(mZZI) == :Optimal
+    @test isapprox(getvalue(xZZI), 1.75474, rtol=1e-4)
+    @test isapprox(getvalue(zZZI), 0.98313, rtol=1e-4)
+
+    @constraint(mZZI, xZZI ≤ 1.5zZZI)
+    @test solve(mZZI) == :Optimal
+    @test isapprox(getvalue(xZZI), 1.36495, rtol=1e-4)
+    @test isapprox(getvalue(zZZI), 0.90997, rtol=1e-4)
+end
+
 for instance in ["10104_1_concave_1"]
     folder = joinpath(dirname(@__FILE__),"1D-pwl-instances",instance)
     objs = Dict()
@@ -78,7 +108,7 @@ for instance in ["10104_1_concave_1"]
     fd = readdlm(joinpath(folder, "obj.dat"))
     K = size(d, 2)
 
-    for method in (:Incremental,:MC,:CC,:Logarithmic)
+    for method in (:Incremental,:MC,:CC,:Logarithmic,:ZigZag,:ZigZagInteger)
         model = Model(solver=solver)
         @variable(model, x[1:numsup,1:numdem] ≥ 0)
         for j in 1:numdem
@@ -121,7 +151,7 @@ for numpieces in [4], variety in 1:5, objective in 1:20
     fd = readdlm(joinpath(dirname(@__FILE__),"2D-pwl-instances","objectives",string("55",numpieces,"_",variety,"_",objective)))
     K = size(d, 2)
 
-    for method in (:MC,:CC,:Logarithmic)
+    for method in (:MC,:CC,:Logarithmic,:ZigZag,:ZigZagInteger)
         model = Model(solver=solver)
         @variable(model, x[1:numsup,1:numdem] ≥ 0)
         @variable(model, y[1:numsup,1:numdem] ≥ 0)
