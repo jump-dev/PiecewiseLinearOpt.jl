@@ -132,10 +132,6 @@ end
 
 function sos2_encoding_constraints!(m, λ, y, h, B)
     n = length(λ)-1
-    @show λ
-    @show y
-    @show h
-    @show B
     for b in B
         JuMP.@constraints(m, begin
             dot(b,h[1])*λ[1] + sum(min(dot(b,h[v]),dot(b,h[v-1]))*λ[v] for v in 2:n) + dot(b,h[n])*λ[n+1] ≤ dot(b,y)
