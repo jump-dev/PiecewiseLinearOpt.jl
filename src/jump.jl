@@ -64,6 +64,10 @@ function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, pwl::UnivariatePWLFunc
             sos2_logarthmic_formulation!(m, λ)
         elseif method == :CC
             sos2_cc_formulation!(m, λ)
+        elseif method == :ZigZag
+            sos2_zigzag_formulation!(m, λ)
+        elseif method == :ZigZagInteger
+            sos2_zigzag_general_integer_formulation!(m, λ)
         end
     end
     z
@@ -95,7 +99,7 @@ function sos2_mc_formulation!(m::JuMP.Model, λ)
     nothing
 end
 
-function reflected_gray(k::Int)
+function reflected_gray_codes(k::Int)
     if k == 0
         codes = Vector{Int}[]
     elseif k == 1
@@ -105,7 +109,7 @@ function reflected_gray(k::Int)
     elseif k < 0
         error()
     else
-        codes′ = reflected_gray(k-1)
+        codes′ = reflected_gray_codes(k-1)
         codes = vcat([vcat(code,0) for code in codes′],
                      [vcat(code,1) for code in reverse(codes′)])
         return codes
@@ -117,12 +121,107 @@ function sos2_logarthmic_formulation!(m::JuMP.Model, λ)
     counter = m.ext[:PWL].counter
     n = length(λ)-1
     k = ceil(Int,log2(n))
-    H = reflected_gray(k)
+    # H = reflected_gray(k)
     y = JuMP.@variable(m, [1:k], Bin, basename="y_$counter")
+
+    sos2_encoding_constraints!(m, λ, y, reflected_gray_codes(k), unit_vector_hyperplanes(k))
+    # for i in 1:k
+    #     JuMP.@constraints(m, begin
+    #         H[1][i]*λ[1] + sum(min(H[v][i],H[v-1][i])*λ[v] for v in 2:n) + H[n][i]*λ[n+1] ≤ y[i]
+    #         H[1][i]*λ[1] + sum(max(H[v][i],H[v-1][i])*λ[v] for v in 2:n) + H[n][i]*λ[n+1] ≥ y[i]
+    #     end)
+    # end
+    nothing
+end
+
+function zigzag_codes(k::Int)
+    if k == 0
+        codes = Vector{Int}[]
+    elseif k == 1
+        codes = [[0],[1]]
+    elseif k == 2
+        codes = [[0,0],[1,0],[1,1],[2,1]]
+    elseif k < 0
+        error()
+    else
+        codes′ = zigzag_codes(k-1)
+        codes = vcat([vcat(code,0) for code in codes′],
+                     [vcat(code,1) for code in codes′])
+    end
+    codes
+end
+
+function zigzag_hyperplanes(k::Int)
+    hps = Vector{Int}[]
     for i in 1:k
+        hp = zeros(Int, k)
+        for j in i:k
+            if j == 1
+                hp[j] = 1
+            else
+                hp[j] = 2^(j-2)
+            end
+        end
+        push!(hps, hp)
+    end
+    hps
+end
+
+function integer_zigzag_codes(k::Int)
+    if k == 0
+        codes = Vector{Int}[]
+    elseif k == 1
+        codes = [[0],[1]]
+    elseif k == 2
+        codes = [[0,0],[1,0],[1,1],[2,1]]
+    elseif k < 0
+        error()
+    else
+        @show codes′ = integer_zigzag_codes(k-1)
+        @show offset = [2^(j-2) for j in k:-1:2]
+        codes = vcat([vcat(code,        0) for code in codes′],
+                     [vcat(code.+offset,1) for code in codes′])
+    end
+    codes
+end
+
+function unit_vector_hyperplanes(k::Int)
+    hps = Vector{Int}[]
+    for i in 1:k
+        hp = zeros(Int,k)
+        hp[i] = 1
+        push!(hps, hp)
+    end
+    hps
+end
+
+function sos2_zigzag_formulation!(m::JuMP.Model, λ)
+    counter = m.ext[:PWL].counter
+    n = length(λ)-1
+    k = ceil(Int,log2(n))
+    y = JuMP.@variable(m, [1:k], Bin, basename="y_$counter")
+
+    sos2_encoding_constraints!(m, λ, y, zigzag_codes(k), zigzag_hyperplanes(k))
+    nothing
+end
+
+function sos2_zigzag_general_integer_formulation!(m::JuMP.Model, λ)
+    counter = m.ext[:PWL].counter
+    n = length(λ)-1
+    k = ceil(Int,log2(n))
+    # TODO: tighter upperbounds
+    y = JuMP.@variable(m, [1:k], Int, lowerbound=0, upperbound=n, basename="y_$counter")
+
+    sos2_encoding_constraints!(m, λ, y, integer_zigzag_codes(k), unit_vector_hyperplanes(k))
+    nothing
+end
+
+function sos2_encoding_constraints!(m, λ, y, h, B)
+    n = length(λ)-1
+    for (i,b) in enumerate(B)
         JuMP.@constraints(m, begin
-            H[1][i]*λ[1] + sum(min(H[v][i],H[v-1][i])*λ[v] for v in 2:n) + H[n][i]*λ[n+1] ≤ y[i]
-            H[1][i]*λ[1] + sum(max(H[v][i],H[v-1][i])*λ[v] for v in 2:n) + H[n][i]*λ[n+1] ≥ y[i]
+            dot(b,h[1])*λ[1] + sum(min(dot(b,h[v]),dot(b,h[v-1]))*λ[v] for v in 2:n) + dot(b,h[n])*λ[n+1] ≤ y[i]
+            dot(b,h[1])*λ[1] + sum(max(dot(b,h[v]),dot(b,h[v-1]))*λ[v] for v in 2:n) + dot(b,h[n])*λ[n+1] ≥ y[i]
         end)
     end
     nothing
