@@ -124,7 +124,7 @@ function sos2_zigzag_general_integer_formulation!(m::JuMP.Model, λ)
     n = length(λ)-1
     k = ceil(Int,log2(n))
     # TODO: tighter upperbounds
-    y = JuMP.@variable(m, [1:k], Int, lowerbound=0, upperbound=n, basename="y_$counter")
+    y = JuMP.@variable(m, [i=1:k], Int, lowerbound=0, upperbound=2^(k-i), basename="y_$counter")
 
     sos2_encoding_constraints!(m, λ, y, integer_zigzag_codes(k), unit_vector_hyperplanes(k))
     nothing
@@ -199,8 +199,8 @@ function integer_zigzag_codes(k::Int)
     elseif k < 0
         error()
     else
-        @show codes′ = integer_zigzag_codes(k-1)
-        @show offset = [2^(j-2) for j in k:-1:2]
+        codes′ = integer_zigzag_codes(k-1)
+        offset = [2^(j-2) for j in k:-1:2]
         codes = vcat([vcat(code,        0) for code in codes′],
                      [vcat(code.+offset,1) for code in codes′])
     end
