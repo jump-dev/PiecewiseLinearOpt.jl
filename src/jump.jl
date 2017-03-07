@@ -68,6 +68,8 @@ function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, pwl::UnivariatePWLFunc
             sos2_zigzag_formulation!(m, λ)
         elseif method == :ZigZagInteger
             sos2_zigzag_general_integer_formulation!(m, λ)
+        elseif method == :SOS2
+            JuMP.addSOS2(m, [λ[i] for i in 1:n])
         end
     end
     z
@@ -332,6 +334,13 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
             end
             for ty in 1:nʸ
                 sos2_zigzag_general_integer_formulation!(m, [λ[tx,ty] for tx in 1:nˣ])
+            end
+        elseif method == :SOS2
+            for tx in 1:nˣ
+                JuMP.addSOS2(m, [λ[tx,ty] for ty in 1:nʸ])
+            end
+            for ty in 1:nʸ
+                JuMP.addSOS2(m, [λ[tx,ty] for tx in 1:nˣ])
             end
         else
             error("Unrecognized method $method")
