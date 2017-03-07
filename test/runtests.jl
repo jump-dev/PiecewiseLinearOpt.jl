@@ -34,14 +34,14 @@ let dˣ = linspace(1,π,8), dʸ = linspace(1,π,8), f = (x,y) -> (π-x^2)*(π-y)
         z = piecewiselinear(model, x, y, dˣ, dʸ, f, method=method)
         @objective(model, Max, z)
         @test solve(model) == :Optimal
-        @test isapprox(getvalue(x),   3.14159, rtol=1e-4)
-        @test isapprox(getvalue(y),   1.00000, rtol=1e-4)
-        @test isapprox(getvalue(z), 13.101758, rtol=1e-4)
+        @test isapprox(getvalue(x),   3.14159, rtol=1e-3)
+        @test isapprox(getvalue(y),   1.00000, rtol=1e-3)
+        @test isapprox(getvalue(z), 13.101758, rtol=1e-3)
 
         @constraint(model, x+y ≤ 3)
         @test solve(model) == :Optimal
-        @test isapprox(getvalue(x), 2.00000, rtol=1e-4)
-        @test isapprox(getvalue(y), 1.00000, rtol=1e-4)
-        @test isapprox(getvalue(z), 1.50475, rtol=1e-4)
+        @test isapprox(getvalue(x), 2.00000, rtol=1e-3)
+        @test isapprox(getvalue(y), 1.00000, rtol=1e-3)
+        @test isapprox(getvalue(z), 1.50475, rtol=1e-3)
     end
 end
