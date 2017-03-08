@@ -317,33 +317,21 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
         #foobar
     else # formulations with SOS2 along each dimension
         if method == :Logarithmic
-            for tx in 1:nˣ
-                sos2_logarthmic_formulation!(m, [λ[tx,ty] for ty in 1:nʸ])
-            end
-            for ty in 1:nʸ
-                sos2_logarthmic_formulation!(m, [λ[tx,ty] for tx in 1:nˣ])
-            end
+            sos2_logarthmic_formulation!(m, [sum(λ[tˣ,tʸ] for tˣ in 1:nˣ) for tʸ in 1:nʸ])
+            sos2_logarthmic_formulation!(m, [sum(λ[tˣ,tʸ] for tʸ in 1:nʸ) for tˣ in 1:nˣ])
         elseif method == :ZigZag
-            for tx in 1:nˣ
-                sos2_zigzag_formulation!(m, [λ[tx,ty] for ty in 1:nʸ])
-            end
-            for ty in 1:nʸ
-                sos2_zigzag_formulation!(m, [λ[tx,ty] for tx in 1:nˣ])
-            end
+            sos2_zigzag_formulation!(m, [sum(λ[tˣ,tʸ] for tˣ in 1:nˣ) for tʸ in 1:nʸ])
+            sos2_zigzag_formulation!(m, [sum(λ[tˣ,tʸ] for tʸ in 1:nʸ) for tˣ in 1:nˣ])
         elseif method == :ZigZagInteger
-            for tx in 1:nˣ
-                sos2_zigzag_general_integer_formulation!(m, [λ[tx,ty] for ty in 1:nʸ])
-            end
-            for ty in 1:nʸ
-                sos2_zigzag_general_integer_formulation!(m, [λ[tx,ty] for tx in 1:nˣ])
-            end
+            sos2_zigzag_general_integer_formulation!(m, [sum(λ[tˣ,tʸ] for tˣ in 1:nˣ) for tʸ in 1:nʸ])
+            sos2_zigzag_general_integer_formulation!(m, [sum(λ[tˣ,tʸ] for tʸ in 1:nʸ) for tˣ in 1:nˣ])
         elseif method == :SOS2
-            for tx in 1:nˣ
-                JuMP.addSOS2(m, [λ[tx,ty] for ty in 1:nʸ])
-            end
-            for ty in 1:nʸ
-                JuMP.addSOS2(m, [λ[tx,ty] for tx in 1:nˣ])
-            end
+            γˣ = JuMP.@variable(m, [1:nˣ], lowerbound=0, upperbound=1)
+            γʸ = JuMP.@variable(m, [1:nʸ], lowerbound=0, upperbound=1)
+            JuMP.@constraint(m, [tˣ in 1:nˣ], γˣ[tˣ] == sum(λ[tˣ,tʸ] for tʸ in 1:nʸ))
+            JuMP.@constraint(m, [tʸ in 1:nʸ], γʸ[tʸ] == sum(λ[tˣ,tʸ] for tˣ in 1:nˣ))
+            JuMP.addSOS2(m, γˣ)
+            JuMP.addSOS2(m, γʸ)
         else
             error("Unrecognized method $method")
         end
