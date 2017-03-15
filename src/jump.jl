@@ -270,6 +270,23 @@ function compute_hyperplanes{T}(C::Vector{Vector{T}})
         d[i,:] = C[i+1] - C[i]
     end
 
+    if k <= 1
+        error("Cannot process codes of length $k")
+    elseif k == 2
+        @assert n == 4
+        spanners = Vector{Float64}[]
+        for i in 1:n-1
+            push!(spanners, canonical!(d[i,:]))
+        end
+        indices = [1]
+        approx12 = isapprox(spanners[1],spanners[2])
+        approx13 = isapprox(spanners[1],spanners[2])
+        approx23 = isapprox(spanners[2],spanners[3])
+        approx12 || push!(indices,2)
+        approx13 || (!approx12 && approx23)  || push!(indices,3)
+        return spanners[indices]
+    end
+
     indices = [1,2]
     spanners = Vector{Float64}[]
     while !isempty(indices)
