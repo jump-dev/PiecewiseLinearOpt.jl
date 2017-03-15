@@ -68,6 +68,8 @@ function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, pwl::UnivariatePWLFunc
             sos2_zigzag_formulation!(m, λ)
         elseif method == :ZigZagInteger
             sos2_zigzag_general_integer_formulation!(m, λ)
+        elseif method == :GenInteger
+            sos2_gen_integer_formulation!(m, λ)
         elseif method == :SOS2
             JuMP.addSOS2(m, [λ[i] for i in 1:n])
         else
@@ -131,6 +133,16 @@ function sos2_zigzag_general_integer_formulation!(m::JuMP.Model, λ)
     y = JuMP.@variable(m, [i=1:k], Int, lowerbound=0, upperbound=2^(k-i), basename="y_$counter")
 
     sos2_encoding_constraints!(m, λ, y, integer_zigzag_codes(k), unit_vector_hyperplanes(k))
+    nothing
+end
+
+function sos2_gen_integer_formulation!(m::JuMP.Model, λ)
+    counter = m.ext[:PWL].counter
+    n = length(λ)-1
+    k = ceil(Int,log2(n))
+    y = JuMP.@variable(m, [1:k], Bin, basename="y_$counter")
+
+    sos2_encoding_constraints!(m, λ, y, gen_integer_codes(k), gen_integer_hyperplanes(k))
     nothing
 end
 
@@ -219,6 +231,99 @@ function unit_vector_hyperplanes(k::Int)
         push!(hps, hp)
     end
     hps
+end
+
+function gen_integer_codes(k::Int)
+    if k <= 0
+        error("Invalid code length $k")
+    elseif k == 1
+        return [[0],[1]]
+    elseif k == 2
+        [[0,0],[1,1],[1,0],[0,1]]
+    else
+        codes′ = gen_integer_codes(k-1)
+        n = length(codes′)
+        hp = Int(n/2)
+        firstcodes  = [codes′[i] for i in 1:hp]
+        secondcodes = [codes′[i] for i in (hp+1):n]
+        return vcat([vcat(codes′[i], 0) for i in     1 :  n],
+                    [vcat(codes′[i], 1) for i in     1 : hp],
+                    [vcat(codes′[i],-1) for i in (hp+1):  n])
+    end
+end
+
+function gen_integer_hyperplanes(k::Int)
+    C = gen_integer_codes(k)
+    compute_hyperplanes(C)
+end
+
+function compute_hyperplanes{T}(C::Vector{Vector{T}})
+    n = length(C)
+    k = length(C[1])
+
+    d = zeros(n-1,k)
+    for i in 1:n-1
+        d[i,:] = C[i+1] - C[i]
+    end
+
+    indices = [1,2]
+    spanners = Vector{Float64}[]
+    while !isempty(indices)
+        if indices == [n-1]
+            break
+        end
+        if rank(d[indices,:]) == length(indices) && length(indices) <= k-1
+            if length(indices) == k-1
+                nullsp = nullspace(d[indices,:])
+                @assert size(nullsp,2) == 1
+                v = vec(nullsp)
+                push!(spanners, canonical!(v))
+            end
+            if indices[end] != n-1
+                push!(indices, indices[end]+1)
+            else
+                pop!(indices)
+                indices[end] += 1
+            end
+        else
+            if indices[end] != n-1
+                indices[end] += 1
+            else
+                pop!(indices)
+                indices[end] += 1
+            end
+        end
+    end
+    keepers = [1]
+    for i in 2:length(spanners)
+        alreadyin = false
+        for j in keepers
+            if isapprox(spanners[i], spanners[j])
+                alreadyin = true
+                break
+            end
+        end
+        alreadyin || push!(keepers, i)
+    end
+    spanners[keepers]
+end
+
+function canonical!(v::Vector{Float64})
+    normalize!(v)
+    for j in 1:length(v)
+        if abs(v[j]) < 1e-8
+            v[j] = 0
+        end
+    end
+    sgn = sign(v[findfirst(v)])
+    for j in 1:length(v)
+        if abs(v[j]) < 1e-8
+            v[j] = 0
+        else
+            v[j] *= sgn
+        end
+    end
+    v
 end
 
 piecewiselinear(m::JuMP.Model, x::JuMP.Variable, y::JuMP.Variable, dˣ, dʸ, f::Function; method=defaultmethod()) =
@@ -325,6 +430,9 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
         elseif method == :ZigZagInteger
             sos2_zigzag_general_integer_formulation!(m, [sum(λ[tˣ,tʸ] for tˣ in 1:nˣ) for tʸ in 1:nʸ])
             sos2_zigzag_general_integer_formulation!(m, [sum(λ[tˣ,tʸ] for tʸ in 1:nʸ) for tˣ in 1:nˣ])
+        elseif method == :GenInteger
+            sos2_gen_integer_formulation!(m, [sum(λ[tˣ,tʸ] for tˣ in 1:nˣ) for tʸ in 1:nʸ])
+            sos2_gen_integer_formulation!(m, [sum(λ[tˣ,tʸ] for tʸ in 1:nʸ) for tˣ in 1:nˣ])
         elseif method == :SOS2
             γˣ = JuMP.@variable(m, [1:nˣ], lowerbound=0, upperbound=1)
             γʸ = JuMP.@variable(m, [1:nʸ], lowerbound=0, upperbound=1)

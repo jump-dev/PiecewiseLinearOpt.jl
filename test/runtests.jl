@@ -4,8 +4,8 @@ using Base.Test
 using JuMP, Cbc
 
 const solver = CbcSolver()
-methods_1D = (:CC,:MC,:Logarithmic,:ZigZag,:ZigZagInteger,:SOS2,:Incremental)
-methods_2D = (:CC,:MC,:Logarithmic,:ZigZag,:ZigZagInteger,:SOS2)
+methods_1D = (:CC,:MC,:Logarithmic,:ZigZag,:ZigZagInteger,:SOS2,:GenInteger,:Incremental)
+methods_2D = (:CC,:MC,:Logarithmic,:ZigZag,:ZigZagInteger,:SOS2,:GenInteger)
 
 let d = linspace(1,2π,8), f = sin
     for method in methods_1D
