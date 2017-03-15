@@ -70,6 +70,8 @@ function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, pwl::UnivariatePWLFunc
             sos2_zigzag_general_integer_formulation!(m, λ)
         elseif method == :GeneralizedCelaya
             sos2_generalized_celaya_formulation!(m, λ)
+        elseif method == :SymmetricCelaya
+            sos2_symmetric_celaya_formulation!(m, λ)
         elseif method == :SOS2
             JuMP.addSOS2(m, [λ[i] for i in 1:n])
         else
@@ -150,6 +152,20 @@ function sos2_generalized_celaya_formulation!(m::JuMP.Model, λ)
     nothing
 end
 
+function sos2_symmetric_celaya_formulation!(m::JuMP.Model, λ)
+    counter = m.ext[:PWL].counter
+    n = length(λ)-1
+    k = ceil(Int,log2(n))
+
+    codes = symmetric_celaya_codes(k)
+    lb = [minimum(t[i] for t in codes) for i in 1:k]
+    ub = [maximum(t[i] for t in codes) for i in 1:k]
+    y = JuMP.@variable(m, [i=1:k], Int, lowerbound=lb[i], upperbound=ub[i], basename="y_$counter")
+
+    sos2_encoding_constraints!(m, λ, y, codes, symmetric_celaya_hyperplanes(k))
+    nothing
+end
+
 function sos2_encoding_constraints!(m, λ, y, h, B)
     n = length(λ)-1
     for b in B
@@ -166,10 +182,6 @@ function reflected_gray_codes(k::Int)
         codes = Vector{Int}[]
     elseif k == 1
         codes = [[0],[1]]
-    elseif k == 2
-        codes = [[0,0],[0,1],[1,1],[1,0]]
-    elseif k < 0
-        error()
     else
         codes′ = reflected_gray_codes(k-1)
         codes = vcat([vcat(code,0) for code in codes′],
@@ -180,20 +192,66 @@ function reflected_gray_codes(k::Int)
 end
 
 function zigzag_codes(k::Int)
-    if k == 0
-        codes = Vector{Int}[]
+    if k <= 0
+        error("Invalid code length $k")
     elseif k == 1
         codes = [[0],[1]]
-    elseif k == 2
-        codes = [[0,0],[1,0],[0,1],[1,1]]
-    elseif k < 0
-        error()
     else
         codes′ = zigzag_codes(k-1)
         codes = vcat([vcat(code,0) for code in codes′],
                      [vcat(code,1) for code in codes′])
     end
     codes
+end
+
+function integer_zigzag_codes(k::Int)
+    if k <= 0
+        error("Invalid code length $k")
+    elseif k == 1
+        codes = [[0],[1]]
+    else
+        codes′ = integer_zigzag_codes(k-1)
+        offset = [2^(j-2) for j in k:-1:2]
+        codes = vcat([vcat(code,        0) for code in codes′],
+                     [vcat(code.+offset,1) for code in codes′])
+    end
+    codes
+end
+
+function generalized_celaya_codes(k::Int)
+    if k <= 0
+        error("Invalid code length $k")
+    elseif k == 1
+        return [[0],[1]]
+    elseif k == 2
+        return [[0,0],[1,1],[1,0],[0,1]]
+    else
+        codes′ = generalized_celaya_codes(k-1)
+        n = length(codes′)
+        hp = Int(n/2)
+        firstcodes  = [codes′[i] for i in 1:hp]
+        secondcodes = [codes′[i] for i in (hp+1):n]
+        return vcat([vcat(codes′[i], 0) for i in     1 :  n],
+                    [vcat(codes′[i], 1) for i in     1 : hp],
+                    [vcat(codes′[i],-1) for i in (hp+1):  n])
+    end
+end
+
+function symmetric_celaya_codes(k::Int)
+    if k <= 0
+        error("Invalid code length $k")
+    elseif k == 1
+        return [[0],[1]]
+    else
+        codes′ = generalized_celaya_codes(k-1)
+        n = length(codes′)
+        hp = Int(n/2)
+        firstcodes  = [codes′[i] for i in 1:hp]
+        secondcodes = [codes′[i] for i in (hp+1):n]
+        return vcat([vcat(codes′[i], 0) for i in     1 :  n],
+                    [vcat(codes′[i], 1) for i in     1 : hp],
+                    [vcat(codes′[i],-1) for i in (hp+1):  n])
+    end
 end
 
 function zigzag_hyperplanes(k::Int)
@@ -209,24 +267,6 @@ function zigzag_hyperplanes(k::Int)
     hps
 end
 
-function integer_zigzag_codes(k::Int)
-    if k == 0
-        codes = Vector{Int}[]
-    elseif k == 1
-        codes = [[0],[1]]
-    elseif k == 2
-        codes = [[0,0],[1,0],[1,1],[2,1]]
-    elseif k < 0
-        error()
-    else
-        codes′ = integer_zigzag_codes(k-1)
-        offset = [2^(j-2) for j in k:-1:2]
-        codes = vcat([vcat(code,        0) for code in codes′],
-                     [vcat(code.+offset,1) for code in codes′])
-    end
-    codes
-end
-
 function unit_vector_hyperplanes(k::Int)
     hps = Vector{Int}[]
     for i in 1:k
@@ -237,27 +277,13 @@ function unit_vector_hyperplanes(k::Int)
     hps
 end
 
-function generalized_celaya_codes(k::Int)
-    if k <= 0
-        error("Invalid code length $k")
-    elseif k == 1
-        return [[0],[1]]
-    elseif k == 2
-        [[0,0],[1,1],[1,0],[0,1]]
-    else
-        codes′ = generalized_celaya_codes(k-1)
-        n = length(codes′)
-        hp = Int(n/2)
-        firstcodes  = [codes′[i] for i in 1:hp]
-        secondcodes = [codes′[i] for i in (hp+1):n]
-        return vcat([vcat(codes′[i], 0) for i in     1 :  n],
-                    [vcat(codes′[i], 1) for i in     1 : hp],
-                    [vcat(codes′[i],-1) for i in (hp+1):  n])
-    end
-end
-
 function generalized_celaya_hyperplanes(k::Int)
     C = generalized_celaya_codes(k)
+    compute_hyperplanes(C)
+end
+
+function symmetric_celaya_hyperplanes(k::Int)
+    C = symmetric_celaya_codes(k)
     compute_hyperplanes(C)
 end
 
@@ -454,6 +480,9 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
         elseif method == :GeneralizedCelaya
             sos2_generalized_celaya_formulation!(m, [sum(λ[tˣ,tʸ] for tˣ in 1:nˣ) for tʸ in 1:nʸ])
             sos2_generalized_celaya_formulation!(m, [sum(λ[tˣ,tʸ] for tʸ in 1:nʸ) for tˣ in 1:nˣ])
+        elseif method == :SymmetricCelaya
+            sos2_symmetric_celaya_formulation!(m, [sum(λ[tˣ,tʸ] for tˣ in 1:nˣ) for tʸ in 1:nʸ])
+            sos2_symmetric_celaya_formulation!(m, [sum(λ[tˣ,tʸ] for tʸ in 1:nʸ) for tˣ in 1:nˣ])
         elseif method == :SOS2
             γˣ = JuMP.@variable(m, [1:nˣ], lowerbound=0, upperbound=1)
             γʸ = JuMP.@variable(m, [1:nʸ], lowerbound=0, upperbound=1)

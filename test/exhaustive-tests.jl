@@ -4,8 +4,8 @@ using Base.Test
 using JuMP, Cbc
 const solver = CbcSolver()
 
-methods_1D = (:CC,:MC,:Logarithmic,:ZigZag,:ZigZagInteger,:SOS2,:Incremental)
-methods_2D = (:CC,:MC,:Logarithmic,:ZigZag,:ZigZagInteger,:SOS2)
+methods_1D = (:CC,:MC,:Logarithmic,:ZigZag,:ZigZagInteger,:SOS2,:GeneralizedCelaya,:SymmetricCelaya,:Incremental)
+methods_2D = (:CC,:MC,:Logarithmic,:ZigZag,:ZigZagInteger,:SOS2,:GeneralizedCelaya,:SymmetricCelaya)
 
 using HDF5
 
