@@ -302,7 +302,9 @@ function compute_hyperplanes{T}(C::Vector{Vector{T}})
         @assert n == 4
         spanners = Vector{Float64}[]
         for i in 1:n-1
-            push!(spanners, canonical!(d[i,:]))
+            v = canonical!(d[i,:])
+            v = [v[2], -v[1]]
+	    push!(spanners, v)
         end
         indices = [1]
         approx12 = isapprox(spanners[1],spanners[2])
@@ -484,8 +486,8 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
             sos2_symmetric_celaya_formulation!(m, [sum(λ[tˣ,tʸ] for tˣ in 1:nˣ) for tʸ in 1:nʸ])
             sos2_symmetric_celaya_formulation!(m, [sum(λ[tˣ,tʸ] for tʸ in 1:nʸ) for tˣ in 1:nˣ])
         elseif method == :SOS2
-            γˣ = JuMP.@variable(m, [1:nˣ], lowerbound=0, upperbound=1)
-            γʸ = JuMP.@variable(m, [1:nʸ], lowerbound=0, upperbound=1)
+            γˣ = JuMP.@variable(m, [1:nˣ], lowerbound=0, upperbound=1, basename="γˣ_$counter")
+            γʸ = JuMP.@variable(m, [1:nʸ], lowerbound=0, upperbound=1, basename="γʸ_$counter")
             JuMP.@constraint(m, [tˣ in 1:nˣ], γˣ[tˣ] == sum(λ[tˣ,tʸ] for tʸ in 1:nʸ))
             JuMP.@constraint(m, [tʸ in 1:nʸ], γʸ[tʸ] == sum(λ[tˣ,tʸ] for tˣ in 1:nˣ))
             JuMP.addSOS2(m, γˣ)
@@ -507,14 +509,14 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
             end
             @assert 1 <= numT <= 2
 
-            w = JuMP.@variable(m, category=:Bin)
+            w = JuMP.@variable(m, category=:Bin, basename="w_$counter")
             # If numT==1, then bottom-left is contained in only one point, and so needs separating; otherwise numT==2, and need to offset by one
             JuMP.@constraints(m, begin
                 sum(λ[tx,ty] for tx in 1:2:nˣ, ty in    numT :2:nʸ) ≤     w
                 sum(λ[tx,ty] for tx in 2:2:nˣ, ty in (3-numT):2:nʸ) ≤ 1 - w
             end)
         else
-            w = JuMP.@variable(m, [0:2,0:2], Bin)
+            w = JuMP.@variable(m, [0:2,0:2], Bin, basename="w_$counter")
             for oˣ in 0:2, oʸ in 0:2
                 innoT = fill(true, nˣ, nʸ)
                 for (i,j,k) in pwl.T
