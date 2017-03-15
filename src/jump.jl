@@ -140,9 +140,13 @@ function sos2_gen_integer_formulation!(m::JuMP.Model, λ)
     counter = m.ext[:PWL].counter
     n = length(λ)-1
     k = ceil(Int,log2(n))
-    y = JuMP.@variable(m, [1:k], Bin, basename="y_$counter")
 
-    sos2_encoding_constraints!(m, λ, y, gen_integer_codes(k), gen_integer_hyperplanes(k))
+    codes = gen_integer_codes(k)
+    lb = [minimum(t[i] for t in codes) for i in 1:k]
+    ub = [maximum(t[i] for t in codes) for i in 1:k]
+    y = JuMP.@variable(m, [i=1:k], Int, lowerbound=lb[i], upperbound=ub[i], basename="y_$counter")
+
+    sos2_encoding_constraints!(m, λ, y, codes, gen_integer_hyperplanes(k))
     nothing
 end
 
