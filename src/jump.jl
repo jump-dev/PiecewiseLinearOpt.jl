@@ -68,8 +68,8 @@ function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, pwl::UnivariatePWLFunc
             sos2_zigzag_formulation!(m, λ)
         elseif method == :ZigZagInteger
             sos2_zigzag_general_integer_formulation!(m, λ)
-        elseif method == :GenInteger
-            sos2_gen_integer_formulation!(m, λ)
+        elseif method == :GeneralizedCelaya
+            sos2_generalized_celaya_formulation!(m, λ)
         elseif method == :SOS2
             JuMP.addSOS2(m, [λ[i] for i in 1:n])
         else
@@ -136,17 +136,17 @@ function sos2_zigzag_general_integer_formulation!(m::JuMP.Model, λ)
     nothing
 end
 
-function sos2_gen_integer_formulation!(m::JuMP.Model, λ)
+function sos2_generalized_celaya_formulation!(m::JuMP.Model, λ)
     counter = m.ext[:PWL].counter
     n = length(λ)-1
     k = ceil(Int,log2(n))
 
-    codes = gen_integer_codes(k)
+    codes = generalized_celaya_codes(k)
     lb = [minimum(t[i] for t in codes) for i in 1:k]
     ub = [maximum(t[i] for t in codes) for i in 1:k]
     y = JuMP.@variable(m, [i=1:k], Int, lowerbound=lb[i], upperbound=ub[i], basename="y_$counter")
 
-    sos2_encoding_constraints!(m, λ, y, codes, gen_integer_hyperplanes(k))
+    sos2_encoding_constraints!(m, λ, y, codes, generalized_celaya_hyperplanes(k))
     nothing
 end
 
@@ -237,7 +237,7 @@ function unit_vector_hyperplanes(k::Int)
     hps
 end
 
-function gen_integer_codes(k::Int)
+function generalized_celaya_codes(k::Int)
     if k <= 0
         error("Invalid code length $k")
     elseif k == 1
@@ -245,7 +245,7 @@ function gen_integer_codes(k::Int)
     elseif k == 2
         [[0,0],[1,1],[1,0],[0,1]]
     else
-        codes′ = gen_integer_codes(k-1)
+        codes′ = generalized_celaya_codes(k-1)
         n = length(codes′)
         hp = Int(n/2)
         firstcodes  = [codes′[i] for i in 1:hp]
@@ -256,8 +256,8 @@ function gen_integer_codes(k::Int)
     end
 end
 
-function gen_integer_hyperplanes(k::Int)
-    C = gen_integer_codes(k)
+function generalized_celaya_hyperplanes(k::Int)
+    C = generalized_celaya_codes(k)
     compute_hyperplanes(C)
 end
 
@@ -283,7 +283,7 @@ function compute_hyperplanes{T}(C::Vector{Vector{T}})
         approx13 = isapprox(spanners[1],spanners[2])
         approx23 = isapprox(spanners[2],spanners[3])
         approx12 || push!(indices,2)
-        approx13 || (!approx12 && approx23)  || push!(indices,3)
+        approx13 || (!approx12 && approx23) || push!(indices,3)
         return spanners[indices]
     end
 
@@ -451,9 +451,9 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
         elseif method == :ZigZagInteger
             sos2_zigzag_general_integer_formulation!(m, [sum(λ[tˣ,tʸ] for tˣ in 1:nˣ) for tʸ in 1:nʸ])
             sos2_zigzag_general_integer_formulation!(m, [sum(λ[tˣ,tʸ] for tʸ in 1:nʸ) for tˣ in 1:nˣ])
-        elseif method == :GenInteger
-            sos2_gen_integer_formulation!(m, [sum(λ[tˣ,tʸ] for tˣ in 1:nˣ) for tʸ in 1:nʸ])
-            sos2_gen_integer_formulation!(m, [sum(λ[tˣ,tʸ] for tʸ in 1:nʸ) for tˣ in 1:nˣ])
+        elseif method == :GeneralizedCelaya
+            sos2_generalized_celaya_formulation!(m, [sum(λ[tˣ,tʸ] for tˣ in 1:nˣ) for tʸ in 1:nʸ])
+            sos2_generalized_celaya_formulation!(m, [sum(λ[tˣ,tʸ] for tʸ in 1:nʸ) for tˣ in 1:nˣ])
         elseif method == :SOS2
             γˣ = JuMP.@variable(m, [1:nˣ], lowerbound=0, upperbound=1)
             γʸ = JuMP.@variable(m, [1:nʸ], lowerbound=0, upperbound=1)
