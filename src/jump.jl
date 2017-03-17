@@ -304,11 +304,11 @@ function compute_hyperplanes{T}(C::Vector{Vector{T}})
         for i in 1:n-1
             v = canonical!(d[i,:])
             v = [v[2], -v[1]]
-	    push!(spanners, v)
+            push!(spanners, v)
         end
         indices = [1]
         approx12 = isapprox(spanners[1],spanners[2])
-        approx13 = isapprox(spanners[1],spanners[2])
+        approx13 = isapprox(spanners[1],spanners[3])
         approx23 = isapprox(spanners[2],spanners[3])
         approx12 || push!(indices,2)
         approx13 || (!approx12 && approx23) || push!(indices,3)
