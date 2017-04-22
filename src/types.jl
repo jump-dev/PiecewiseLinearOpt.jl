@@ -49,7 +49,7 @@ function BivariatePWLFunction(x, y, fz::Function; pattern=:BestFit)
         mid1 = 0.5*(SW+NE)
         mid2 = 0.5*(NW+SE)
 
-        # TODO: add methods for Union Jack
+        srand(hash(X))
         if pattern == :Upper
             if mid1 > mid2
                 t1 = [SWt,NWt,NEt]
@@ -84,6 +84,14 @@ function BivariatePWLFunction(x, y, fz::Function; pattern=:BestFit)
             else
                 push!(t1, NEt)
                 push!(t2, SWt)
+            end
+        elseif pattern == :Random
+            if rand(Bool)
+                t1 = [NWt,NEt,SEt]
+                t2 = [SEt,SWt,NWt]
+            else
+                t1 = [SWt,NWt,NEt]
+                t2 = [NEt,SEt,SWt]
             end
         else
             error()

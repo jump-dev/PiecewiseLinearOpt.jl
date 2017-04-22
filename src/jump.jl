@@ -468,7 +468,7 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
             JuMP.@constraint(m, λ[i,j] ≤ sum(y[t] for t in Ts[(i,j)]))
         end
     elseif method == :Incremental
-        #foobar
+        error()
     else # formulations with SOS2 along each dimension
         if method == :Logarithmic
             sos2_logarthmic_formulation!(m, [sum(λ[tˣ,tʸ] for tˣ in 1:nˣ) for tʸ in 1:nʸ])
@@ -515,9 +515,11 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
                 sum(λ[tx,ty] for tx in 1:2:nˣ, ty in    numT :2:nʸ) ≤     w
                 sum(λ[tx,ty] for tx in 2:2:nˣ, ty in (3-numT):2:nʸ) ≤ 1 - w
             end)
+        elseif pattern == :K1
+            error()
         else
-            w = JuMP.@variable(m, [0:2,0:2], Bin, basename="w_$counter")
-            for oˣ in 0:2, oʸ in 0:2
+            w = JuMP.@variable(m, [1:3,1:3], Bin, basename="w_$counter")
+            for oˣ in 1:3, oʸ in 1:3
                 innoT = fill(true, nˣ, nʸ)
                 for (i,j,k) in pwl.T
                     xⁱ, xʲ, xᵏ = pwl.x[i], pwl.x[j], pwl.x[k]
@@ -525,15 +527,15 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
                     jjˣ, jjʸ = ˣtoⁱ[xʲ[1]], ʸtoʲ[xʲ[2]]
                     kkˣ, kkʸ = ˣtoⁱ[xᵏ[1]], ʸtoʲ[xᵏ[2]]
                     # check to see if one of the points in the triangle falls on the grid
-                    if (mod(iiˣ,3) == oˣ && mod(iiʸ,3) == oʸ) || (mod(jjˣ,3) == oˣ && mod(jjʸ,3) == oʸ) || (mod(kkˣ,3) == oˣ && mod(kkʸ,3) == oʸ)
+                    if (mod1(iiˣ,3) == oˣ && mod1(iiʸ,3) == oʸ) || (mod1(jjˣ,3) == oˣ && mod1(jjʸ,3) == oʸ) || (mod1(kkˣ,3) == oˣ && mod1(kkʸ,3) == oʸ)
                         innoT[iiˣ,iiʸ] = false
                         innoT[jjˣ,jjʸ] = false
                         innoT[kkˣ,kkʸ] = false
                     end
                 end
                 JuMP.@constraints(m, begin
-                    sum(λ[i,j] for i in 1+oˣ:3:nˣ, j in 1+oʸ:3:nʸ) ≤  1 - w[oˣ,oʸ]
-                    sum(λ[i,j] for i in 1:nˣ, j in 1:nʸ if !innoT[i,j]) ≤ w[oˣ,oʸ]
+                    sum(λ[i,j] for i in oˣ:3:nˣ, j in oʸ:3:nʸ) ≤  1 - w[oˣ,oʸ]
+                    sum(λ[i,j] for i in 1:nˣ, j in 1:nʸ if innoT[i,j]) ≤ w[oˣ,oʸ]
                 end)
             end
         end
