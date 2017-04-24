@@ -73,7 +73,7 @@ function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, pwl::UnivariatePWLFunc
         elseif method == :SymmetricCelaya
             sos2_symmetric_celaya_formulation!(m, λ)
         elseif method == :SOS2
-            JuMP.addSOS2(m, [λ[i] for i in 1:n])
+            JuMP.addSOS2(m, [i*λ[i] for i in 1:n])
         else
             error("Unrecognized method $method")
         end
@@ -490,8 +490,8 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
             γʸ = JuMP.@variable(m, [1:nʸ], lowerbound=0, upperbound=1, basename="γʸ_$counter")
             JuMP.@constraint(m, [tˣ in 1:nˣ], γˣ[tˣ] == sum(λ[tˣ,tʸ] for tʸ in 1:nʸ))
             JuMP.@constraint(m, [tʸ in 1:nʸ], γʸ[tʸ] == sum(λ[tˣ,tʸ] for tˣ in 1:nˣ))
-            JuMP.addSOS2(m, γˣ)
-            JuMP.addSOS2(m, γʸ)
+            JuMP.addSOS2(m, [i*γˣ[i] for i in 1:nˣ])
+            JuMP.addSOS2(m, [i*γʸ[i] for i in 1:nʸ])
         else
             error("Unrecognized method $method")
         end
