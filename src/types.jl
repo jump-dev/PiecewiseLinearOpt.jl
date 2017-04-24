@@ -85,6 +85,9 @@ function BivariatePWLFunction(x, y, fz::Function; pattern=:BestFit)
                 push!(t1, NEt)
                 push!(t2, SWt)
             end
+        elseif pattern == :K1
+            t1 = [SEt,SWt,NWt]
+            t2 = [NWt,NEt,SEt]
         elseif pattern == :Random
             if rand(Bool)
                 t1 = [NWt,NEt,SEt]

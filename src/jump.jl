@@ -516,7 +516,14 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
                 sum(λ[tx,ty] for tx in 2:2:nˣ, ty in (3-numT):2:nʸ) ≤ 1 - w
             end)
         elseif pattern == :K1
-            error()
+            # Assumption is that the triangulation is uniform, as defined in types.jl
+            w = JuMP.@variable(m, [1:2], Bin, basename="w_$counter")
+            JuMP.@constraints(m, begin
+                sum(λ[tx,ty] for tx in 1:nˣ, ty in 1:nʸ if mod(tx,2) == mod(ty,2) && (tx+ty) in 2:4:(nˣ+nʸ)) ≤ w[1]
+                sum(λ[tx,ty] for tx in 1:nˣ, ty in 1:nʸ if mod(tx,2) == mod(ty,2) && (tx+ty) in 4:4:(nˣ+nʸ)) ≤ 1 - w[1]
+                sum(λ[tx,ty] for tx in 1:nˣ, ty in 1:nʸ if mod(tx,2) != mod(ty,2) && (tx+ty) in 3:4:(nˣ+nʸ)) ≤ w[2]
+                sum(λ[tx,ty] for tx in 1:nˣ, ty in 1:nʸ if mod(tx,2) != mod(ty,2) && (tx+ty) in 5:4:(nˣ+nʸ)) ≤ 1 - w[2]
+            end)
         else
             w = JuMP.@variable(m, [1:3,1:3], Bin, basename="w_$counter")
             for oˣ in 1:3, oʸ in 1:3
