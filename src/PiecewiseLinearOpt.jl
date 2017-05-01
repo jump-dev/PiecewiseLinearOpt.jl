@@ -1,6 +1,6 @@
 module PiecewiseLinearOpt
 
-import JuMP
+import JuMP, Gurobi, CPLEX
 
 export PWLFunction, UnivariatePWLFunction, BivariatePWLFunction, piecewiselinear
 

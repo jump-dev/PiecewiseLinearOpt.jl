@@ -375,6 +375,97 @@ function canonical!(v::Vector{Float64})
     v
 end
 
+function optimal_IB_scheme!(m::JuMP.Model, λ, pwl)
+    m.ext[:OptimalIB] = Int[]
+
+    if !haskey(m.ext, :OptimalIBCache)
+        m.ext[:OptimalIBCache] = Dict()
+    end
+
+    T = pwl.T
+    n = maximum(maximum(t) for t in T)
+    J = 1:n
+    E = fill(false, n, n)
+    for t in T
+        for i in t, j in t
+            E[i,j] = true
+        end
+    end
+
+    if haskey(m.ext[:OptimalIBCache], pwl.T)
+        xx, yy = m.ext[:OptimalIBCache][pwl.T]
+        t = size(xx,1)
+    else
+        t = ceil(Int, log2(length(T))) + 1
+
+        xx, yy = Array(Float64,0,0), Array(Float64,0,0)
+        while true
+            # model = JuMP.Model(solver=Gurobi.GurobiSolver(TimeLimit=10*60.0, SolutionLimit=1))
+            model = JuMP.Model(solver=CPLEX.CplexSolver(CPX_PARAM_TILIM=10*60.0, CPX_PARAM_INTSOLLIM=1))
+            JuMP.@variable(model, x[1:t,1:n], Bin)
+            JuMP.@variable(model, y[1:t,1:n], Bin)
+            JuMP.@variable(model, z[1:t,1:n,1:n],Bin)
+
+            for j in 1:t
+                for r in J, s in J
+                    r >= s && continue
+                    JuMP.@constraints(model, begin
+                        z[j,r,s] <= x[j,r] + x[j,s]
+                        z[j,r,s] <= x[j,r] + y[j,r]
+                        z[j,r,s] <= x[j,s] + y[j,s]
+                        z[j,r,s] <= y[j,r] + y[j,s]
+                        z[j,r,s] >= x[j,r] + y[j,s] - 1
+                        z[j,r,s] >= x[j,s] + y[j,r] - 1
+                    end)
+                end
+                for r in J
+                    JuMP.@constraint(model, x[j,r] + y[j,r] <= 1)
+                end
+            end
+
+            for r in J, s in J
+                r >= s && continue
+                if E[r,s]
+                    JuMP.@constraint(model, sum(z[j,r,s] for j in 1:t) == 0)
+                else
+                    JuMP.@constraint(model, sum(z[j,r,s] for j in 1:t) >= 1)
+                end
+            end
+
+            JuMP.@objective(model, Min, sum(x) + sum(y))
+            stat = JuMP.solve(model)
+            xx = JuMP.getvalue(x)
+            yy = JuMP.getvalue(y)
+            if any(isnan, xx) || any(isnan, yy)
+                t += 1
+            else
+                break
+            end
+        end
+        m.ext[:OptimalIBCache][pwl.T] = (xx,yy)
+    end
+
+    y = JuMP.@variable(m, [1:t], Bin)
+
+    dˣ = [_x[1] for _x in pwl.x]
+    dʸ = [_x[2] for _x in pwl.x]
+    uˣ, uʸ = unique(dˣ), unique(dʸ)
+    @assert issorted(uˣ)
+    @assert issorted(uʸ)
+    nˣ, nʸ = length(uˣ), length(uʸ)
+    ˣtoⁱ = Dict(uˣ[i] => i for i in 1:nˣ)
+    ʸtoʲ = Dict(uʸ[i] => i for i in 1:nʸ)
+
+    for i in 1:t
+        JuMP.@constraints(m, begin
+            sum(λ[ˣtoⁱ[pwl.x[j][1]],ʸtoʲ[pwl.x[j][2]]] for j in J if xx[i,j] == 1) ≤     y[i]
+            sum(λ[ˣtoⁱ[pwl.x[j][1]],ʸtoʲ[pwl.x[j][2]]] for j in J if yy[i,j] == 1) ≤ 1 - y[i]
+        end)
+    end
+    push!(m.ext[:OptimalIB], t)
+    nothing
+end
+
 piecewiselinear(m::JuMP.Model, x::JuMP.Variable, y::JuMP.Variable, dˣ, dʸ, f::Function; method=defaultmethod()) =
     piecewiselinear(m, x, y, BivariatePWLFunction(dˣ, dʸ, f); method=method)
 
@@ -469,6 +560,8 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
         end
     elseif method == :Incremental
         error()
+    elseif method == :OptimalIB
+        optimal_IB_scheme!(m, λ, pwl)
     else # formulations with SOS2 along each dimension
         if method == :Logarithmic
             sos2_logarthmic_formulation!(m, [sum(λ[tˣ,tʸ] for tˣ in 1:nˣ) for tʸ in 1:nʸ])
