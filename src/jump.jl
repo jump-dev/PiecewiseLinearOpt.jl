@@ -62,6 +62,8 @@ function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, pwl::UnivariatePWLFunc
         JuMP.@constraint(m, sum(λ[i]*fd[i] for i in 1:n) == z)
         if method == :Logarithmic
             sos2_logarthmic_formulation!(m, λ)
+        elseif method == :LogarithmicIB
+            sos2_logarthmic_IB_formulation!(m, λ)
         elseif method == :CC
             sos2_cc_formulation!(m, λ)
         elseif method == :ZigZag
@@ -114,6 +116,25 @@ function sos2_logarthmic_formulation!(m::JuMP.Model, λ)
     y = JuMP.@variable(m, [1:k], Bin, basename="y_$counter")
 
     sos2_encoding_constraints!(m, λ, y, reflected_gray_codes(k), unit_vector_hyperplanes(k))
+    nothing
+end
+
+function sos2_logarthmic_IB_formulation!(m::JuMP.Model, λ)
+    counter = m.ext[:PWL].counter
+    n = length(λ)-1
+    k = ceil(Int,log2(n))
+    y = JuMP.@variable(m, [1:k], Bin, basename="y_$counter")
+    _H = reflected_gray_codes(k)
+    d = length(_H)
+    H = Dict(i => _H[i] for i in 1:d)
+    H[0] = H[1]
+    H[d+1] = H[d]
+    for j in 1:k
+        JuMP.@constraints(m, begin
+            sum(λ[i] for i in 1:(n+1) if H[i-1][j] == H[i][j] == 1) ≤     y[j]
+            sum(λ[i] for i in 1:(n+1) if H[i-1][j] == H[i][j] == 0) ≤ 1 - y[j]
+        end)
+    end
     nothing
 end
 
@@ -470,21 +491,26 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
     elseif method == :Incremental
         error()
     else # formulations with SOS2 along each dimension
+        Tx = [sum(λ[tˣ,tʸ] for tˣ in 1:nˣ) for tʸ in 1:nʸ]
+        Ty = [sum(λ[tˣ,tʸ] for tʸ in 1:nʸ) for tˣ in 1:nˣ]
         if method == :Logarithmic
-            sos2_logarthmic_formulation!(m, [sum(λ[tˣ,tʸ] for tˣ in 1:nˣ) for tʸ in 1:nʸ])
-            sos2_logarthmic_formulation!(m, [sum(λ[tˣ,tʸ] for tʸ in 1:nʸ) for tˣ in 1:nˣ])
+            sos2_logarthmic_formulation!(m, Tx)
+            sos2_logarthmic_formulation!(m, Ty)
+        elseif method == :LogarithmicIB
+            sos2_logarthmic_IB_formulation!(m, Tx)
+            sos2_logarthmic_IB_formulation!(m, Ty)
         elseif method == :ZigZag
-            sos2_zigzag_formulation!(m, [sum(λ[tˣ,tʸ] for tˣ in 1:nˣ) for tʸ in 1:nʸ])
-            sos2_zigzag_formulation!(m, [sum(λ[tˣ,tʸ] for tʸ in 1:nʸ) for tˣ in 1:nˣ])
+            sos2_zigzag_formulation!(m, Tx)
+            sos2_zigzag_formulation!(m, Ty)
         elseif method == :ZigZagInteger
-            sos2_zigzag_general_integer_formulation!(m, [sum(λ[tˣ,tʸ] for tˣ in 1:nˣ) for tʸ in 1:nʸ])
-            sos2_zigzag_general_integer_formulation!(m, [sum(λ[tˣ,tʸ] for tʸ in 1:nʸ) for tˣ in 1:nˣ])
+            sos2_zigzag_general_integer_formulation!(m, Tx)
+            sos2_zigzag_general_integer_formulation!(m, Ty)
         elseif method == :GeneralizedCelaya
-            sos2_generalized_celaya_formulation!(m, [sum(λ[tˣ,tʸ] for tˣ in 1:nˣ) for tʸ in 1:nʸ])
-            sos2_generalized_celaya_formulation!(m, [sum(λ[tˣ,tʸ] for tʸ in 1:nʸ) for tˣ in 1:nˣ])
+            sos2_generalized_celaya_formulation!(m, Tx)
+            sos2_generalized_celaya_formulation!(m, Ty)
         elseif method == :SymmetricCelaya
-            sos2_symmetric_celaya_formulation!(m, [sum(λ[tˣ,tʸ] for tˣ in 1:nˣ) for tʸ in 1:nʸ])
-            sos2_symmetric_celaya_formulation!(m, [sum(λ[tˣ,tʸ] for tʸ in 1:nʸ) for tˣ in 1:nˣ])
+            sos2_symmetric_celaya_formulation!(m, Tx)
+            sos2_symmetric_celaya_formulation!(m, Ty)
         elseif method == :SOS2
             γˣ = JuMP.@variable(m, [1:nˣ], lowerbound=0, upperbound=1, basename="γˣ_$counter")
             γʸ = JuMP.@variable(m, [1:nʸ], lowerbound=0, upperbound=1, basename="γʸ_$counter")
