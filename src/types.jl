@@ -28,7 +28,7 @@ end
 
 typealias  BivariatePWLFunction PWLFunction{2}
 
-function BivariatePWLFunction(x, y, fz::Function; pattern=:BestFit)
+function BivariatePWLFunction(x, y, fz::Function; pattern=:BestFit, seed=hash((length(x),length(y))))
     @assert issorted(x)
     @assert issorted(y)
     X = vec(collect(Base.product(x,y)))
@@ -38,7 +38,7 @@ function BivariatePWLFunction(x, y, fz::Function; pattern=:BestFit)
     m = length(x)
     n = length(y)
 
-    srand(hash((m,n)))
+    srand(seed)
     # run for each square on [x[i],x[i+1]] × [y[i],y[i+1]]
     for i in 1:length(x)-1, j in 1:length(y)-1
         SWt, NWt, NEt, SEt = sub2ind((m,n),i,j), sub2ind((m,n),i,j+1), sub2ind((m,n),i+1,j+1), sub2ind((m,n),i+1,j)
