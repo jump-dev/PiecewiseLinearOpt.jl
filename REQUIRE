@@ -1,4 +1,2 @@
 julia 0.5
 JuMP 0.16
-Gurobi
-CPLEX

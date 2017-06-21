@@ -375,7 +375,7 @@ function canonical!(v::Vector{Float64})
     v
 end
 
-function optimal_IB_scheme!(m::JuMP.Model, λ, pwl)
+function optimal_IB_scheme!(m::JuMP.Model, λ, pwl, subsolver)
     m.ext[:OptimalIB] = Int[]
 
     if !haskey(m.ext, :OptimalIBCache)
@@ -396,13 +396,11 @@ function optimal_IB_scheme!(m::JuMP.Model, λ, pwl)
         xx, yy = m.ext[:OptimalIBCache][pwl.T]
         t = size(xx,1)
     else
-        t = ceil(Int, log2(length(T))) + 1
+        t = ceil(Int, log2(length(T)))
 
         xx, yy = Array(Float64,0,0), Array(Float64,0,0)
         while true
-            # model = JuMP.Model(solver=Gurobi.GurobiSolver(TimeLimit=10*60.0, SolutionLimit=1))
-            # model = JuMP.Model(solver=CPLEX.CplexSolver(CPX_PARAM_TILIM=20*60.0, CPX_PARAM_INTSOLLIM=1))
-            model = JuMP.Model(solver=CPLEX.CplexSolver(CPX_PARAM_TILIM=20*60.0))
+            model = JuMP.Model(solver=subsolver)
             JuMP.@variable(model, x[1:t,1:n], Bin)
             JuMP.@variable(model, y[1:t,1:n], Bin)
             JuMP.@variable(model, z[1:t,1:n,1:n],Bin)
@@ -470,7 +468,11 @@ end
 piecewiselinear(m::JuMP.Model, x::JuMP.Variable, y::JuMP.Variable, dˣ, dʸ, f::Function; method=defaultmethod()) =
     piecewiselinear(m, x, y, BivariatePWLFunction(dˣ, dʸ, f); method=method)
 
-function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable, pwl::BivariatePWLFunction; method=defaultmethod())
+function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable, pwl::BivariatePWLFunction; method=defaultmethod(), subsolver=nothing)
+    if (method == :OptimalIB) && (subsolver === nothing)
+        error("No MIP solver provided to construct optimal IB scheme. Pass a solver object to the piecewiselinear function, e.g. piecewiselinear(m, x₁, x₂, bivariatefunc, method=:OptimalIB, subsolver=GurobiSolver())")
+    end
+
     initPWL!(m)
     counter = m.ext[:PWL].counter
     counter += 1
@@ -562,7 +564,7 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
     elseif method == :Incremental
         error()
     elseif method == :OptimalIB
-        optimal_IB_scheme!(m, λ, pwl)
+        optimal_IB_scheme!(m, λ, pwl, subsolver)
     else # formulations with SOS2 along each dimension
         if method == :Logarithmic
             sos2_logarthmic_formulation!(m, [sum(λ[tˣ,tʸ] for tˣ in 1:nˣ) for tʸ in 1:nʸ])
