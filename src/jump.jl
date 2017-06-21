@@ -614,20 +614,6 @@ function sos2_moment_curve_formulation!(m::JuMP.Model, λ)
     nothing
 end
 
-function sos2_moment_curve_formulation!(m::JuMP.Model, λ)
-    counter = m.ext[:PWL].counter
-    d = length(λ)-1
-    y = JuMP.@variable(m, [i=1:2], Int, lowerbound=1, upperbound=d^i, basename="y_$counter")
-    for i in 1:d
-        JuMP.@constraints(m, begin
-            -2i*λ[1] + sum((v^2-(2i+1)*v+2min(0,i+1-v))*λ[v] for v in 2:d) + (d^2-(2i+1)*d)λ[d+1] ≤ -(2i+1)*y[1] + y[2]
-            -2i*λ[1] + sum((v^2-(2i+1)*v+2max(0,i+1-v))*λ[v] for v in 2:d) + (d^2-(2i+1)*d)λ[d+1] ≥ -(2i+1)*y[1] + y[2]
-        end)
-    end
-    push!(m.ext[:PWL].branchvars, JuMP.linearindex(y[1]))
-    nothing
-end
-
 function moment_curve_branch_callback(m, cb)
     # if CPLEX was gonna branch anyway, just use their branching decision
     if !isempty(cb.nodes)
