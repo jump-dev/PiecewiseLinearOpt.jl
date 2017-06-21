@@ -55,6 +55,17 @@ function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, pwl::UnivariatePWLFunc
                 ẑ[i] == fd[i]*y[i] + Δ[i]*(x̂[i]-d[i]*y[i])
             end)
         end
+    elseif method == :DisaggLogarithmic
+        γ = JuMP.@variable(m, [i=1:n,j=max(0,i-1):min(n-1,i)], lowerbound=0, upperbound=1)
+        JuMP.@constraint(m, sum(γ) == 1)
+        JuMP.@constraint(m, γ[1,1]* d[1] + sum((γ[i,i-1]+γ[i,i])* d[i] for i in 2:n-1) + γ[n,n-1]* d[n] == x)
+        JuMP.@constraint(m, γ[1,1]*fd[1] + sum((γ[i,i-1]+γ[i,i])*fd[i] for i in 2:n-1) + γ[n,n-1]*fd[n] == z)
+        r = ceil(Int, log2(n-1))
+        H = reflected_gray_codes(r)
+        y = JuMP.@variable(m, [1:r], Bin)
+        for j in 1:r
+            JuMP.@constraint(m, sum((γ[i,i]+γ[i+1,i])*H[i][j] for i in 1:(n-1)) == y[j])
+        end
     else # V-formulation method
         λ = JuMP.@variable(m, [1:n], lowerbound=0, upperbound=1, basename="λ_$counter")
         JuMP.@constraint(m, sum(λ) == 1)
@@ -464,6 +475,28 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
             @assert isapprox(q[1]*r²[1] + q[2]*r²[2] + q[3], fz², atol=1e-4)
             @assert isapprox(q[1]*r³[1] + q[2]*r³[2] + q[3], fz³, atol=1e-4)
             JuMP.@constraint(m, ẑ[t] == q[1]*x̂₁[t] + q[2]*x̂₂[t] + q[3]*y[t])
+        end
+        return z
+    elseif method == :DisaggLogarithmic
+        T = pwl.T
+        X = pwl.x
+        Z = pwl.z
+        n = length(X)
+        γ = JuMP.@variable(m, [t=T,v=t], lowerbound=0, upperbound=1, basename="γ_$counter")
+        Tv = Dict(v => Any[] for v in 1:n)
+        for t in T, v in t
+            push!(Tv[v], t)
+        end
+        JuMP.@constraint(m, sum(γ) == 1)
+        JuMP.@constraint(m, sum(sum(γ[t,i] for t in Tv[i]) * X[i][1] for i in 1:n) == x₁)
+        JuMP.@constraint(m, sum(sum(γ[t,i] for t in Tv[i]) * X[i][2] for i in 1:n) == x₂)
+        JuMP.@constraint(m, sum(sum(γ[t,i] for t in Tv[i]) * Z[i]    for i in 1:n) == z)
+
+        r = ceil(Int, log2(length(T)))
+        H = reflected_gray_codes(r)
+        y = JuMP.@variable(m, [1:r], Bin, basename="y_$counter")
+        for j in 1:r
+            JuMP.@constraint(m, sum(sum(γ[T[i],v] for v in T[i])*H[i][j] for i in 1:length(T)) == y[j])
         end
         return z
     end
