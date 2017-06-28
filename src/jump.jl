@@ -102,6 +102,8 @@ function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, pwl::UnivariatePWLFunc
             JuMP.addSOS2(m, [i*λ[i] for i in 1:n])
         elseif method == :MomentCurve
             sos2_moment_curve_formulation!(m, λ)
+        else
+            error("Unrecognized method $method")
         end
     end
     z
@@ -615,24 +617,47 @@ function sos2_moment_curve_formulation!(m::JuMP.Model, λ)
 end
 
 function moment_curve_branch_callback(m, cb)
+    # TODO: take CPLEX's branching decision and add strengthened cut
+
     # if CPLEX was gonna branch anyway, just use their branching decision
-    if !isempty(cb.nodes)
-        unsafe_store!(cb.userinteraction_p, Cint(0))
-        return nothing
-    end
+    # if !isempty(cb.nodes)
+    #     unsafe_store!(cb.userinteraction_p, Cint(0))
+    #     return nothing
+    # end
+    branchvars = m.ext[:PWL].branchvars
     xval = MathProgBase.cbgetlpsolution(cb)
     TOL = 1e-4
+    branch_ind = 0
+    y = JuMP.Variable[]
     for i in branchvars
-        if (ceil(xval[i]) - xval[i] > TOL) && (xval[i]-floor(xval[i]) > TOL)
+        xv = xval[i]
+        yv = xval[i+1]
+        if abs(yv-xv^2) > TOL
             branch_ind = i
             y = [JuMP.Variable(m, i), JuMP.Variable(m, i+1)]
             break
         end
     end
-    l, u = MathProgBase.cbgetnodelb(cb), MathProgBase.cbgetnodeub(cb)
-    uᶠ, lᶜ = floor(xval[branch_id]), ceil(xval[branch_id])
-    addbranch(cb, (uᶠ-l )*(y[2]-l ^2) ≤ (uᶠ^2-l ^2)*(y[1]-l ))
-    addbranch(cb, (u -lᶜ)*(y[2]-lᶜ^2) ≤ (u ^2-lᶜ^2)*(y[1]-lᶜ))
+    xv, yv = xval[branch_ind], xval[branch_ind]
+    if branch_ind == 0
+        CPLEX.nobranches(cb)
+    elseif isapprox(xv^2, yv, rtol=1e-4)
+        CPLEX.nobranches(cb)
+    else
+        L, U = CPLEX.cbgetnodelb(cb), CPLEX.cbgetnodeub(cb)
+        l, u = L[branch_ind], U[branch_ind]
+        if l ≈ u
+            CPLEX.addbranch(cb, JuMP.@LinearConstraint(y[2] ≤ u^2))
+        else
+            xv = xval[branch_ind]
+            yv = xval[branch_ind+1]
+            @show xv, yv
+            uᶠ = isinteger(xv) ? xv-1 : floor(xv)
+            lᶜ = isinteger(xv) ? xv   : ceil(xv)
+            CPLEX.addbranch(cb, JuMP.@LinearConstraint((uᶠ-l )*(y[2]-l ^2) ≤ (uᶠ^2-l ^2)*(y[1]-l )))
+            CPLEX.addbranch(cb, JuMP.@LinearConstraint((u -lᶜ)*(y[2]-lᶜ^2) ≤ (u ^2-lᶜ^2)*(y[1]-lᶜ)))
+        end
+    end
     nothing
 end
 
