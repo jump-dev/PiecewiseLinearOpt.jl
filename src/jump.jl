@@ -781,6 +781,7 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
                 end)
             end
         else
+            # Eⁿᵉ[i,j] = true means that we must cover the edge {(i,j),(i+1,j+1)}
             Eⁿᵉ = fill(false, nˣ-1, nʸ-1)
             for (i,j,k) in pwl.T
                 xⁱ, xʲ, xᵏ = pwl.x[i], pwl.x[j], pwl.x[k]
@@ -799,19 +800,23 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
                 end
             end
 
+            # Diagonal lines running from SW to NE. Grouped with an offset of 3.
             wⁿᵉ = JuMP.@variable(m, [0:2], Bin, basename="wⁿᵉ_$counter")
             for o in 0:2
                 Aᵒ = Set{Tuple{Int,Int}}()
                 Bᵒ = Set{Tuple{Int,Int}}()
                 for offˣ in o:3:(nˣ-2)
-                    SWinA = true
+                    SWinA = true # Whether we put the SW corner of the next
+                                 # triangle to cover in set A
                     for i in (1+offˣ):(nˣ-1)
                         j = i - offˣ
                         (1 ≤ i ≤ nˣ-1) || continue
                         (1 ≤ j ≤ nʸ-1) || continue # should never happen
                         @show offˣ,i,j
-                        if Eⁿᵉ[i,j]
-                            if SWinA
+                        if Eⁿᵉ[i,j] # if we need to cover the edge...
+                            if SWinA # figure out which set we need to put it in.
+                                     # This depends on previous triangle covered
+                                     # in our current line
                                 push!(Aᵒ, (i  ,j  ))
                                 push!(Bᵒ, (i+1,j+1))
                             else
