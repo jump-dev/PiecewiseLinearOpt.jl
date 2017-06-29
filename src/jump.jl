@@ -759,7 +759,7 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
                 end)
             end
             z
-        else
+        elseif pattern in (:Stencil,:Stencil9)
             w = JuMP.@variable(m, [1:3,1:3], Bin, basename="w_$counter")
             for oˣ in 1:3, oʸ in 1:3
                 innoT = fill(true, nˣ, nʸ)
@@ -778,6 +778,124 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
                 JuMP.@constraints(m, begin
                     sum(λ[i,j] for i in oˣ:3:nˣ, j in oʸ:3:nʸ) ≤  1 - w[oˣ,oʸ]
                     sum(λ[i,j] for i in 1:nˣ, j in 1:nʸ if innoT[i,j]) ≤ w[oˣ,oʸ]
+                end)
+            end
+        else
+            # Eⁿᵉ[i,j] = true means that we must cover the edge {(i,j),(i+1,j+1)}
+            Eⁿᵉ = fill(false, nˣ-1, nʸ-1)
+            for (i,j,k) in pwl.T
+                xⁱ, xʲ, xᵏ = pwl.x[i], pwl.x[j], pwl.x[k]
+                iiˣ, iiʸ = ˣtoⁱ[xⁱ[1]], ʸtoʲ[xⁱ[2]]
+                jjˣ, jjʸ = ˣtoⁱ[xʲ[1]], ʸtoʲ[xʲ[2]]
+                kkˣ, kkʸ = ˣtoⁱ[xᵏ[1]], ʸtoʲ[xᵏ[2]]
+                IJ = [(iiˣ,iiʸ), (jjˣ,jjʸ), (kkˣ,kkʸ)]
+                im = min(iiˣ, jjˣ, kkˣ)
+                iM = max(iiˣ, jjˣ, kkˣ)
+                jm = min(iiʸ, jjʸ, kkʸ)
+                jM = max(iiʸ, jjʸ, kkʸ)
+                if ((im,jM) in IJ) && ((iM,jm) in IJ)
+                    Eⁿᵉ[im,jm] = true
+                else
+                    @assert (im,jm) in IJ && (iM,jM) in IJ
+                end
+            end
+
+            # Diagonal lines running from SW to NE. Grouped with an offset of 3.
+            wⁿᵉ = JuMP.@variable(m, [0:2], Bin, basename="wⁿᵉ_$counter")
+            for o in 0:2
+                Aᵒ = Set{Tuple{Int,Int}}()
+                Bᵒ = Set{Tuple{Int,Int}}()
+                for offˣ in o:3:(nˣ-2)
+                    SWinA = true # Whether we put the SW corner of the next
+                                 # triangle to cover in set A
+                    for i in (1+offˣ):(nˣ-1)
+                        j = i - offˣ
+                        (1 ≤ i ≤ nˣ-1) || continue
+                        (1 ≤ j ≤ nʸ-1) || continue # should never happen
+                        @show offˣ,i,j
+                        if Eⁿᵉ[i,j] # if we need to cover the edge...
+                            if SWinA # figure out which set we need to put it in.
+                                     # This depends on previous triangle covered
+                                     # in our current line
+                                push!(Aᵒ, (i  ,j  ))
+                                push!(Bᵒ, (i+1,j+1))
+                            else
+                                push!(Aᵒ, (i+1,j+1))
+                                push!(Bᵒ, (i  ,j  ))
+                            end
+                            SWinA = !SWinA
+                        end
+                    end
+                end
+                for offʸ in (3-o):3:(nʸ-1)
+                    SWinA = true
+                    for j in (offʸ+1):(nʸ-1)
+                        i = j - offʸ
+                        (1 ≤ i ≤ nˣ-1) || continue
+                        @show offʸ,i,j
+                        if Eⁿᵉ[i,j]
+                            if SWinA
+                                push!(Aᵒ, (i  ,j  ))
+                                push!(Bᵒ, (i+1,j+1))
+                            else
+                                push!(Aᵒ, (i+1,j+1))
+                                push!(Bᵒ, (i  ,j  ))
+                            end
+                            SWinA = !SWinA
+                        end
+                    end
+                end
+                JuMP.@constraints(m, begin
+                    sum(λ[i,j] for (i,j) in Aᵒ) ≤     wⁿᵉ[o]
+                    sum(λ[i,j] for (i,j) in Bᵒ) ≤ 1 - wⁿᵉ[o]
+                end)
+            end
+
+            wˢᵉ = JuMP.@variable(m, [0:2], Bin, basename="wˢᵉ_$counter")
+            for o in 0:2
+                Aᵒ = Set{Tuple{Int,Int}}()
+                Bᵒ = Set{Tuple{Int,Int}}()
+                for offˣ in o:3:(nˣ-2)
+                    SEinA = true
+                    # for i in (1+offˣ):-1:1
+                        # j = offˣ - i + 2
+                    for j in 1:(nʸ-1)
+                        i = nˣ - j - offˣ
+                        (1 ≤ i ≤ nˣ-1) || continue
+                        @show offˣ,i,j
+                        if !Eⁿᵉ[i,j]
+                            if SEinA
+                                push!(Aᵒ, (i+1,j  ))
+                                push!(Bᵒ, (i  ,j+1))
+                            else
+                                push!(Aᵒ, (i  ,j+1))
+                                push!(Bᵒ, (i+1,j  ))
+                            end
+                            SEinA = !SEinA
+                        end
+                    end
+                end
+                for offʸ in (3-o):3:(nʸ-1)
+                    SEinA = true
+                    for j in (offʸ+1):(nʸ-1)
+                        i = nˣ - j + offʸ
+                        (1 ≤ i ≤ nˣ-1) || continue
+                        @show offʸ,i,j
+                        if !Eⁿᵉ[i,j]
+                            if SEinA
+                                push!(Aᵒ, (i+1,j  ))
+                                push!(Bᵒ, (i  ,j+1))
+                            else
+                                push!(Aᵒ, (i  ,j+1))
+                                push!(Bᵒ, (i+1,j  ))
+                            end
+                            SEinA = !SEinA
+                        end
+                    end
+                end
+                JuMP.@constraints(m, begin
+                    sum(λ[i,j] for (i,j) in Aᵒ) ≤     wˢᵉ[o]
+                    sum(λ[i,j] for (i,j) in Bᵒ) ≤ 1 - wˢᵉ[o]
                 end)
             end
         end
