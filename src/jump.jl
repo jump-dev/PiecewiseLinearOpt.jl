@@ -812,7 +812,6 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
                         j = i - offˣ
                         (1 ≤ i ≤ nˣ-1) || continue
                         (1 ≤ j ≤ nʸ-1) || continue # should never happen
-                        @show offˣ,i,j
                         if Eⁿᵉ[i,j] # if we need to cover the edge...
                             if SWinA # figure out which set we need to put it in.
                                      # This depends on previous triangle covered
@@ -832,7 +831,6 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
                     for j in (offʸ+1):(nʸ-1)
                         i = j - offʸ
                         (1 ≤ i ≤ nˣ-1) || continue
-                        @show offʸ,i,j
                         if Eⁿᵉ[i,j]
                             if SWinA
                                 push!(Aᵒ, (i  ,j  ))
@@ -862,7 +860,6 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
                     for j in 1:(nʸ-1)
                         i = nˣ - j - offˣ
                         (1 ≤ i ≤ nˣ-1) || continue
-                        @show offˣ,i,j
                         if !Eⁿᵉ[i,j]
                             if SEinA
                                 push!(Aᵒ, (i+1,j  ))
@@ -880,7 +877,6 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
                     for j in (offʸ+1):(nʸ-1)
                         i = nˣ - j + offʸ
                         (1 ≤ i ≤ nˣ-1) || continue
-                        @show offʸ,i,j
                         if !Eⁿᵉ[i,j]
                             if SEinA
                                 push!(Aᵒ, (i+1,j  ))
