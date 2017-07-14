@@ -522,7 +522,7 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
     ˣtoⁱ = Dict(uˣ[i] => i for i in 1:nˣ)
     ʸtoʲ = Dict(uʸ[i] => i for i in 1:nʸ)
 
-    fd = Array(Float64, nˣ, nʸ)
+    fd = Array{Float64}(nˣ, nʸ)
     for (v,fv) in zip(pwl.x, pwl.z)
         # i is the linear index into pwl.x...really want (i,j) pair
         fd[ˣtoⁱ[v[1]],ʸtoʲ[v[2]]] = fv

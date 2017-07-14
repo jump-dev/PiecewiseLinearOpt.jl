@@ -14,7 +14,7 @@ end
 
 PWLFunction(x, z, T) = PWLFunction(x, z, T, Dict())
 
-typealias UnivariatePWLFunction PWLFunction{1}
+const UnivariatePWLFunction = PWLFunction{1}
 
 function UnivariatePWLFunction(x, z)
     @assert issorted(x)
@@ -26,7 +26,7 @@ function UnivariatePWLFunction(x, fz::Function)
     PWLFunction(Tuple{Float64}[(xx,) for xx in x], map(t->convert(Float64,fz(t)), x), [[i,i+1] for i in 1:length(x)-1])
 end
 
-typealias  BivariatePWLFunction PWLFunction{2}
+const BivariatePWLFunction = PWLFunction{2}
 
 function BivariatePWLFunction(x, y, fz::Function; pattern=:BestFit, seed=hash((length(x),length(y))))
     @assert issorted(x)
