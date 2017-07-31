@@ -30,7 +30,21 @@ function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, pwl::UnivariatePWLFunc
     d = [_x[1] for _x in pwl.x]
     fd = pwl.z
     n = length(d)
+
+    if n != length(fd)
+        error("You provided a different number of breakpoints ($n) and function values at the breakpoints ($(length(fd)))")
+    end
+
+    n == 0 && error("I don't know how to handle a piecewise linear function with no breakpoints")
+
     z = JuMP.@variable(m, lowerbound=minimum(fd), upperbound=maximum(fd), basename="z_$counter")
+
+    if n == 1
+        JuMP.@constraint(m, x ==  d[1])
+        JuMP.@constraint(m, z == fd[1])
+        return z
+    end
+
     if method == :Incremental
         δ = JuMP.@variable(m, [1:n], lowerbound=0, upperbound=1, basename="δ_$counter")
         y = JuMP.@variable(m, [1:n-1], Bin, basename="y_$counter")
@@ -518,6 +532,16 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
     T = pwl.T
 
     nˣ, nʸ = length(uˣ), length(uʸ)
+
+    if nˣ == 0 || nʸ == 0
+        error("I don't know how to handle a piecewise linear function with zero breakpoints")
+    elseif nˣ == 1
+        @assert length(dʸ) == nʸ == length(pwl.z)
+        return piecewiselinear(m, x₂, UnivariatePWLFunction(dʸ, [pwl.z[i] for i in 1:nʸ]))
+    elseif nʸ == 1
+        @assert length(dˣ) == nˣ == length(pwl.z)
+        return piecewiselinear(m, x₁, UnivariatePWLFunction(dˣ, [pwl.z[i] for i in 1:nˣ]))
+    end
 
     ˣtoⁱ = Dict(uˣ[i] => i for i in 1:nˣ)
     ʸtoʲ = Dict(uʸ[i] => i for i in 1:nʸ)
