@@ -2,6 +2,8 @@
 
 A package for modeling optimization problems containing piecewise linear functions. Current support is for (the graphs of) continuous univariate functions.
 
+This package is an accompaniment to a paper entitled [_Nonconvex piecewise linear functions: Advanced formulations and simple modeling tools_](https://arxiv.org/abs/1708.00050), by Joey Huchette and Juan Pablo Vielma.
+
 [![Build Status](https://travis-ci.org/joehuchette/PiecewiseLinearOpt.jl.svg?branch=master)](https://travis-ci.org/joehuchette/PiecewiseLinearOpt.jl)
 
 [![Coverage Status](https://coveralls.io/repos/joehuchette/PiecewiseLinearOpt.jl/badge.svg?branch=master&service=github)](https://coveralls.io/github/joehuchette/PiecewiseLinearOpt.jl?branch=master)
@@ -40,3 +42,22 @@ z = piecewiselinear(m, x, y, 0:0.1:1, 0:0.1:1, (u,v) -> exp(u+v))
 ```
 
 Current support is limited to modeling the graph of a continuous piecewise linear function, either univariate or bivariate, with the goal of adding support for the epigraphs of lower semicontinuous piecewise linear functions.
+
+Supported univariate formulations:
+
+* Convex combination (``:CC``)
+* Multiple choice (``:MC``)
+* Native SOS2 branching (``:SOS2``)
+* Incremental (``:Incremental``)
+* Logarithmic (``:Logarithmic``; default)
+* Disaggregated Logarithmic (``DisaggLogarithmic``)
+* Binary zig-zag (``:ZigZag``)
+* General integer zig-zag (``:ZigZagInteger``)
+
+Supported bivariate formulations for entire constraint:
+
+* Convex combination (``:CC``)
+* Multiple choice (``:MC``)
+* Dissaggregated Logarithmic (``DisaggLogarithmic``)
+
+Also, you can use any univariate formulation for bivariate functions as well. They will be used to impose two axis-aligned SOS2 constraints, along with the "6-stencil" formulation for the triangle selection portion of the constraint. See the associated paper for more details.
