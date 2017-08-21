@@ -56,17 +56,17 @@ function piecewiselinear(m::JuMP.Model, x::JuMP.Variable, pwl::UnivariatePWLFunc
         end
     elseif method == :MC
         x̂ = JuMP.@variable(m, [1:n-1],      basename="x̂_$counter")
-        ẑ = JuMP.@variable(m, [1:n-1],      basename="ẑ_$counter")
+        ẑ = JuMP.@variable(m, [1:n-1],      basename="ẑ_$counter")
         y = JuMP.@variable(m, [1:n-1], Bin, basename="y_$counter")
         JuMP.@constraint(m, sum(y) == 1)
         JuMP.@constraint(m, sum(x̂) == x)
-        JuMP.@constraint(m, sum(ẑ) == z)
+        JuMP.@constraint(m, sum(ẑ) == z)
         Δ = [(fd[i+1]-fd[i])/(d[i+1]-d[i]) for i in 1:n-1]
         for i in 1:n-1
             JuMP.@constraints(m, begin
                 x̂[i] ≥ d[i]  *y[i]
                 x̂[i] ≤ d[i+1]*y[i]
-                ẑ[i] == fd[i]*y[i] + Δ[i]*(x̂[i]-d[i]*y[i])
+                ẑ[i] == fd[i]*y[i] + Δ[i]*(x̂[i]-d[i]*y[i])
             end)
         end
     elseif method == :DisaggLogarithmic
@@ -557,12 +557,12 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
     if method == :MC
         x̂₁ = JuMP.@variable(m, [T],      basename="x̂₁_$counter")
         x̂₂ = JuMP.@variable(m, [T],      basename="x̂₂_$counter")
-        ẑ  = JuMP.@variable(m, [T],      basename="ẑ_$counter")
+        ẑ  = JuMP.@variable(m, [T],      basename="ẑ_$counter")
         y  = JuMP.@variable(m, [T], Bin, basename="y_$counter")
         JuMP.@constraint(m, sum(y)  == 1)
         JuMP.@constraint(m, sum(x̂₁) == x₁)
         JuMP.@constraint(m, sum(x̂₂) == x₂)
-        JuMP.@constraint(m, sum(ẑ)  == z)
+        JuMP.@constraint(m, sum(ẑ)  == z)
         for t in T
             @assert length(t) == 3
             r¹,  r²,  r³  = pwl.x[t[1]], pwl.x[t[2]], pwl.x[t[3]]
@@ -592,7 +592,7 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
             @assert isapprox(q[1]*r¹[1] + q[2]*r¹[2] + q[3], fz¹, atol=1e-4)
             @assert isapprox(q[1]*r²[1] + q[2]*r²[2] + q[3], fz², atol=1e-4)
             @assert isapprox(q[1]*r³[1] + q[2]*r³[2] + q[3], fz³, atol=1e-4)
-            JuMP.@constraint(m, ẑ[t] == q[1]*x̂₁[t] + q[2]*x̂₂[t] + q[3]*y[t])
+            JuMP.@constraint(m, ẑ[t] == q[1]*x̂₁[t] + q[2]*x̂₂[t] + q[3]*y[t])
         end
         return z
     elseif method == :DisaggLogarithmic
@@ -642,6 +642,7 @@ function piecewiselinear(m::JuMP.Model, x₁::JuMP.Variable, x₂::JuMP.Variable
         return z
     elseif method == :Incremental
         error("Incremental formulation for bivariate functions is not currently implemented.")
+        # TODO: Implement algorithm of Geissler et al. (2012)
     elseif method == :OptimalIB
         optimal_IB_scheme!(m, λ, pwl, subsolver)
         return z
