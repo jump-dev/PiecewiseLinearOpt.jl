@@ -50,7 +50,7 @@ Supported univariate formulations:
 * Native SOS2 branching (``:SOS2``)
 * Incremental (``:Incremental``)
 * Logarithmic (``:Logarithmic``; default)
-* Disaggregated Logarithmic (``DisaggLogarithmic``)
+* Disaggregated Logarithmic (``:DisaggLogarithmic``)
 * Binary zig-zag (``:ZigZag``)
 * General integer zig-zag (``:ZigZagInteger``)
 
@@ -58,6 +58,11 @@ Supported bivariate formulations for entire constraint:
 
 * Convex combination (``:CC``)
 * Multiple choice (``:MC``)
-* Dissaggregated Logarithmic (``DisaggLogarithmic``)
+* Dissaggregated Logarithmic (``:DisaggLogarithmic``)
 
-Also, you can use any univariate formulation for bivariate functions as well. They will be used to impose two axis-aligned SOS2 constraints, along with the "6-stencil" formulation for the triangle selection portion of the constraint. See the associated paper for more details.
+Also, you can use any univariate formulation for bivariate functions as well. They will be used to impose two axis-aligned SOS2 constraints, along with the "6-stencil" formulation for the triangle selection portion of the constraint. See the associated paper for more details. In particular, the following are also acceptable bivariate formulation choices:
+
+* Native SOS2 branching (``:SOS2``)
+* Incremental (``:Incremental``)
+* Binary zig-zag (``:ZigZag``)
+* General integer zig-zag (``:ZigZagInteger``)
