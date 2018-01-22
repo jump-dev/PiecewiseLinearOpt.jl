@@ -64,5 +64,6 @@ Also, you can use any univariate formulation for bivariate functions as well. Th
 
 * Native SOS2 branching (``:SOS2``)
 * Incremental (``:Incremental``)
+* Logarithmic (``:Logarithmic``)
 * Binary zig-zag (``:ZigZag``)
 * General integer zig-zag (``:ZigZagInteger``)
