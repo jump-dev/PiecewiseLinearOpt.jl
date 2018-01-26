@@ -38,7 +38,7 @@ function BivariatePWLFunction(x, y, fz::Function; pattern=:BestFit, seed=hash((l
     m = length(x)
     n = length(y)
 
-    srand(seed)
+    mt = MersenneTwister(seed)
     # run for each square on [x[i],x[i+1]] × [y[i],y[i+1]]
     for i in 1:length(x)-1, j in 1:length(y)-1
         SWt, NWt, NEt, SEt = sub2ind((m,n),i,j), sub2ind((m,n),i,j+1), sub2ind((m,n),i+1,j+1), sub2ind((m,n),i+1,j)
@@ -90,7 +90,7 @@ function BivariatePWLFunction(x, y, fz::Function; pattern=:BestFit, seed=hash((l
             t1 = [SEt,SWt,NWt]
             t2 = [NWt,NEt,SEt]
         elseif pattern == :Random
-            if rand(Bool)
+            if rand(mt, Bool)
                 t1 = [NWt,NEt,SEt]
                 t2 = [SEt,SWt,NWt]
             else
