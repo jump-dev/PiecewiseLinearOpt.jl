@@ -71,8 +71,8 @@ function piecewiselinear(m::JuMP.Model, x::VarOrAff, pwl::UnivariatePWLFunction;
                 ẑ[i] == fd[i]*y[i] + Δ[i]*(x̂[i]-d[i]*y[i])
             end)
         end
-    elseif method == :DisaggLogarithmic
-        γ = JuMP.@variable(m, [i=1:n,j=max(0,i-1):min(n-1,i)], lowerbound=0, upperbound=1)
+    elseif method in (:DisaggLogarithmic,:DLog)
+        γ = JuMP.@variable(m, [i=1:n,j=max(1,i-1):min(n-1,i)], lowerbound=0, upperbound=1)
         JuMP.@constraint(m, sum(γ) == 1)
         JuMP.@constraint(m, γ[1,1]* d[1] + sum((γ[i,i-1]+γ[i,i])* d[i] for i in 2:n-1) + γ[n,n-1]* d[n] == x)
         JuMP.@constraint(m, γ[1,1]*fd[1] + sum((γ[i,i-1]+γ[i,i])*fd[i] for i in 2:n-1) + γ[n,n-1]*fd[n] == z)
@@ -87,15 +87,15 @@ function piecewiselinear(m::JuMP.Model, x::VarOrAff, pwl::UnivariatePWLFunction;
         JuMP.@constraint(m, sum(λ) == 1)
         JuMP.@constraint(m, sum(λ[i]* d[i] for i in 1:n) == x)
         JuMP.@constraint(m, sum(λ[i]*fd[i] for i in 1:n) == z)
-        if method == :Logarithmic
+        if method in (:Logarithmic,:Log)
             sos2_logarthmic_formulation!(m, λ)
-        elseif method == :LogarithmicIB
+        elseif method in (:LogarithmicIB,:LogIB)
             sos2_logarthmic_IB_formulation!(m, λ)
         elseif method == :CC
             sos2_cc_formulation!(m, λ)
-        elseif method == :ZigZag
+        elseif method in (:ZigZag,:ZZB)
             sos2_zigzag_formulation!(m, λ)
-        elseif method == :ZigZagInteger
+        elseif method in (:ZigZagInteger,:ZZI)
             sos2_zigzag_general_integer_formulation!(m, λ)
         elseif method == :GeneralizedCelaya
             sos2_generalized_celaya_formulation!(m, λ)
@@ -597,7 +597,7 @@ function piecewiselinear(m::JuMP.Model, x₁::VarOrAff, x₂::JuMP.Variable, pwl
             JuMP.@constraint(m, ẑ[t] == q[1]*x̂₁[t] + q[2]*x̂₂[t] + q[3]*y[t])
         end
         return z
-    elseif method == :DisaggLogarithmic
+    elseif method in (:DisaggLogarithmic,:DLog)
         T = pwl.T
         X = pwl.x
         Z = pwl.z
@@ -651,16 +651,16 @@ function piecewiselinear(m::JuMP.Model, x₁::VarOrAff, x₂::JuMP.Variable, pwl
     else # formulations with SOS2 along each dimension
         Tx = [sum(λ[tˣ,tʸ] for tˣ in 1:nˣ) for tʸ in 1:nʸ]
         Ty = [sum(λ[tˣ,tʸ] for tʸ in 1:nʸ) for tˣ in 1:nˣ]
-        if method == :Logarithmic
+        if method in (:Logarithmic,:Log)
             sos2_logarthmic_formulation!(m, Tx)
             sos2_logarthmic_formulation!(m, Ty)
-        elseif method == :LogarithmicIB
+        elseif method in (:LogarithmicIB,:LogIB)
             sos2_logarthmic_IB_formulation!(m, Tx)
             sos2_logarthmic_IB_formulation!(m, Ty)
-        elseif method == :ZigZag
+        elseif method in (:ZigZag,:ZZB)
             sos2_zigzag_formulation!(m, Tx)
             sos2_zigzag_formulation!(m, Ty)
-        elseif method == :ZigZagInteger
+        elseif method in (:ZigZagInteger,:ZZI)
             sos2_zigzag_general_integer_formulation!(m, Tx)
             sos2_zigzag_general_integer_formulation!(m, Ty)
         elseif method == :GeneralizedCelaya
