@@ -513,10 +513,10 @@ function optimal_IB_scheme!(m::JuMP.Model, λ, pwl, subsolver)
     nothing
 end
 
-piecewiselinear(m::JuMP.Model, x::JuMP.Variable, y::VarOrAff, dˣ, dʸ, f::Function; method=defaultmethod()) =
+piecewiselinear(m::JuMP.Model, x::VarOrAff, y::VarOrAff, dˣ, dʸ, f::Function; method=defaultmethod()) =
     piecewiselinear(m, x, y, BivariatePWLFunction(dˣ, dʸ, f); method=method)
 
-function piecewiselinear(m::JuMP.Model, x₁::VarOrAff, x₂::JuMP.Variable, pwl::BivariatePWLFunction; method=defaultmethod(), subsolver=nothing)
+function piecewiselinear(m::JuMP.Model, x₁::VarOrAff, x₂::VarOrAff, pwl::BivariatePWLFunction; method=defaultmethod(), subsolver=nothing)
     if (method == :OptimalIB) && (subsolver === nothing)
         error("No MIP solver provided to construct optimal IB scheme. Pass a solver object to the piecewiselinear function, e.g. piecewiselinear(m, x₁, x₂, bivariatefunc, method=:OptimalIB, subsolver=GurobiSolver())")
     end
