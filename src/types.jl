@@ -101,6 +101,7 @@ function BivariatePWLFunction(x, y, fz::Function; pattern=:BestFit, seed=hash((l
         else
             error()
         end
+
         push!(T, t1)
         push!(T, t2)
     end

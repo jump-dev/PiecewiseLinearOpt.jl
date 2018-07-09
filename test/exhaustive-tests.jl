@@ -1,12 +1,12 @@
 
 # using Cbc
-# const solver = CbcSolver()
+# const solver = CbcSolver(logLevel=0)
 
 using Gurobi
-const solver = GurobiSolver()
+const solver = GurobiSolver(OutputFlag=0)
 
 # using CPLEX
-# const solver = CplexSolver()
+# const solver = CplexSolver(CPX_PARAM_SCRIND=0)
 
 
 using JuMP
@@ -16,112 +16,76 @@ using HDF5
 
 methods_1D = (:CC,:MC,:Logarithmic,:LogarithmicIB,:ZigZag,:ZigZagInteger,:SOS2,:GeneralizedCelaya,:SymmetricCelaya,:Incremental,:DisaggLogarithmic)
 methods_2D = (:CC,:MC,:Logarithmic,:LogarithmicIB,:ZigZag,:ZigZagInteger,:SOS2,:GeneralizedCelaya,:SymmetricCelaya,:DisaggLogarithmic)
+patterns_2D = (:Upper,:Lower,:UnionJack,:K1,:Random) # not :BestFit because requires function values at midpoints
 
 # tests on network flow model with piecewise-linear objective
 # instance data loaded from .h5 files
 const instance_data_1D = joinpath(dirname(@__FILE__),"1D-pwl-instances.h5")
 const instance_data_2D = joinpath(dirname(@__FILE__),"2D-pwl-instances.h5")
 
-# univariate tests
-for instance in ["10104_1_concave_1"]
-    objs = Dict()
-
+println("\nunivariate tests")
+@testset "instance $instance" for instance in ["10104_1_concave_1"]
     demand = h5read(instance_data_1D, string(instance,"/demand"))
     supply = h5read(instance_data_1D, string(instance,"/supply"))
-    numdem = size(demand, 1)
-    numsup = size(supply, 1)
+    ndem = size(demand, 1)
+    nsup = size(supply, 1)
 
-    d  = h5read(instance_data_1D, string(instance,"/d"))
-    fd = h5read(instance_data_1D, string(instance,"/fd"))
-    K = size(d, 2)
+    rawd = h5read(instance_data_1D, string(instance,"/d"))
+    d = rawd[1,:]
+    rawfd = h5read(instance_data_1D, string(instance,"/fd"))
+    fd = rawfd[1,:]
 
-    for method in methods_1D
-        println("\nmethod: $method")
-
+    objval1 = NaN
+    @testset "1D: $method" for method in methods_1D
         model = Model(solver=solver)
-        @variable(model, x[1:numsup,1:numdem] ≥ 0)
-        for j in 1:numdem
-            # demand constraint
-            @constraint(model, sum(x[i,j] for i in 1:numsup) == demand[j])
-        end
-        for i in 1:numsup
-            # supply constraint
-            @constraint(model, sum(x[i,j] for j in 1:numdem) == supply[i])
-        end
+        @variable(model, x[1:nsup,1:ndem] ≥ 0)
+        @constraint(model, [j in 1:ndem], sum(x[i,j] for i in 1:nsup) == demand[j])
+        @constraint(model, [i in 1:nsup], sum(x[i,j] for j in 1:ndem) == supply[i])
+        @objective(model, Min, sum(piecewiselinear(model, x[i,j], d, fd, method=method) for i in 1:nsup, j in 1:ndem))
 
-        idx = 1
-        obj = AffExpr()
-        for i in 1:numsup, j in 1:numdem
-            z = piecewiselinear(model, x[i,j], d[idx,:], fd[idx,:], method=method)
-            obj += z
+        @test solve(model) == :Optimal
+        if isnan(objval1)
+            objval1 = getobjectivevalue(model)
+        else
+            @test getobjectivevalue(model) ≈ objval1 rtol=1e-4
         end
-        @objective(model, Min, obj)
-
-        stat = solve(model)
-        objs[method] = getobjectivevalue(model)
-    end
-
-    vals = collect(values(objs))
-    for i in 2:length(vals)
-        @test isapprox(vals[i-1], vals[i], rtol=1e-4)
     end
 end
 
-# bivariate tests
-for numpieces in [4], variety in 1:5, objective in 1:20
-# for numpieces in [4,8,16,32], variety in 1:5, objective in 1:20
+println("\nbivariate tests")
+# @testset "numpieces $numpieces, variety $variety, objective $objective" for numpieces in [4,8], variety in 1:5, objective in 1:20
+@testset "numpieces $numpieces, variety $variety, objective $objective" for numpieces in [4], variety in 1:1, objective in 1:1
     instance = string(numpieces,"_",variety,"_",objective)
-    objs = Dict()
 
     demand = h5read(instance_data_2D, string(instance,"/demand"))
     supply = h5read(instance_data_2D, string(instance,"/supply"))
-    numdem = size(demand, 1)
-    numsup = size(supply, 1)
+    ndem = size(demand, 1)
+    nsup = size(supply, 1)
 
-    d  = h5read(instance_data_2D, string(instance,"/d"))
-    fd = h5read(instance_data_2D, string(instance,"/fd"))
-    K = size(d, 2)
+    rawd = h5read(instance_data_2D, string(instance,"/d"))
+    d = rawd[1,:]
+    rawfd = h5read(instance_data_2D, string(instance,"/fd"))
+    fˣ = reshape(rawfd[1,:], length(d), length(d))
+    ˣtoⁱ = Dict(d[p] => p for p in 1:length(d))
+    f = (pˣ,pʸ) -> fˣ[ˣtoⁱ[pˣ],ˣtoⁱ[pʸ]]
 
-    for method in methods_2D
-        println("\nmethod: $method")
-
+    objval1 = NaN
+    @testset "2D: $method, $pattern" for method in methods_2D, pattern in patterns_2D
         model = Model(solver=solver)
-        @variable(model, x[1:numsup,1:numdem] ≥ 0)
-        @variable(model, y[1:numsup,1:numdem] ≥ 0)
+        @variable(model, x[1:nsup,1:ndem] ≥ 0)
+        @constraint(model, [j in 1:ndem], sum(x[i,j] for i in 1:nsup) == demand[j])
+        @constraint(model, [i in 1:nsup], sum(x[i,j] for j in 1:ndem) == supply[i])
+        @variable(model, y[1:nsup,1:ndem] ≥ 0)
+        @constraint(model, [j in 1:ndem], sum(y[i,j] for i in 1:nsup) == demand[j])
+        @constraint(model, [i in 1:nsup], sum(y[i,j] for j in 1:ndem) == supply[i])
 
-        for j in 1:numdem
-            # demand constraint
-            @constraint(model, sum(x[i,j] for i in 1:numsup) == demand[j])
-            @constraint(model, sum(y[i,j] for i in 1:numsup) == demand[j])
+        @objective(model, Min, sum(piecewiselinear(model, x[i,j], y[i,j], BivariatePWLFunction(d, d, f, pattern=pattern), method=method) for i in 1:nsup, j in 1:ndem))
+
+        @test solve(model) == :Optimal
+        if isnan(objval1)
+            objval1 = getobjectivevalue(model)
+        else
+            @test getobjectivevalue(model) ≈ objval1 rtol=1e-4
         end
-        for i in 1:numsup
-            # supply constraint
-            @constraint(model, sum(x[i,j] for j in 1:numdem) == supply[i])
-            @constraint(model, sum(y[i,j] for j in 1:numdem) == supply[i])
-        end
-
-        for i in 1:numdem, j in 1:numsup
-            @constraint(model, x[i,j] + y[i,j] ≤ 1.5d[end])
-        end
-
-        idx = 1
-        obj = AffExpr()
-        for i in 1:numsup, j in 1:numdem
-            dˣ =  d[idx,:]
-            fˣ = reshape(fd[idx,:], length(dˣ), length(dˣ))
-            ˣtoⁱ = Dict(dˣ[i] => i for i in 1:length(dˣ))
-            fp = (pˣ,pʸ) -> fˣ[ˣtoⁱ[pˣ],ˣtoⁱ[pʸ]]
-            z = piecewiselinear(model, x[i,j], y[i,j], BivariatePWLFunction(dˣ, dˣ, fp, pattern=:UnionJack), method=method)
-            obj += z
-        end
-        @objective(model, Min, obj)
-
-        stat = solve(model)
-        objs[method] = getobjectivevalue(model)
-    end
-
-    vals = collect(values(objs))
-    for i in 2:length(vals)
-        @test isapprox(vals[i-1], vals[i], rtol=1e-4)
     end
 end
