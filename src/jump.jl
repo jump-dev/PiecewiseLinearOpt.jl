@@ -440,13 +440,14 @@ function optimal_IB_scheme!(m::JuMP.Model, λ, pwl, subsolver) # IB: independent
         t = size(xx,1)
     else
         t = ceil(Int, log2(length(T)))
+        xx = Array{Float64,2}(0,0)
+        yy = Array{Float64,2}(0,0)
 
-        xx, yy = Array(Float64,0,0), Array(Float64,0,0)
         while true
             model = JuMP.Model(solver=subsolver)
             JuMP.@variable(model, x[1:t,1:n], Bin)
             JuMP.@variable(model, y[1:t,1:n], Bin)
-            JuMP.@variable(model, z[1:t,1:n,1:n],Bin)
+            JuMP.@variable(model, z[1:t,1:n,1:n], Bin)
 
             for j in 1:t
                 for r in J, s in J

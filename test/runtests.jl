@@ -42,13 +42,13 @@ println("\nbivariate tests")
     @variable(model, y)
     d = linspace(0,1,8)
     f = (x,y) -> 2*(x-1/3)^2 + 3*(y-4/7)^4
-    z = piecewiselinear(model, x, y, BivariatePWLFunction(d, d, f, pattern=pattern), method=method)
+    z = piecewiselinear(model, x, y, BivariatePWLFunction(d, d, f, pattern=pattern), method=method, subsolver=solver)
     @objective(model, Min, z)
 
     @test solve(model) == :Optimal
     @test getvalue(x) ≈ 0.285714 rtol=1e-4
     @test getvalue(y) ≈ 0.571429 rtol=1e-4
-    @test getvalue(z) ≈ 0.004535 atol=1e-4
+    @test getvalue(z) ≈ 0.004535 rtol=1e-3
 
     @constraint(model, x ≥ 0.6)
 
@@ -56,4 +56,27 @@ println("\nbivariate tests")
     @test getvalue(x) ≈ 0.6 rtol=1e-4
     @test getvalue(y) ≈ 0.571428 rtol=1e-4
     @test getvalue(z) ≈ 0.148753 rtol=1e-4
+end
+
+println("\nbivariate optimal IB scheme tests")
+@testset "2D: optimal IB, UnionJack" begin
+    model = Model(solver=solver)
+    @variable(model, x)
+    @variable(model, y)
+    d = linspace(0,1,4)
+    f = (x,y) -> 2*(x-1/3)^2 + 3*(y-4/7)^4
+    z = piecewiselinear(model, x, y, BivariatePWLFunction(d, d, f, pattern=:UnionJack), method=:OptimalIB, subsolver=solver)
+    @objective(model, Min, z)
+
+    @test solve(model) == :Optimal
+    @test getvalue(x) ≈ 1/3 rtol=1e-4
+    @test getvalue(y) ≈ 2/3 rtol=1e-4
+    @test getvalue(z) ≈ 0.0002468 rtol=1e-3
+
+    @constraint(model, x ≥ 0.6)
+
+    @test solve(model) == :Optimal
+    @test getvalue(x) ≈ 0.6 rtol=1e-4
+    @test getvalue(y) ≈ 2/3 rtol=1e-4
+    @test getvalue(z) ≈ 0.1780245 rtol=1e-3
 end

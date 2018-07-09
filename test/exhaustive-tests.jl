@@ -16,6 +16,7 @@ using HDF5
 
 methods_1D = (:CC,:MC,:Logarithmic,:LogarithmicIB,:ZigZag,:ZigZagInteger,:SOS2,:GeneralizedCelaya,:SymmetricCelaya,:Incremental,:DisaggLogarithmic)
 methods_2D = (:CC,:MC,:Logarithmic,:LogarithmicIB,:ZigZag,:ZigZagInteger,:SOS2,:GeneralizedCelaya,:SymmetricCelaya,:DisaggLogarithmic)
+# methods_2D = (:OptimalIB,) # very slow
 patterns_2D = (:Upper,:Lower,:UnionJack,:K1,:Random) # not :BestFit because requires function values at midpoints
 
 # tests on network flow model with piecewise-linear objective
@@ -79,7 +80,7 @@ println("\nbivariate tests")
         @constraint(model, [j in 1:ndem], sum(y[i,j] for i in 1:nsup) == demand[j])
         @constraint(model, [i in 1:nsup], sum(y[i,j] for j in 1:ndem) == supply[i])
 
-        @objective(model, Min, sum(piecewiselinear(model, x[i,j], y[i,j], BivariatePWLFunction(d, d, f, pattern=pattern), method=method) for i in 1:nsup, j in 1:ndem))
+        @objective(model, Min, sum(piecewiselinear(model, x[i,j], y[i,j], BivariatePWLFunction(d, d, f, pattern=pattern), method=method, subsolver=solver) for i in 1:nsup, j in 1:ndem))
 
         @test solve(model) == :Optimal
         if isnan(objval1)
