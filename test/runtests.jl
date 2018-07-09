@@ -1,19 +1,31 @@
+
+using Cbc
+const solver = CbcSolver()
+
+# using Gurobi
+# const solver = GurobiSolver()
+
+# using CPLEX
+# const solver = CplexSolver()
+
+
+using JuMP
 using PiecewiseLinearOpt
 using Base.Test
 
-using JuMP, Cbc
-
-const solver = CbcSolver()
 methods_1D = (:CC,:MC,:Logarithmic,:LogarithmicIB,:ZigZag,:ZigZagInteger,:SOS2,:GeneralizedCelaya,:SymmetricCelaya,:Incremental,:DisaggLogarithmic)
 methods_2D = (:CC,:MC,:Logarithmic,:LogarithmicIB,:ZigZag,:ZigZagInteger,:SOS2,:GeneralizedCelaya,:SymmetricCelaya,:DisaggLogarithmic)
 
+# univariate tests
 let d = linspace(1,2π,8), f = sin
     for method in methods_1D
-        println("Method: $method")
+        println("\nmethod: $method")
+
         model = Model(solver=solver)
         @variable(model, x)
         z = piecewiselinear(model, x, d, sin, method=method)
         @objective(model, Max, z)
+
         @test solve(model) == :Optimal
         @test isapprox(getvalue(x), 1.75474, rtol=1e-4)
         @test isapprox(getvalue(z), 0.98313, rtol=1e-4)
@@ -25,15 +37,18 @@ let d = linspace(1,2π,8), f = sin
     end
 end
 
+# bivariate tests
 let dˣ = linspace(0,1,8), dʸ = linspace(0,1,8), f = (x,y) -> 2*(x-1/3)^2 + 3*(y-4/7)^4
     for method in methods_2D
-        println("Method: $method")
+        println("\nmethod: $method")
+
         model = Model(solver=solver)
         @variable(model, x)
         @variable(model, y)
         # z = piecewiselinear(model, x, y, dˣ, dʸ, f, method=method)
         z = piecewiselinear(model, x, y, BivariatePWLFunction(dˣ, dʸ, f, pattern=:UnionJack), method=method)
         @objective(model, Min, z)
+
         @test solve(model) == :Optimal
         @test isapprox(getvalue(x), 0.285714, rtol=1e-4)
         @test isapprox(getvalue(y), 0.571429, rtol=1e-4)
