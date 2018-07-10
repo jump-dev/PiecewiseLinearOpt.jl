@@ -1,9 +1,9 @@
 
-using Cbc
-solver = CbcSolver(logLevel=0, integerTolerance=1e-9, primalTolerance=1e-9, ratioGap=1e-8)
+# using Cbc # slow, not recommended
+# solver = CbcSolver(logLevel=0, integerTolerance=1e-9, primalTolerance=1e-9, ratioGap=1e-8)
 
-# using Gurobi
-# solver = GurobiSolver(OutputFlag=0)
+using Gurobi
+solver = GurobiSolver(OutputFlag=0)
 
 # using CPLEX
 # solver = CplexSolver(CPX_PARAM_SCRIND=0)
@@ -16,7 +16,7 @@ using HDF5
 
 methods_1D = (:CC,:MC,:Logarithmic,:LogarithmicIB,:ZigZag,:ZigZagInteger,:SOS2,:GeneralizedCelaya,:SymmetricCelaya,:Incremental,:DisaggLogarithmic)
 methods_2D = (:CC,:MC,:Logarithmic,:LogarithmicIB,:ZigZag,:ZigZagInteger,:SOS2,:GeneralizedCelaya,:SymmetricCelaya,:DisaggLogarithmic)
-# methods_2D = (:OptimalIB,) # very slow
+# methods_2D = (:OptimalIB,) # very slow on all solvers
 patterns_2D = (:Upper,:Lower,:UnionJack,:K1,:Random) # not :BestFit because requires function values at midpoints
 
 # tests on network flow model with piecewise-linear objective
