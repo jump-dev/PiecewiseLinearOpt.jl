@@ -127,18 +127,18 @@ function sos2_cc_formulation!(m::JuMP.Model, λ)
     return nothing
 end
 
-function sos2_mc_formulation!(m::JuMP.Model, λ) # not currently used
-    counter = m.ext[:PWL].counter
-    n = length(λ)
-    γ = JuMP.@variable(m, [1:n-1, 1:n],     basename="γ_$counter")
-    y = JuMP.@variable(m, [1:n-1],     Bin, basename="y_$counter")
-    JuMP.@constraint(m, sum(y) == 1)
-    JuMP.@constraint(m, sum(γ[i,:] for i in 1:n-1) .== λ)
-    for i in 1:n-1
-        JuMP.@constraint(m, γ[i,i] + γ[i,i+1] ≥ y[i])
-    end
-    return nothing
-end
+# function sos2_mc_formulation!(m::JuMP.Model, λ) # not currently used
+#     counter = m.ext[:PWL].counter
+#     n = length(λ)
+#     γ = JuMP.@variable(m, [1:n-1, 1:n],     basename="γ_$counter")
+#     y = JuMP.@variable(m, [1:n-1],     Bin, basename="y_$counter")
+#     JuMP.@constraint(m, sum(y) == 1)
+#     JuMP.@constraint(m, sum(γ[i,:] for i in 1:n-1) .== λ)
+#     for i in 1:n-1
+#         JuMP.@constraint(m, γ[i,i] + γ[i,i+1] ≥ y[i])
+#     end
+#     return nothing
+# end
 
 function sos2_logarithmic_formulation!(m::JuMP.Model, λ)
     counter = m.ext[:PWL].counter
@@ -702,121 +702,122 @@ function piecewiselinear(m::JuMP.Model, x₁::VarOrAff, x₂::VarOrAff, pwl::Biv
                     sum(λ[tx,ty] for tx in 1:nˣ, ty in 1:nʸ if mod(tx,2) != mod(ty,2) && (tx+ty) in 3:4:(nˣ+nʸ)) ≤ w[2]
                     sum(λ[tx,ty] for tx in 1:nˣ, ty in 1:nʸ if mod(tx,2) != mod(ty,2) && (tx+ty) in 5:4:(nˣ+nʸ)) ≤ 1 - w[2]
                 end)
-            elseif pattern == :OptimalTriangleSelection
-                m.ext[:OptimalTriSelect] = Int[]
-
-                if !haskey(m.ext, :OptimalTriSelectCache)
-                    m.ext[:OptimalTriSelectCache] = Dict()
-                end
-
-                J = [(i,j) for i in 1:nˣ, j in 1:nʸ]
-                E = Set{Tuple{Tuple{Int,Int},Tuple{Int,Int}}}()
-                for t in T
-                    @assert length(t) == 3
-                    IJ = [(ˣtoⁱ[pwl.x[i][1]],ʸtoʲ[pwl.x[i][2]]) for i in t]
-                    im = minimum(ij[1] for ij in IJ)
-                    iM = maximum(ij[1] for ij in IJ)
-                    jm = minimum(ij[2] for ij in IJ)
-                    jM = maximum(ij[2] for ij in IJ)
-                    @assert im < iM
-                    @assert im < iM
-                    if ((im,jm) in IJ) && ((iM,jM) in IJ)
-                        push!(E, ((im,jM),(iM,jm)))
-                    elseif ((im,jM) in IJ) && ((iM,jm) in IJ)
-                        push!(E, ((im,jm),(iM,jM)))
-                    else
-                        error()
-                    end
-                end
-
-                if haskey(m.ext[:OptimalTriSelectCache], E)
-                    xx, yy = m.ext[:OptimalTriSelectCache][E]
-                    t = JuMP.size(xx,1)
-                else
-                    if subsolver === nothing
-                        error("No MIP solver provided to construct optimal triangle selection. Pass a solver object to the piecewiselinear function, e.g. piecewiselinear(m, x₁, x₂, bivariatefunc, method=:Logarithmic, subsolver=GurobiSolver())")
-                    end
-                    t = 1
-                    xx, yy = Array(Float64,0,0), Array(Float64,0,0)
-                    while true
-                        subm = JuMP.Model(solver=subsolver)
-                        JuMP.@variable(subm, xˢᵘᵇ[1:t,J], Bin)
-                        JuMP.@variable(subm, yˢᵘᵇ[1:t,J], Bin)
-                        JuMP.@variable(subm, zˢᵘᵇ[1:t,J,J], Bin)
-
-                        for j in 1:t
-                            for r in J, s in J
-                                # lexicographic ordering on points on grid
-                                if r[1] > s[1] || (r[1] == s[1] && r[2] >= s[2])
-                                    continue
-                                end
-                                JuMP.@constraints(subm, begin
-                                    zˢᵘᵇ[j,r,s] <= xˢᵘᵇ[j,r] + xˢᵘᵇ[j,s]
-                                    zˢᵘᵇ[j,r,s] <= xˢᵘᵇ[j,r] + yˢᵘᵇ[j,r]
-                                    zˢᵘᵇ[j,r,s] <= xˢᵘᵇ[j,s] + yˢᵘᵇ[j,s]
-                                    zˢᵘᵇ[j,r,s] <= yˢᵘᵇ[j,r] + yˢᵘᵇ[j,s]
-                                    zˢᵘᵇ[j,r,s] >= xˢᵘᵇ[j,r] + yˢᵘᵇ[j,s] - 1
-                                    zˢᵘᵇ[j,r,s] >= xˢᵘᵇ[j,s] + yˢᵘᵇ[j,r] - 1
-                                end)
-                            end
-                            for r in J
-                                JuMP.@constraint(subm, xˢᵘᵇ[j,r] + yˢᵘᵇ[j,r] <= 1)
-                            end
-                        end
-
-                        for r in J, s in J
-                            # lexicographic ordering on points on grid
-                            (r[1] > s[1] || (r[1] == s[1] && r[2] >= s[2])) && continue
-                            if (r,s) in E
-                                JuMP.@constraint(subm, sum(zˢᵘᵇ[j,r,s] for j in 1:t) >= 1)
-                            elseif max(abs(r[1]-s[1]), abs(r[2]-s[2])) == 1
-                                JuMP.@constraint(subm, sum(zˢᵘᵇ[j,r,s] for j in 1:t) == 0)
-                            end
-                        end
-
-                        JuMP.@objective(subm, Min, sum(xˢᵘᵇ) + sum(yˢᵘᵇ))
-                        stat = JuMP.solve(subm)
-                        if any(isnan, subm.colVal)
-                            t += 1
-                        else
-                            xx = JuMP.getvalue(xˢᵘᵇ)
-                            yy = JuMP.getvalue(yˢᵘᵇ)
-                            m.ext[:OptimalTriSelectCache][E] = (xx,yy)
-                            break
-                        end
-                    end
-                end
-                y = JuMP.@variable(m, [1:t], Bin, basename="Δselect_$counter")
-
-                for i in 1:t
-                    JuMP.@constraints(m, begin
-                        sum(λ[v[1],v[2]] for v in J if xx[i,v] ≈ 1) ≤     y[i]
-                        sum(λ[v[1],v[2]] for v in J if yy[i,v] ≈ 1) ≤ 1 - y[i]
-                    end)
-                end
-                push!(m.ext[:OptimalTriSelect], t)
-            elseif pattern in (:Stencil,:Stencil9)
-                w = JuMP.@variable(m, [1:3,1:3], Bin, basename="w_$counter")
-                for oˣ in 1:3, oʸ in 1:3
-                    innoT = fill(true, nˣ, nʸ)
-                    for (i,j,k) in pwl.T
-                        xⁱ, xʲ, xᵏ = pwl.x[i], pwl.x[j], pwl.x[k]
-                        iiˣ, iiʸ = ˣtoⁱ[xⁱ[1]], ʸtoʲ[xⁱ[2]]
-                        jjˣ, jjʸ = ˣtoⁱ[xʲ[1]], ʸtoʲ[xʲ[2]]
-                        kkˣ, kkʸ = ˣtoⁱ[xᵏ[1]], ʸtoʲ[xᵏ[2]]
-                        # check to see if one of the points in the triangle falls on the grid
-                        if (mod1(iiˣ,3) == oˣ && mod1(iiʸ,3) == oʸ) || (mod1(jjˣ,3) == oˣ && mod1(jjʸ,3) == oʸ) || (mod1(kkˣ,3) == oˣ && mod1(kkʸ,3) == oʸ)
-                            innoT[iiˣ,iiʸ] = false
-                            innoT[jjˣ,jjʸ] = false
-                            innoT[kkˣ,kkʸ] = false
-                        end
-                    end
-                    JuMP.@constraints(m, begin
-                        sum(λ[i,j] for i in oˣ:3:nˣ, j in oʸ:3:nʸ) ≤  1 - w[oˣ,oʸ]
-                        sum(λ[i,j] for i in 1:nˣ, j in 1:nʸ if innoT[i,j]) ≤ w[oˣ,oʸ]
-                    end)
-                end
+            # elseif pattern == :OptimalTriangleSelection
+            #     m.ext[:OptimalTriSelect] = Int[]
+            #
+            #     if !haskey(m.ext, :OptimalTriSelectCache)
+            #         m.ext[:OptimalTriSelectCache] = Dict()
+            #     end
+            #
+            #     J = [(i,j) for i in 1:nˣ, j in 1:nʸ]
+            #     E = Set{Tuple{Tuple{Int,Int},Tuple{Int,Int}}}()
+            #     for t in T
+            #         @assert length(t) == 3
+            #         IJ = [(ˣtoⁱ[pwl.x[i][1]],ʸtoʲ[pwl.x[i][2]]) for i in t]
+            #         im = minimum(ij[1] for ij in IJ)
+            #         iM = maximum(ij[1] for ij in IJ)
+            #         jm = minimum(ij[2] for ij in IJ)
+            #         jM = maximum(ij[2] for ij in IJ)
+            #         @assert im < iM
+            #         @assert im < iM
+            #         if ((im,jm) in IJ) && ((iM,jM) in IJ)
+            #             push!(E, ((im,jM),(iM,jm)))
+            #         elseif ((im,jM) in IJ) && ((iM,jm) in IJ)
+            #             push!(E, ((im,jm),(iM,jM)))
+            #         else
+            #             error()
+            #         end
+            #     end
+            #
+            #     if haskey(m.ext[:OptimalTriSelectCache], E)
+            #         xx, yy = m.ext[:OptimalTriSelectCache][E]
+            #         t = JuMP.size(xx,1)
+            #     else
+            #         if subsolver === nothing
+            #             error("No MIP solver provided to construct optimal triangle selection. Pass a solver object to the piecewiselinear function, e.g. piecewiselinear(m, x₁, x₂, bivariatefunc, method=:Logarithmic, subsolver=GurobiSolver())")
+            #         end
+            #         t = 1
+            #         xx, yy = Array(Float64,0,0), Array(Float64,0,0)
+            #         while true
+            #             subm = JuMP.Model(solver=subsolver)
+            #             JuMP.@variable(subm, xˢᵘᵇ[1:t,J], Bin)
+            #             JuMP.@variable(subm, yˢᵘᵇ[1:t,J], Bin)
+            #             JuMP.@variable(subm, zˢᵘᵇ[1:t,J,J], Bin)
+            #
+            #             for j in 1:t
+            #                 for r in J, s in J
+            #                     # lexicographic ordering on points on grid
+            #                     if r[1] > s[1] || (r[1] == s[1] && r[2] >= s[2])
+            #                         continue
+            #                     end
+            #                     JuMP.@constraints(subm, begin
+            #                         zˢᵘᵇ[j,r,s] <= xˢᵘᵇ[j,r] + xˢᵘᵇ[j,s]
+            #                         zˢᵘᵇ[j,r,s] <= xˢᵘᵇ[j,r] + yˢᵘᵇ[j,r]
+            #                         zˢᵘᵇ[j,r,s] <= xˢᵘᵇ[j,s] + yˢᵘᵇ[j,s]
+            #                         zˢᵘᵇ[j,r,s] <= yˢᵘᵇ[j,r] + yˢᵘᵇ[j,s]
+            #                         zˢᵘᵇ[j,r,s] >= xˢᵘᵇ[j,r] + yˢᵘᵇ[j,s] - 1
+            #                         zˢᵘᵇ[j,r,s] >= xˢᵘᵇ[j,s] + yˢᵘᵇ[j,r] - 1
+            #                     end)
+            #                 end
+            #                 for r in J
+            #                     JuMP.@constraint(subm, xˢᵘᵇ[j,r] + yˢᵘᵇ[j,r] <= 1)
+            #                 end
+            #             end
+            #
+            #             for r in J, s in J
+            #                 # lexicographic ordering on points on grid
+            #                 (r[1] > s[1] || (r[1] == s[1] && r[2] >= s[2])) && continue
+            #                 if (r,s) in E
+            #                     JuMP.@constraint(subm, sum(zˢᵘᵇ[j,r,s] for j in 1:t) >= 1)
+            #                 elseif max(abs(r[1]-s[1]), abs(r[2]-s[2])) == 1
+            #                     JuMP.@constraint(subm, sum(zˢᵘᵇ[j,r,s] for j in 1:t) == 0)
+            #                 end
+            #             end
+            #
+            #             JuMP.@objective(subm, Min, sum(xˢᵘᵇ) + sum(yˢᵘᵇ))
+            #             stat = JuMP.solve(subm)
+            #             if any(isnan, subm.colVal)
+            #                 t += 1
+            #             else
+            #                 xx = JuMP.getvalue(xˢᵘᵇ)
+            #                 yy = JuMP.getvalue(yˢᵘᵇ)
+            #                 m.ext[:OptimalTriSelectCache][E] = (xx,yy)
+            #                 break
+            #             end
+            #         end
+            #     end
+            #     y = JuMP.@variable(m, [1:t], Bin, basename="Δselect_$counter")
+            #
+            #     for i in 1:t
+            #         JuMP.@constraints(m, begin
+            #             sum(λ[v[1],v[2]] for v in J if xx[i,v] ≈ 1) ≤     y[i]
+            #             sum(λ[v[1],v[2]] for v in J if yy[i,v] ≈ 1) ≤ 1 - y[i]
+            #         end)
+            #     end
+            #     push!(m.ext[:OptimalTriSelect], t)
+            # elseif pattern in (:Stencil,:Stencil9)
+            #     w = JuMP.@variable(m, [1:3,1:3], Bin, basename="w_$counter")
+            #     for oˣ in 1:3, oʸ in 1:3
+            #         innoT = fill(true, nˣ, nʸ)
+            #         for (i,j,k) in pwl.T
+            #             xⁱ, xʲ, xᵏ = pwl.x[i], pwl.x[j], pwl.x[k]
+            #             iiˣ, iiʸ = ˣtoⁱ[xⁱ[1]], ʸtoʲ[xⁱ[2]]
+            #             jjˣ, jjʸ = ˣtoⁱ[xʲ[1]], ʸtoʲ[xʲ[2]]
+            #             kkˣ, kkʸ = ˣtoⁱ[xᵏ[1]], ʸtoʲ[xᵏ[2]]
+            #             # check to see if one of the points in the triangle falls on the grid
+            #             if (mod1(iiˣ,3) == oˣ && mod1(iiʸ,3) == oʸ) || (mod1(jjˣ,3) == oˣ && mod1(jjʸ,3) == oʸ) || (mod1(kkˣ,3) == oˣ && mod1(kkʸ,3) == oʸ)
+            #                 innoT[iiˣ,iiʸ] = false
+            #                 innoT[jjˣ,jjʸ] = false
+            #                 innoT[kkˣ,kkʸ] = false
+            #             end
+            #         end
+            #         JuMP.@constraints(m, begin
+            #             sum(λ[i,j] for i in oˣ:3:nˣ, j in oʸ:3:nʸ) ≤  1 - w[oˣ,oʸ]
+            #             sum(λ[i,j] for i in 1:nˣ, j in 1:nʸ if innoT[i,j]) ≤ w[oˣ,oʸ]
+            #         end)
+            #     end
             else
+                @assert pattern in (:Upper, :Lower, :BestFit, :Random)
                 # Eⁿᵉ[i,j] = true means that we must cover the edge {(i,j),(i+1,j+1)}
                 Eⁿᵉ = fill(false, nˣ-1, nʸ-1)
                 for (i,j,k) in pwl.T

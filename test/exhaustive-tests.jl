@@ -17,7 +17,7 @@ using HDF5
 methods_1D = (:CC,:MC,:Logarithmic,:LogarithmicIB,:ZigZag,:ZigZagInteger,:SOS2,:GeneralizedCelaya,:SymmetricCelaya,:Incremental,:DisaggLogarithmic)
 methods_2D = (:CC,:MC,:Logarithmic,:LogarithmicIB,:ZigZag,:ZigZagInteger,:SOS2,:GeneralizedCelaya,:SymmetricCelaya,:DisaggLogarithmic)
 # methods_2D = (:OptimalIB,) # very slow on all solvers
-patterns_2D = (:Upper,:Lower,:UnionJack,:K1,:Random) # not :BestFit because requires function values at midpoints
+patterns_2D = (:Upper,:Lower,:UnionJack,:K1,:Random) # not :BestFit because requires function values at midpoints, :OptimalTriangleSelection and :Stencil not supported currently
 
 # tests on network flow model with piecewise-linear objective
 # instance data loaded from .h5 files
