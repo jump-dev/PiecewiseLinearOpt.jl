@@ -1,12 +1,12 @@
 
 using Cbc
-const solver = CbcSolver(logLevel=0)
+solver = CbcSolver(logLevel=0, integerTolerance=1e-9, primalTolerance=1e-9, ratioGap=1e-8)
 
 # using Gurobi
-# const solver = GurobiSolver(OutputFlag=0)
+# solver = GurobiSolver(OutputFlag=0)
 
 # using CPLEX
-# const solver = CplexSolver(CPX_PARAM_SCRIND=0)
+# solver = CplexSolver(CPX_PARAM_SCRIND=0)
 
 
 using JuMP
@@ -63,20 +63,20 @@ println("\nbivariate optimal IB scheme tests")
     model = Model(solver=solver)
     @variable(model, x)
     @variable(model, y)
-    d = linspace(0,1,4)
+    d = linspace(0,1,3)
     f = (x,y) -> 2*(x-1/3)^2 + 3*(y-4/7)^4
     z = piecewiselinear(model, x, y, BivariatePWLFunction(d, d, f, pattern=:UnionJack), method=:OptimalIB, subsolver=solver)
     @objective(model, Min, z)
 
     @test solve(model) == :Optimal
-    @test getvalue(x) ≈ 1/3 rtol=1e-4
-    @test getvalue(y) ≈ 2/3 rtol=1e-4
-    @test getvalue(z) ≈ 0.0002468 rtol=1e-3
+    @test getvalue(x) ≈ 0.5 rtol=1e-4
+    @test getvalue(y) ≈ 0.5 rtol=1e-4
+    @test getvalue(z) ≈ 0.055634 rtol=1e-3
 
     @constraint(model, x ≥ 0.6)
 
     @test solve(model) == :Optimal
     @test getvalue(x) ≈ 0.6 rtol=1e-4
-    @test getvalue(y) ≈ 2/3 rtol=1e-4
-    @test getvalue(z) ≈ 0.1780245 rtol=1e-3
+    @test getvalue(y) ≈ 0.5 rtol=1e-4
+    @test getvalue(z) ≈ 0.222300 rtol=1e-3
 end

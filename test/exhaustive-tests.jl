@@ -1,12 +1,12 @@
 
-# using Cbc
-# const solver = CbcSolver(logLevel=0)
+using Cbc
+solver = CbcSolver(logLevel=0, integerTolerance=1e-9, primalTolerance=1e-9, ratioGap=1e-8)
 
-using Gurobi
-const solver = GurobiSolver(OutputFlag=0)
+# using Gurobi
+# solver = GurobiSolver(OutputFlag=0)
 
 # using CPLEX
-# const solver = CplexSolver(CPX_PARAM_SCRIND=0)
+# solver = CplexSolver(CPX_PARAM_SCRIND=0)
 
 
 using JuMP
@@ -21,8 +21,8 @@ patterns_2D = (:Upper,:Lower,:UnionJack,:K1,:Random) # not :BestFit because requ
 
 # tests on network flow model with piecewise-linear objective
 # instance data loaded from .h5 files
-const instance_data_1D = joinpath(dirname(@__FILE__),"1D-pwl-instances.h5")
-const instance_data_2D = joinpath(dirname(@__FILE__),"2D-pwl-instances.h5")
+instance_data_1D = joinpath(dirname(@__FILE__),"1D-pwl-instances.h5")
+instance_data_2D = joinpath(dirname(@__FILE__),"2D-pwl-instances.h5")
 
 println("\nunivariate tests")
 @testset "instance $instance" for instance in ["10104_1_concave_1"]
