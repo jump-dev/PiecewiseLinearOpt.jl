@@ -99,7 +99,7 @@ function BivariatePWLFunction(x, y, fz::Function; pattern=:BestFit, seed=hash((l
                 t2 = [NEt,SEt,SWt]
             end
         else
-            error()
+            error("pattern $pattern not currently supported")
         end
 
         push!(T, t1)
