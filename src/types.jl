@@ -4,12 +4,13 @@ type PWLFunction{D}
     T::Vector{Vector{Int}}
     meta::Dict
 end
+
 function PWLFunction{D}(x::Vector{NTuple{D}}, z::Vector, T::Vector{Vector}, meta::Dict)
-    (n = length(x)) == length(z) || error()
+    @assert length(x) == length(z)
     for t in T
-        (minimum(t) > 0 && maximum(t) <= n) || error()
+        @assert minimum(t) > 0 && maximum(t) <= length(x)
     end
-    PWLFunction{D}(x, z, T, meta)
+    return PWLFunction{D}(x, z, T, meta)
 end
 
 PWLFunction(x, z, T) = PWLFunction(x, z, T, Dict())
@@ -18,12 +19,12 @@ const UnivariatePWLFunction = PWLFunction{1}
 
 function UnivariatePWLFunction(x, z)
     @assert issorted(x)
-    PWLFunction(Tuple{Float64}[(xx,) for xx in x], convert(Vector{Float64}, z), [[i,i+1] for i in 1:length(x)-1])
+    return PWLFunction(Tuple{Float64}[(xx,) for xx in x], convert(Vector{Float64}, z), [[i,i+1] for i in 1:length(x)-1])
 end
 
 function UnivariatePWLFunction(x, fz::Function)
     @assert issorted(x)
-    PWLFunction(Tuple{Float64}[(xx,) for xx in x], map(t->convert(Float64,fz(t)), x), [[i,i+1] for i in 1:length(x)-1])
+    return PWLFunction(Tuple{Float64}[(xx,) for xx in x], map(t->convert(Float64,fz(t)), x), [[i,i+1] for i in 1:length(x)-1])
 end
 
 const BivariatePWLFunction = PWLFunction{2}
@@ -98,10 +99,12 @@ function BivariatePWLFunction(x, y, fz::Function; pattern=:BestFit, seed=hash((l
                 t2 = [NEt,SEt,SWt]
             end
         else
-            error()
+            error("pattern $pattern not currently supported")
         end
+
         push!(T, t1)
         push!(T, t2)
     end
-    PWLFunction{2}(X, Z, T, Dict(:structure=>pattern))
+
+    return PWLFunction{2}(X, Z, T, Dict(:structure=>pattern))
 end
