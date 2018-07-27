@@ -3,12 +3,36 @@ defaultmethod() = :Logarithmic
 
 type PWLData
     counter::Int
-    PWLData() = new(0)
+    branchvars::Vector{Int}
+    PWLData() = new(0,Int[])
 end
 
 function initPWL!(m::JuMP.Model)
     if !haskey(m.ext, :PWL)
         m.ext[:PWL] = PWLData()
+        JuMP.setsolvehook(m, function solvehook(m; kwargs...)
+            if !isempty(m.ext[:PWL].branchvars)
+                JuMP.build(m)
+                function branchcallback(d::MathProgBase.MathProgCallbackData)
+                    state = MathProgBase.cbgetstate(d)
+                    if state == :MIPSol
+                        MathProgBase.cbgetmipsolution(d,m.colVal)
+                    else
+                        MathProgBase.cbgetlpsolution(d,m.colVal)
+                    end
+                    moment_curve_branch_callback(m, d)
+                end
+                CPLEX.setbranchcallback!(m.internalModel, branchcallback)
+                function incumbentcallback(d::MathProgBase.MathProgCallbackData)
+                    state = MathProgBase.cbgetstate(d)
+                    @assert state == :MIPIncumbent
+                    m.colVal = copy(d.sol)
+                    moment_curve_incumbent_callback(m, d)
+                end
+                CPLEX.setincumbentcallback!(m.internalModel, incumbentcallback)
+            end
+            JuMP.solve(m; ignore_solve_hook=true, kwargs...)
+        end)
     end
     return nothing
 end
@@ -106,6 +130,8 @@ function piecewiselinear(m::JuMP.Model, x::VarOrAff, pwl::UnivariatePWLFunction;
             sos2_symmetric_celaya_formulation!(m, λ)
         elseif method == :SOS2
             JuMP.addSOS2(m, [i*λ[i] for i in 1:n])
+        elseif method == :MomentCurve
+            sos2_moment_curve_formulation!(m, λ)
         else
             error("Unrecognized method $method")
         end
@@ -943,4 +969,75 @@ function piecewiselinear(m::JuMP.Model, x₁::VarOrAff, x₂::VarOrAff, pwl::Biv
     end
 
     return z
+end
+
+function sos2_moment_curve_formulation!(m::JuMP.Model, λ)
+    counter = m.ext[:PWL].counter
+    d = length(λ)-1
+    y = JuMP.@variable(m, [i=1:2], Int, lowerbound=1, upperbound=d^i, basename="y_$counter")
+    for i in 1:d
+        JuMP.@constraints(m, begin
+            -2i*λ[1] + sum((v^2-(2i+1)*v+2min(0,i+1-v))*λ[v] for v in 2:d) + (d^2-(2i+1)*d)λ[d+1] ≤ -(2i+1)*y[1] + y[2]
+            -2i*λ[1] + sum((v^2-(2i+1)*v+2max(0,i+1-v))*λ[v] for v in 2:d) + (d^2-(2i+1)*d)λ[d+1] ≥ -(2i+1)*y[1] + y[2]
+        end)
+    end
+    push!(m.ext[:PWL].branchvars, JuMP.linearindex(y[1]))
+    nothing
+end
+
+function moment_curve_branch_callback(m, cb)
+    # TODO: take CPLEX's branching decision and add strengthened cut
+
+    # if CPLEX was gonna branch anyway, just use their branching decision
+    # if !isempty(cb.nodes)
+    #     unsafe_store!(cb.userinteraction_p, Cint(0))
+    #     return nothing
+    # end
+    branchvars = m.ext[:PWL].branchvars
+    xval = MathProgBase.cbgetlpsolution(cb)
+    TOL = 1e-4
+    branch_ind = 0
+    y = JuMP.Variable[]
+    for i in branchvars
+        xv = xval[i]
+        yv = xval[i+1]
+        if abs(yv-xv^2) > TOL
+            branch_ind = i
+            y = [JuMP.Variable(m, i), JuMP.Variable(m, i+1)]
+            break
+        end
+    end
+    xv, yv = xval[branch_ind], xval[branch_ind]
+    if branch_ind == 0
+        CPLEX.nobranches(cb)
+    elseif isapprox(xv^2, yv, rtol=1e-4)
+        CPLEX.nobranches(cb)
+    else
+        L, U = CPLEX.cbgetnodelb(cb), CPLEX.cbgetnodeub(cb)
+        l, u = L[branch_ind], U[branch_ind]
+        if l ≈ u
+            CPLEX.addbranch(cb, JuMP.@LinearConstraint(y[2] ≤ u^2))
+        else
+            xv = xval[branch_ind]
+            yv = xval[branch_ind+1]
+            @show xv, yv
+            uᶠ = isinteger(xv) ? xv-1 : floor(xv)
+            lᶜ = isinteger(xv) ? xv   : ceil(xv)
+            CPLEX.addbranch(cb, JuMP.@LinearConstraint((uᶠ-l )*(y[2]-l ^2) ≤ (uᶠ^2-l ^2)*(y[1]-l )))
+            CPLEX.addbranch(cb, JuMP.@LinearConstraint((u -lᶜ)*(y[2]-lᶜ^2) ≤ (u ^2-lᶜ^2)*(y[1]-lᶜ)))
+        end
+    end
+    nothing
+end
+
+function moment_curve_incumbent_callback(m, cb)
+    xval = MathProgBase.cbgetmipsolution(cb)
+    for i in m.ext[:PWL].branchvars
+        if !isapprox(xval[i]^2, xval[i+1], rtol=1e-4)
+            CPLEX.rejectincumbent(cb)
+            return nothing
+        end
+    end
+    CPLEX.acceptincumbent(cb)
+    return nothing
 end
