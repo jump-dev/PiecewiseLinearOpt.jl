@@ -1,5 +1,7 @@
 
 using Cbc
+using Test
+using LinearAlgebra
 solver = CbcSolver(logLevel=0, integerTolerance=1e-9, primalTolerance=1e-9, ratioGap=1e-8)
 
 # using Gurobi
@@ -11,7 +13,7 @@ solver = CbcSolver(logLevel=0, integerTolerance=1e-9, primalTolerance=1e-9, rati
 
 using JuMP
 using PiecewiseLinearOpt
-using Base.Test
+
 
 methods_1D = (:CC,:MC,:Logarithmic,:LogarithmicIB,:ZigZag,:ZigZagInteger,:SOS2,:GeneralizedCelaya,:SymmetricCelaya,:Incremental,:DisaggLogarithmic)
 methods_2D = (:CC,:MC,:Logarithmic,:LogarithmicIB,:ZigZag,:ZigZagInteger,:SOS2,:GeneralizedCelaya,:SymmetricCelaya,:DisaggLogarithmic)

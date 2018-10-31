@@ -322,7 +322,7 @@ generalized_celaya_hyperplanes(k::Int) = compute_hyperplanes(generalized_celaya_
 
 symmetric_celaya_hyperplanes(k::Int) = compute_hyperplanes(symmetric_celaya_codes(k))
 
-function compute_hyperplanes{T}(C::Vector{Vector{T}})
+function compute_hyperplanes(C::Vector{Vector{T}}) where T <: Number
     n = length(C)
     k = length(C[1])
 
