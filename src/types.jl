@@ -1,11 +1,11 @@
-type PWLFunction{D}
+struct PWLFunction{D}
     x::Vector{NTuple{D,Float64}}
     z::Vector{Float64}
     T::Vector{Vector{Int}}
     meta::Dict
 end
 
-function PWLFunction{D}(x::Vector{NTuple{D}}, z::Vector, T::Vector{Vector}, meta::Dict)
+function PWLFunction{D}(x::Vector{NTuple{D}}, z::Vector, T::Vector{Vector}, meta::Dict) where D <: Real
     @assert length(x) == length(z)
     for t in T
         @assert minimum(t) > 0 && maximum(t) <= length(x)
