@@ -1,7 +1,7 @@
 # TODO: choose method based on problem size
 defaultmethod() = :Logarithmic
 
-struct PWLData
+mutable struct PWLData
     counter::Int
     PWLData() = new(0)
 end

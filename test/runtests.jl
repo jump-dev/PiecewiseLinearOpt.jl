@@ -23,7 +23,7 @@ println("\nunivariate tests")
 @testset "1D: $method" for method in methods_1D
     model = Model(solver=solver)
     @variable(model, x)
-    z = piecewiselinear(model, x, linspace(1,2π,8), sin, method=method)
+    z = piecewiselinear(model, x, range(1,stop =2π, length =8), sin, method=method)
     @objective(model, Max, z)
 
     @test solve(model) == :Optimal
@@ -42,7 +42,7 @@ println("\nbivariate tests")
     model = Model(solver=solver)
     @variable(model, x)
     @variable(model, y)
-    d = linspace(0,1,8)
+    d = range(0,stop=1,length=8)
     f = (x,y) -> 2*(x-1/3)^2 + 3*(y-4/7)^4
     z = piecewiselinear(model, x, y, BivariatePWLFunction(d, d, f, pattern=pattern), method=method, subsolver=solver)
     @objective(model, Min, z)
@@ -65,7 +65,7 @@ println("\nbivariate optimal IB scheme tests")
     model = Model(solver=solver)
     @variable(model, x)
     @variable(model, y)
-    d = linspace(0,1,3)
+    d = range(0,stop=1,length=3)
     f = (x,y) -> 2*(x-1/3)^2 + 3*(y-4/7)^4
     z = piecewiselinear(model, x, y, BivariatePWLFunction(d, d, f, pattern=:UnionJack), method=:OptimalIB, subsolver=solver)
     @objective(model, Min, z)
