@@ -67,8 +67,8 @@ function piecewiselinear(m::JuMP.Model, x::VarOrAff, pwl::UnivariatePWLFunction;
         Δ = [(fd[i+1]-fd[i])/(d[i+1]-d[i]) for i in 1:n-1]
         for i in 1:n-1
             JuMP.@constraints(m, begin
-                x̂[i] >= d[i]  *y[i]
-                x̂[i] <= d[i+1]*y[i]
+                x̂[i] ≥ d[i]  *y[i]
+                x̂[i] ≤ d[i+1]*y[i]
                 ẑ[i] == fd[i]*y[i] + Δ[i]*(x̂[i]-d[i]*y[i])
             end)
         end
