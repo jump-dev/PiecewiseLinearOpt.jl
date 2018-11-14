@@ -2,7 +2,9 @@ __precompile__()
 
 module PiecewiseLinearOpt
 
-import JuMP
+using JuMP
+using LinearAlgebra
+using Random
 
 export PWLFunction, UnivariatePWLFunction, BivariatePWLFunction, piecewiselinear
 

@@ -1,11 +1,11 @@
-type PWLFunction{D}
+struct PWLFunction{D}
     x::Vector{NTuple{D,Float64}}
     z::Vector{Float64}
     T::Vector{Vector{Int}}
     meta::Dict
 end
 
-function PWLFunction{D}(x::Vector{NTuple{D}}, z::Vector, T::Vector{Vector}, meta::Dict)
+function PWLFunction{D}(x::Vector{NTuple{D}}, z::Vector, T::Vector{Vector}, meta::Dict) where D <: Integer
     @assert length(x) == length(z)
     for t in T
         @assert minimum(t) > 0 && maximum(t) <= length(x)
@@ -42,7 +42,7 @@ function BivariatePWLFunction(x, y, fz::Function; pattern=:BestFit, seed=hash((l
     mt = MersenneTwister(seed)
     # run for each square on [x[i],x[i+1]] × [y[i],y[i+1]]
     for i in 1:length(x)-1, j in 1:length(y)-1
-        SWt, NWt, NEt, SEt = sub2ind((m,n),i,j), sub2ind((m,n),i,j+1), sub2ind((m,n),i+1,j+1), sub2ind((m,n),i+1,j)
+        SWt, NWt, NEt, SEt = LinearIndices((m,n))[i,j], LinearIndices((m,n))[i,j+1], LinearIndices((m,n))[i+1,j+1], LinearIndices((m,n))[i+1,j]
         xL, xU, yL, yU = x[i], x[i+1], y[j], y[j+1]
         @assert xL == X[SWt][1] == X[NWt][1]
         @assert xU == X[SEt][1] == X[NEt][1]

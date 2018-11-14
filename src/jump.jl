@@ -1,7 +1,7 @@
 # TODO: choose method based on problem size
 defaultmethod() = :Logarithmic
 
-type PWLData
+mutable struct PWLData
     counter::Int
     PWLData() = new(0)
 end
@@ -322,7 +322,7 @@ generalized_celaya_hyperplanes(k::Int) = compute_hyperplanes(generalized_celaya_
 
 symmetric_celaya_hyperplanes(k::Int) = compute_hyperplanes(symmetric_celaya_codes(k))
 
-function compute_hyperplanes{T}(C::Vector{Vector{T}})
+function compute_hyperplanes(C::Vector{Vector{T}}) where T <: Number
     n = length(C)
     k = length(C[1])
 
@@ -407,7 +407,7 @@ function canonical!(v::Vector{Float64})
             v[j] = 0
         end
     end
-    sgn = sign(v[findfirst(v)])
+    sgn = sign(v[findfirst([x!=0 for x in v])])
     for j in 1:length(v)
         if abs(v[j]) < 1e-8
             v[j] = 0
@@ -440,8 +440,8 @@ function optimal_IB_scheme!(m::JuMP.Model, λ, pwl, subsolver) # IB: independent
         t = size(xx,1)
     else
         t = ceil(Int, log2(length(T)))
-        xx = Array{Float64,2}(0,0)
-        yy = Array{Float64,2}(0,0)
+        xx = Array{Float64,2}(undef,0,0)
+        yy = Array{Float64,2}(undef,0,0)
 
         while true
             model = JuMP.Model(solver=subsolver)
@@ -549,7 +549,7 @@ function piecewiselinear(m::JuMP.Model, x₁::VarOrAff, x₂::VarOrAff, pwl::Biv
     ˣtoⁱ = Dict(uˣ[i] => i for i in 1:nˣ)
     ʸtoʲ = Dict(uʸ[i] => i for i in 1:nʸ)
 
-    fd = Array{Float64}(nˣ, nʸ)
+    fd = Array{Float64}(undef, nˣ, nʸ)
     for (v,fv) in zip(pwl.x, pwl.z)
         # i is the linear index into pwl.x...really want (i,j) pair
         fd[ˣtoⁱ[v[1]],ʸtoʲ[v[2]]] = fv
