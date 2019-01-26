@@ -2,7 +2,11 @@
 using Cbc
 using Test
 using LinearAlgebra
-solver = CbcSolver(logLevel=1, integerTolerance=1e-9, primalTolerance=1e-9, ratioGap=1e-8)
+using GLPK
+using GLPKMathProgInterface
+solver = CbcSolver(logLevel=0, integerTolerance=1e-9, primalTolerance=1e-9, ratioGap=1e-8)
+solver = GLPKSolverMIP(msg_lev=GLPK.MSG_ON)
+#solver = CbcSolver(logLevel=1, integerTolerance=1e-9, primalTolerance=1e-9, ratioGap=1e-8)
 
 # using Gurobi
 # solver = GurobiSolver(OutputFlag=0)
