@@ -16,8 +16,8 @@ using PiecewiseLinearOpt
 
 
 methods_1D = (:CC,:MC,:Logarithmic,:LogarithmicIB,:ZigZag,:ZigZagInteger,:SOS2,:GeneralizedCelaya,:SymmetricCelaya,:Incremental,:DisaggLogarithmic)
-methods_2D = (:MC)#(:CC,:MC,:Logarithmic,:LogarithmicIB,:ZigZag,:ZigZagInteger,:SOS2,:GeneralizedCelaya,:SymmetricCelaya,:DisaggLogarithmic)
-patterns_2D = (:Upper)#,:Lower,:BestFit,:UnionJack,:K1,:Random) # :OptimalTriangleSelection and :Stencil not supported currently
+methods_2D = [:MC]#(:CC,:MC,:Logarithmic,:LogarithmicIB,:ZigZag,:ZigZagInteger,:SOS2,:GeneralizedCelaya,:SymmetricCelaya,:DisaggLogarithmic)
+patterns_2D = [:Upper]#,:Lower,:BestFit,:UnionJack,:K1,:Random) # :OptimalTriangleSelection and :Stencil not supported currently
 
 # println("\nunivariate tests")
 # @testset "1D: $method" for method in methods_1D
