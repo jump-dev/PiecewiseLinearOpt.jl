@@ -5,8 +5,6 @@ using LinearAlgebra
 
 solver = CbcSolver(logLevel=0, integerTolerance=1e-9, primalTolerance=1e-9, ratioGap=1e-8)
 
-#solver = CbcSolver(logLevel=1, integerTolerance=1e-9, primalTolerance=1e-9, ratioGap=1e-8)
-
 # using Gurobi
 # solver = GurobiSolver(OutputFlag=0)
 
@@ -19,26 +17,28 @@ using PiecewiseLinearOpt
 
 
 methods_1D = (:CC,:MC,:Logarithmic,:LogarithmicIB,:ZigZag,:ZigZagInteger,:SOS2,:GeneralizedCelaya,:SymmetricCelaya,:Incremental,:DisaggLogarithmic)
-methods_2D = [:MC]#(:CC,:MC,:Logarithmic,:LogarithmicIB,:ZigZag,:ZigZagInteger,:SOS2,:GeneralizedCelaya,:SymmetricCelaya,:DisaggLogarithmic)
-patterns_2D = [:Upper]#,:Lower,:BestFit,:UnionJack,:K1,:Random) # :OptimalTriangleSelection and :Stencil not supported currently
+methods_2D = [:MC],:CC,:MC,:Logarithmic,:LogarithmicIB,:ZigZag,:ZigZagInteger,:SOS2,:GeneralizedCelaya,:SymmetricCelaya,:DisaggLogarithmic)
+patterns_2D = [:Upper,:Lower,:BestFit,:UnionJack,:K1,:Random) # :OptimalTriangleSelection and :Stencil not supported currently
 
-# println("\nunivariate tests")
-# @testset "1D: $method" for method in methods_1D
-#     model = Model(solver=solver)
-#     @variable(model, x)
-#     z = piecewiselinear(model, x, range(1,stop =2π, length =8), sin, method=method)
-#     @objective(model, Max, z)
+println("\nunivariate tests")
+@testset "1D: $method" for method in methods_1D
+    model = Model(solver=solver)
+    @variable(model, x)
+    z = piecewiselinear(model, x, range(1,stop =2π, length =8), sin, method=method)
+    @objective(model, Max, z)
 
-#     @test solve(model) == :Optimal
-#     @test getvalue(x) ≈ 1.75474 rtol=1e-4
-#     @test getvalue(z) ≈ 0.98313 rtol=1e-4
+    @test solve(model) == :Optimal
+    @test getvalue(x) ≈ 1.75474 rtol=1e-4
+    @test getvalue(z) ≈ 0.98313 rtol=1e-4
 
-#     @constraint(model, x ≤ 1.5z)
+    @constraint(model, x ≤ 1.5z)
 
-#     @test solve(model) == :Optimal
-#     @test getvalue(x) ≈ 1.36495 rtol=1e-4
-#     @test getvalue(z) ≈ 0.90997 rtol=1e-4
-# end
+    @test solve(model) == :Optimal
+    @test getvalue(x) ≈ 1.36495 rtol=1e-4
+    @test getvalue(z) ≈ 0.90997 rtol=1e-4
+    @test getobjectivevalue(model) ≈ 0.90997 rtol=1e-4
+    @test getobjectivevalue(model) ≈ getvalue(z) rtol=1e-4
+end
 
 println("\nbivariate tests")
 @testset "2D: $method, $pattern" for method in methods_2D, pattern in patterns_2D
@@ -63,27 +63,33 @@ println("\nbivariate tests")
     @test getvalue(x) ≈ 0.6 rtol=1e-4
     @test getvalue(y) ≈ 0.571428 rtol=1e-4
     @test getvalue(z) ≈ 0.148753 rtol=1e-4
+    @test getobjectivevalue(model) ≈ 0.148753 rtol=1e-3
+    @test getobjectivevalue(model) ≈ getvalue(z) rtol=1e-3
 end
 
-# println("\nbivariate optimal IB scheme tests")
-# @testset "2D: optimal IB, UnionJack" begin
-#     model = Model(solver=solver)
-#     @variable(model, x)
-#     @variable(model, y)
-#     d = range(0,stop=1,length=3)
-#     f = (x,y) -> 2*(x-1/3)^2 + 3*(y-4/7)^4
-#     z = piecewiselinear(model, x, y, BivariatePWLFunction(d, d, f, pattern=:UnionJack), method=:OptimalIB, subsolver=solver)
-#     @objective(model, Min, z)
+println("\nbivariate optimal IB scheme tests")
+@testset "2D: optimal IB, UnionJack" begin
+    model = Model(solver=solver)
+    @variable(model, x)
+    @variable(model, y)
+    d = range(0,stop=1,length=3)
+    f = (x,y) -> 2*(x-1/3)^2 + 3*(y-4/7)^4
+    z = piecewiselinear(model, x, y, BivariatePWLFunction(d, d, f, pattern=:UnionJack), method=:OptimalIB, subsolver=solver)
+    @objective(model, Min, z)
 
-#     @test solve(model) == :Optimal
-#     @test getvalue(x) ≈ 0.5 rtol=1e-4
-#     @test getvalue(y) ≈ 0.5 rtol=1e-4
-#     @test getvalue(z) ≈ 0.055634 rtol=1e-3
+    @test solve(model) == :Optimal
+    @test getvalue(x) ≈ 0.5 rtol=1e-4
+    @test getvalue(y) ≈ 0.5 rtol=1e-4
+    @test getvalue(z) ≈ 0.055634 rtol=1e-3
+    @test getobjectivevalue(model) ≈ 0.055634 rtol=1e-3
+    @test getobjectivevalue(model) ≈ getvalue(z) rtol=1e-3
 
-#     @constraint(model, x ≥ 0.6)
+    @constraint(model, x ≥ 0.6)
 
-#     @test solve(model) == :Optimal
-#     @test getvalue(x) ≈ 0.6 rtol=1e-4
-#     @test getvalue(y) ≈ 0.5 rtol=1e-4
-#     @test getvalue(z) ≈ 0.222300 rtol=1e-3
-# end
+    @test solve(model) == :Optimal
+    @test getvalue(x) ≈ 0.6 rtol=1e-4
+    @test getvalue(y) ≈ 0.5 rtol=1e-4
+    @test getvalue(z) ≈ 0.222300 rtol=1e-3
+    @test getobjectivevalue(model) ≈ 0.222300 rtol=1e-3
+    @test getobjectivevalue(model) ≈ getvalue(z) rtol=1e-3
+end
