@@ -51,6 +51,8 @@ println("\nbivariate tests")
     @test getvalue(x) ≈ 0.285714 rtol=1e-4
     @test getvalue(y) ≈ 0.571429 rtol=1e-4
     @test getvalue(z) ≈ 0.004535 rtol=1e-3
+    @test getobjectivevalue(z) ≈ 0.004535 rtol=1e-3
+    @test getobjectivevalue(z) ≈ getvalue(z) rtol=1e-3
 
     @constraint(model, x ≥ 0.6)
 
