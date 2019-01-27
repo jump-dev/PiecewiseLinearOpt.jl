@@ -11,7 +11,7 @@ notifications:
 
 branches:
   only:
-  - jpv/updateci
+  - master
 
 after_success:
   # push coverage results to Coveralls
