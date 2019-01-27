@@ -16,7 +16,8 @@ matrix:
     
 branches:
   only:
-    - jpv/updateci
+    - master
+    - /release-.*/
 
 notifications:
   - provider: Email
