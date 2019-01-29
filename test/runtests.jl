@@ -2,6 +2,7 @@
 using Cbc
 using Test
 using LinearAlgebra
+
 solver = CbcSolver(logLevel=0, integerTolerance=1e-9, primalTolerance=1e-9, ratioGap=1e-8)
 
 # using Gurobi
@@ -35,6 +36,8 @@ println("\nunivariate tests")
     @test solve(model) == :Optimal
     @test getvalue(x) ≈ 1.36495 rtol=1e-4
     @test getvalue(z) ≈ 0.90997 rtol=1e-4
+    @test getobjectivevalue(model) ≈ 0.90997 rtol=1e-4
+    @test getobjectivevalue(model) ≈ getvalue(z) rtol=1e-4
 end
 
 println("\nbivariate tests")
@@ -51,6 +54,8 @@ println("\nbivariate tests")
     @test getvalue(x) ≈ 0.285714 rtol=1e-4
     @test getvalue(y) ≈ 0.571429 rtol=1e-4
     @test getvalue(z) ≈ 0.004535 rtol=1e-3
+    @test getobjectivevalue(model) ≈ 0.004535 rtol=1e-3
+    @test getobjectivevalue(model) ≈ getvalue(z) rtol=1e-3
 
     @constraint(model, x ≥ 0.6)
 
@@ -58,6 +63,8 @@ println("\nbivariate tests")
     @test getvalue(x) ≈ 0.6 rtol=1e-4
     @test getvalue(y) ≈ 0.571428 rtol=1e-4
     @test getvalue(z) ≈ 0.148753 rtol=1e-4
+    @test getobjectivevalue(model) ≈ 0.148753 rtol=1e-3
+    @test getobjectivevalue(model) ≈ getvalue(z) rtol=1e-3
 end
 
 println("\nbivariate optimal IB scheme tests")
@@ -74,6 +81,8 @@ println("\nbivariate optimal IB scheme tests")
     @test getvalue(x) ≈ 0.5 rtol=1e-4
     @test getvalue(y) ≈ 0.5 rtol=1e-4
     @test getvalue(z) ≈ 0.055634 rtol=1e-3
+    @test getobjectivevalue(model) ≈ 0.055634 rtol=1e-3
+    @test getobjectivevalue(model) ≈ getvalue(z) rtol=1e-3
 
     @constraint(model, x ≥ 0.6)
 
@@ -81,4 +90,6 @@ println("\nbivariate optimal IB scheme tests")
     @test getvalue(x) ≈ 0.6 rtol=1e-4
     @test getvalue(y) ≈ 0.5 rtol=1e-4
     @test getvalue(z) ≈ 0.222300 rtol=1e-3
+    @test getobjectivevalue(model) ≈ 0.222300 rtol=1e-3
+    @test getobjectivevalue(model) ≈ getvalue(z) rtol=1e-3
 end
