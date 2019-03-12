@@ -13,7 +13,7 @@ function initPWL!(m::JuMP.Model)
     return nothing
 end
 
-const VarOrAff = Union{JuMP.Variable,JuMP.AffExpr}
+const VarOrAff = Union{JuMP.VariableRef,JuMP.AffExpr}
 
 function piecewiselinear(m::JuMP.Model, x::VarOrAff, d, f::Function; method=defaultmethod())
     initPWL!(m)
@@ -40,7 +40,7 @@ function piecewiselinear(m::JuMP.Model, x::VarOrAff, pwl::UnivariatePWLFunction;
         error("I don't know how to handle a piecewise linear function with no breakpoints")
     end
 
-    z = JuMP.@variable(m, lowerbound=minimum(fd), upperbound=maximum(fd), basename="z_$counter")
+    z = JuMP.@variable(m, lower_bound=minimum(fd), upper_bound=maximum(fd), base_name="z_$counter")
 
     if n == 1
         JuMP.@constraint(m, x ==  d[1])
@@ -49,8 +49,8 @@ function piecewiselinear(m::JuMP.Model, x::VarOrAff, pwl::UnivariatePWLFunction;
     end
 
     if method == :Incremental
-        δ = JuMP.@variable(m, [1:n], lowerbound=0, upperbound=1, basename="δ_$counter")
-        y = JuMP.@variable(m, [1:n-1], Bin, basename="y_$counter")
+        δ = JuMP.@variable(m, [1:n], lower_bound=0, upper_bound=1, base_name="δ_$counter")
+        y = JuMP.@variable(m, [1:n-1], Bin, base_name="y_$counter")
         JuMP.@constraint(m, x ==  d[1] + sum(δ[i]*( d[i+1]- d[i]) for i in 1:n-1))
         JuMP.@constraint(m, z == fd[1] + sum(δ[i]*(fd[i+1]-fd[i]) for i in 1:n-1))
         for i in 1:n-1
@@ -58,9 +58,9 @@ function piecewiselinear(m::JuMP.Model, x::VarOrAff, pwl::UnivariatePWLFunction;
             JuMP.@constraint(m, y[i] ≤ δ[i])
         end
     elseif method == :MC
-        x̂ = JuMP.@variable(m, [1:n-1],      basename="x̂_$counter")
-        ẑ = JuMP.@variable(m, [1:n-1],      basename="ẑ_$counter")
-        y = JuMP.@variable(m, [1:n-1], Bin, basename="y_$counter")
+        x̂ = JuMP.@variable(m, [1:n-1],      base_name="x̂_$counter")
+        ẑ = JuMP.@variable(m, [1:n-1],      base_name="ẑ_$counter")
+        y = JuMP.@variable(m, [1:n-1], Bin, base_name="y_$counter")
         JuMP.@constraint(m, sum(y) == 1)
         JuMP.@constraint(m, sum(x̂) == x)
         JuMP.@constraint(m, sum(ẑ) == z)
@@ -73,7 +73,7 @@ function piecewiselinear(m::JuMP.Model, x::VarOrAff, pwl::UnivariatePWLFunction;
             end)
         end
     elseif method in (:DisaggLogarithmic,:DLog)
-        γ = JuMP.@variable(m, [i=1:n,j=max(1,i-1):min(n-1,i)], lowerbound=0, upperbound=1)
+        γ = JuMP.@variable(m, [i=1:n,j=max(1,i-1):min(n-1,i)], lower_bound=0, upper_bound=1)
         JuMP.@constraint(m, sum(γ) == 1)
         JuMP.@constraint(m, γ[1,1]* d[1] + sum((γ[i,i-1]+γ[i,i])* d[i] for i in 2:n-1) + γ[n,n-1]* d[n] == x)
         JuMP.@constraint(m, γ[1,1]*fd[1] + sum((γ[i,i-1]+γ[i,i])*fd[i] for i in 2:n-1) + γ[n,n-1]*fd[n] == z)
@@ -85,7 +85,7 @@ function piecewiselinear(m::JuMP.Model, x::VarOrAff, pwl::UnivariatePWLFunction;
         end
     else
         # V-formulation methods
-        λ = JuMP.@variable(m, [1:n], lowerbound=0, upperbound=1, basename="λ_$counter")
+        λ = JuMP.@variable(m, [1:n], lower_bound=0, upper_bound=1, base_name="λ_$counter")
         JuMP.@constraint(m, sum(λ) == 1)
         JuMP.@constraint(m, sum(λ[i]* d[i] for i in 1:n) == x)
         JuMP.@constraint(m, sum(λ[i]*fd[i] for i in 1:n) == z)
@@ -105,7 +105,7 @@ function piecewiselinear(m::JuMP.Model, x::VarOrAff, pwl::UnivariatePWLFunction;
         elseif method == :SymmetricCelaya
             sos2_symmetric_celaya_formulation!(m, λ)
         elseif method == :SOS2
-            JuMP.addSOS2(m, [i*λ[i] for i in 1:n])
+            JuMP.@constraint(m, λ in MOI.SOS2([i for i in 1:n]))
         else
             error("Unrecognized method $method")
         end
@@ -117,7 +117,7 @@ end
 function sos2_cc_formulation!(m::JuMP.Model, λ)
     counter = m.ext[:PWL].counter
     n = length(λ)
-    y = JuMP.@variable(m, [1:n-1], Bin, basename="y_$counter")
+    y = JuMP.@variable(m, [1:n-1], Bin, base_name="y_$counter")
     JuMP.@constraint(m, sum(y) == 1)
     JuMP.@constraint(m, λ[1] ≤ y[1])
     for i in 2:n-1
@@ -130,8 +130,8 @@ end
 # function sos2_mc_formulation!(m::JuMP.Model, λ) # not currently used
 #     counter = m.ext[:PWL].counter
 #     n = length(λ)
-#     γ = JuMP.@variable(m, [1:n-1, 1:n],     basename="γ_$counter")
-#     y = JuMP.@variable(m, [1:n-1],     Bin, basename="y_$counter")
+#     γ = JuMP.@variable(m, [1:n-1, 1:n],     base_name="γ_$counter")
+#     y = JuMP.@variable(m, [1:n-1],     Bin, base_name="y_$counter")
 #     JuMP.@constraint(m, sum(y) == 1)
 #     JuMP.@constraint(m, sum(γ[i,:] for i in 1:n-1) .== λ)
 #     for i in 1:n-1
@@ -144,7 +144,7 @@ function sos2_logarithmic_formulation!(m::JuMP.Model, λ)
     counter = m.ext[:PWL].counter
     n = length(λ)-1
     k = ceil(Int,log2(n))
-    y = JuMP.@variable(m, [1:k], Bin, basename="y_$counter")
+    y = JuMP.@variable(m, [1:k], Bin, base_name="y_$counter")
     sos2_encoding_constraints!(m, λ, y, reflected_gray_codes(k), unit_vector_hyperplanes(k))
     return nothing
 end
@@ -153,7 +153,7 @@ function sos2_logarithmic_IB_formulation!(m::JuMP.Model, λ) # IB: independent b
     counter = m.ext[:PWL].counter
     n = length(λ)-1
     k = ceil(Int,log2(n))
-    y = JuMP.@variable(m, [1:k], Bin, basename="y_$counter")
+    y = JuMP.@variable(m, [1:k], Bin, base_name="y_$counter")
     _H = reflected_gray_codes(k)
     d = length(_H)
     H = Dict(i => _H[i] for i in 1:d)
@@ -172,7 +172,7 @@ function sos2_zigzag_formulation!(m::JuMP.Model, λ)
     counter = m.ext[:PWL].counter
     n = length(λ)-1
     k = ceil(Int,log2(n))
-    y = JuMP.@variable(m, [1:k], Bin, basename="y_$counter")
+    y = JuMP.@variable(m, [1:k], Bin, base_name="y_$counter")
     sos2_encoding_constraints!(m, λ, y, zigzag_codes(k), zigzag_hyperplanes(k))
     return nothing
 end
@@ -181,8 +181,8 @@ function sos2_zigzag_general_integer_formulation!(m::JuMP.Model, λ)
     counter = m.ext[:PWL].counter
     n = length(λ)-1
     k = ceil(Int,log2(n))
-    # TODO: tighter upperbounds
-    y = JuMP.@variable(m, [i=1:k], Int, lowerbound=0, upperbound=2^(k-i), basename="y_$counter")
+    # TODO: tighter upper_bounds
+    y = JuMP.@variable(m, [i=1:k], Int, lower_bound=0, upper_bound=2^(k-i), base_name="y_$counter")
     sos2_encoding_constraints!(m, λ, y, integer_zigzag_codes(k), unit_vector_hyperplanes(k))
     return nothing
 end
@@ -194,7 +194,7 @@ function sos2_generalized_celaya_formulation!(m::JuMP.Model, λ)
     codes = generalized_celaya_codes(k)
     lb = [minimum(t[i] for t in codes) for i in 1:k]
     ub = [maximum(t[i] for t in codes) for i in 1:k]
-    y = JuMP.@variable(m, [i=1:k], Int, lowerbound=lb[i], upperbound=ub[i], basename="y_$counter")
+    y = JuMP.@variable(m, [i=1:k], Int, lower_bound=lb[i], upper_bound=ub[i], base_name="y_$counter")
     sos2_encoding_constraints!(m, λ, y, codes, generalized_celaya_hyperplanes(k))
     return nothing
 end
@@ -206,7 +206,7 @@ function sos2_symmetric_celaya_formulation!(m::JuMP.Model, λ)
     codes = symmetric_celaya_codes(k)
     lb = [minimum(t[i] for t in codes) for i in 1:k]
     ub = [maximum(t[i] for t in codes) for i in 1:k]
-    y = JuMP.@variable(m, [i=1:k], Int, lowerbound=lb[i], upperbound=ub[i], basename="y_$counter")
+    y = JuMP.@variable(m, [i=1:k], Int, lower_bound=lb[i], upper_bound=ub[i], base_name="y_$counter")
     sos2_encoding_constraints!(m, λ, y, codes, symmetric_celaya_hyperplanes(k))
     return nothing
 end
@@ -555,13 +555,13 @@ function piecewiselinear(m::JuMP.Model, x₁::VarOrAff, x₂::VarOrAff, pwl::Biv
         fd[ˣtoⁱ[v[1]],ʸtoʲ[v[2]]] = fv
     end
 
-    z = JuMP.@variable(m, lowerbound=minimum(fd), upperbound=maximum(fd), basename="z_$counter")
+    z = JuMP.@variable(m, lower_bound=minimum(fd), upper_bound=maximum(fd), base_name="z_$counter")
 
     if method == :MC
-        x̂₁ = JuMP.@variable(m, [T],      basename="x̂₁_$counter")
-        x̂₂ = JuMP.@variable(m, [T],      basename="x̂₂_$counter")
-        ẑ  = JuMP.@variable(m, [T],      basename="ẑ_$counter")
-        y  = JuMP.@variable(m, [T], Bin, basename="y_$counter")
+        x̂₁ = JuMP.@variable(m, [T],      base_name="x̂₁_$counter")
+        x̂₂ = JuMP.@variable(m, [T],      base_name="x̂₂_$counter")
+        ẑ  = JuMP.@variable(m, [T],      base_name="ẑ_$counter")
+        y  = JuMP.@variable(m, [T], Bin, base_name="y_$counter")
         JuMP.@constraint(m, sum(y)  == 1)
         JuMP.@constraint(m, sum(x̂₁) == x₁)
         JuMP.@constraint(m, sum(x̂₂) == x₂)
@@ -570,14 +570,15 @@ function piecewiselinear(m::JuMP.Model, x₁::VarOrAff, x₂::VarOrAff, pwl::Biv
             @assert length(t) == 3
             r¹,  r²,  r³  = pwl.x[t[1]], pwl.x[t[2]], pwl.x[t[3]]
             fz¹, fz², fz³ = pwl.z[t[1]], pwl.z[t[2]], pwl.z[t[3]]
-            for P in [[1,2,3],[2,3,1],[3,1,2]]
+            for P in ([1,2,3], [2,3,1], [3,1,2])
                 p¹, p², p³ = [r¹, r², r³][P]
-                p¹, p², p³ = pwl.x[t[P[1]]], pwl.x[t[P[2]]], pwl.x[t[P[3]]]
+                # p¹, p², p³ = pwl.x[t[P[1]]], pwl.x[t[P[2]]], pwl.x[t[P[3]]]
 
                 A = [p¹[1] p¹[2] 1
                      p²[1] p²[2] 1
                      p³[1] p³[2] 1]
-                b = [0,0,1]
+                @assert rank(A) == 3
+                b = [0, 0, 1]
                 q = A \ b
                 @assert isapprox(q[1]*p¹[1] + q[2]*p¹[2] + q[3], 0, atol=1e-4)
                 @assert isapprox(q[1]*p²[1] + q[2]*p²[2] + q[3], 0, atol=1e-4)
@@ -599,7 +600,7 @@ function piecewiselinear(m::JuMP.Model, x₁::VarOrAff, x₂::VarOrAff, pwl::Biv
         X = pwl.x
         Z = pwl.z
         n = length(X)
-        γ = JuMP.@variable(m, [t=T,v=t], lowerbound=0, upperbound=1, basename="γ_$counter")
+        γ = JuMP.@variable(m, [t=T,v=t], lower_bound=0, upper_bound=1, base_name="γ_$counter")
         Tv = Dict(v => Any[] for v in 1:n)
         for t in T, v in t
             push!(Tv[v], t)
@@ -610,13 +611,13 @@ function piecewiselinear(m::JuMP.Model, x₁::VarOrAff, x₂::VarOrAff, pwl::Biv
         JuMP.@constraint(m, sum(sum(γ[t,i] for t in Tv[i]) * Z[i]    for i in 1:n) == z)
         r = ceil(Int, log2(length(T)))
         H = reflected_gray_codes(r)
-        y = JuMP.@variable(m, [1:r], Bin, basename="y_$counter")
+        y = JuMP.@variable(m, [1:r], Bin, base_name="y_$counter")
         for j in 1:r
             JuMP.@constraint(m, sum(sum(γ[T[i],v] for v in T[i])*H[i][j] for i in 1:length(T)) == y[j])
         end
     else
         # V-formulation methods
-        λ = JuMP.@variable(m, [1:nˣ,1:nʸ], lowerbound=0, upperbound=1, basename="λ_$counter")
+        λ = JuMP.@variable(m, [1:nˣ,1:nʸ], lower_bound=0, upper_bound=1, base_name="λ_$counter")
         JuMP.@constraint(m, sum(λ) == 1)
         JuMP.@constraint(m, sum(λ[i,j]*uˣ[i]   for i in 1:nˣ, j in 1:nʸ) == x₁)
         JuMP.@constraint(m, sum(λ[i,j]*uʸ[j]   for i in 1:nˣ, j in 1:nʸ) == x₂)
@@ -624,7 +625,7 @@ function piecewiselinear(m::JuMP.Model, x₁::VarOrAff, x₂::VarOrAff, pwl::Biv
 
         if method == :CC
             T = pwl.T
-            y = JuMP.@variable(m, [T], Bin, basename="y_$counter")
+            y = JuMP.@variable(m, [T], Bin, base_name="y_$counter")
             JuMP.@constraint(m, sum(y) == 1)
             Ts = Dict((i,j) => Vector{Int}[] for i in 1:nˣ, j in 1:nʸ)
             for t in T, ind in t
@@ -639,6 +640,7 @@ function piecewiselinear(m::JuMP.Model, x₁::VarOrAff, x₂::VarOrAff, pwl::Biv
             error("Incremental formulation for bivariate functions is not currently implemented.")
             # TODO: implement algorithm of Geissler et al. (2012)
         elseif method == :OptimalIB
+            error("Optimal IB formulation has not yet been updated for JuMP v0.19.")
             optimal_IB_scheme!(m, λ, pwl, subsolver)
         else
             # formulations with SOS2 along each dimension
@@ -664,12 +666,12 @@ function piecewiselinear(m::JuMP.Model, x₁::VarOrAff, x₂::VarOrAff, pwl::Biv
                 sos2_symmetric_celaya_formulation!(m, Tx)
                 sos2_symmetric_celaya_formulation!(m, Ty)
             elseif method == :SOS2
-                γˣ = JuMP.@variable(m, [1:nˣ], lowerbound=0, upperbound=1, basename="γˣ_$counter")
-                γʸ = JuMP.@variable(m, [1:nʸ], lowerbound=0, upperbound=1, basename="γʸ_$counter")
+                γˣ = JuMP.@variable(m, [1:nˣ], lower_bound=0, upper_bound=1, base_name="γˣ_$counter")
+                γʸ = JuMP.@variable(m, [1:nʸ], lower_bound=0, upper_bound=1, base_name="γʸ_$counter")
                 JuMP.@constraint(m, [tˣ in 1:nˣ], γˣ[tˣ] == sum(λ[tˣ,tʸ] for tʸ in 1:nʸ))
                 JuMP.@constraint(m, [tʸ in 1:nʸ], γʸ[tʸ] == sum(λ[tˣ,tʸ] for tˣ in 1:nˣ))
-                JuMP.addSOS2(m, [i*γˣ[i] for i in 1:nˣ])
-                JuMP.addSOS2(m, [i*γʸ[i] for i in 1:nʸ])
+                JuMP.@constraint(m, γˣ in MOI.SOS2([k for k in 1:nˣ]))
+                JuMP.@constraint(m, γʸ in MOI.SOS2([k for k in 1:nʸ]))
             else
                 error("Unrecognized method $method")
             end
@@ -687,7 +689,7 @@ function piecewiselinear(m::JuMP.Model, x₁::VarOrAff, x₂::VarOrAff, pwl::Biv
                 end
                 @assert 1 <= numT <= 2
 
-                w = JuMP.@variable(m, category=:Bin, basename="w_$counter")
+                w = JuMP.@variable(m, binary=true, base_name="w_$counter")
                 # if numT==1, then bottom-left is contained in only one point, and so needs separating; otherwise numT==2, and need to offset by one
                 JuMP.@constraints(m, begin
                     sum(λ[tx,ty] for tx in 1:2:nˣ, ty in    numT :2:nʸ) ≤     w
@@ -695,7 +697,7 @@ function piecewiselinear(m::JuMP.Model, x₁::VarOrAff, x₂::VarOrAff, pwl::Biv
                 end)
             elseif pattern == :K1
                 # assumption is that the triangulation is uniform, as defined in types.jl
-                w = JuMP.@variable(m, [1:2], Bin, basename="w_$counter")
+                w = JuMP.@variable(m, [1:2], Bin, base_name="w_$counter")
                 JuMP.@constraints(m, begin
                     sum(λ[tx,ty] for tx in 1:nˣ, ty in 1:nʸ if mod(tx,2) == mod(ty,2) && (tx+ty) in 2:4:(nˣ+nʸ)) ≤ w[1]
                     sum(λ[tx,ty] for tx in 1:nˣ, ty in 1:nʸ if mod(tx,2) == mod(ty,2) && (tx+ty) in 4:4:(nˣ+nʸ)) ≤ 1 - w[1]
@@ -703,6 +705,7 @@ function piecewiselinear(m::JuMP.Model, x₁::VarOrAff, x₂::VarOrAff, pwl::Biv
                     sum(λ[tx,ty] for tx in 1:nˣ, ty in 1:nʸ if mod(tx,2) != mod(ty,2) && (tx+ty) in 5:4:(nˣ+nʸ)) ≤ 1 - w[2]
                 end)
             elseif pattern == :OptimalTriangleSelection
+                error("Optimal triangle selection formulation has not yet been updated for JuMP v0.19.")
                 m.ext[:OptimalTriSelect] = Int[]
 
                 if !haskey(m.ext, :OptimalTriSelectCache)
@@ -786,7 +789,7 @@ function piecewiselinear(m::JuMP.Model, x₁::VarOrAff, x₂::VarOrAff, pwl::Biv
                         end
                     end
                 end
-                y = JuMP.@variable(m, [1:t], Bin, basename="Δselect_$counter")
+                y = JuMP.@variable(m, [1:t], Bin, base_name="Δselect_$counter")
 
                 for i in 1:t
                     JuMP.@constraints(m, begin
@@ -796,7 +799,7 @@ function piecewiselinear(m::JuMP.Model, x₁::VarOrAff, x₂::VarOrAff, pwl::Biv
                 end
                 push!(m.ext[:OptimalTriSelect], t)
             elseif pattern in (:Stencil,:Stencil9)
-                w = JuMP.@variable(m, [1:3,1:3], Bin, basename="w_$counter")
+                w = JuMP.@variable(m, [1:3,1:3], Bin, base_name="w_$counter")
                 for oˣ in 1:3, oʸ in 1:3
                     innoT = fill(true, nˣ, nʸ)
                     for (i,j,k) in pwl.T
@@ -838,7 +841,7 @@ function piecewiselinear(m::JuMP.Model, x₁::VarOrAff, x₂::VarOrAff, pwl::Biv
                 end
 
                 # diagonal lines running from SW to NE. Grouped with an offset of 3.
-                wⁿᵉ = JuMP.@variable(m, [0:2], Bin, basename="wⁿᵉ_$counter")
+                wⁿᵉ = JuMP.@variable(m, [0:2], Bin, base_name="wⁿᵉ_$counter")
                 for o in 0:2
                     Aᵒ = Set{Tuple{Int,Int}}()
                     Bᵒ = Set{Tuple{Int,Int}}()
@@ -889,7 +892,7 @@ function piecewiselinear(m::JuMP.Model, x₁::VarOrAff, x₂::VarOrAff, pwl::Biv
                     end)
                 end
 
-                wˢᵉ = JuMP.@variable(m, [0:2], Bin, basename="wˢᵉ_$counter")
+                wˢᵉ = JuMP.@variable(m, [0:2], Bin, base_name="wˢᵉ_$counter")
                 for o in 0:2
                     Aᵒ = Set{Tuple{Int,Int}}()
                     Bᵒ = Set{Tuple{Int,Int}}()

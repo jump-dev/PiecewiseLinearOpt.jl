@@ -3,6 +3,8 @@ __precompile__()
 module PiecewiseLinearOpt
 
 using JuMP
+import MathOptInterface
+const MOI = MathOptInterface
 using LinearAlgebra
 using Random
 
