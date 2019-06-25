@@ -1,5 +1,7 @@
 name = "PiecewiseLinearOpt"
 uuid = "0f51c51e-adfa-5141-8a04-d40246b8977c"
+repo = "https://github.com/joehuchette/PiecewiseLinearOpt.jl.git"
+version = "0.2.1"
 
 [deps]
 JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
