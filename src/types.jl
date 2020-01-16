@@ -5,7 +5,7 @@ struct PWLFunction{D}
     meta::Dict
 end
 
-function PWLFunction{D}(x::Vector{NTuple{D}}, z::Vector, T::Vector{Vector}, meta::Dict) where D <: Integer
+function PWLFunction{D}(x::Vector{NTuple{D}}, z::Vector, T::Vector{Vector}, meta::Dict) where {D}
     @assert length(x) == length(z)
     for t in T
         @assert minimum(t) > 0 && maximum(t) <= length(x)
