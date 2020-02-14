@@ -1,20 +1,14 @@
-# Documentation: http://docs.travis-ci.com/user/languages/julia/
 language: julia
+codecov: true
+coveralls: true
 os:
   - linux
   - osx
 julia:
-  - 0.7
   - 1.0
+  - 1.1
+  - 1.2
+  - 1.3
+  - 1.4
 notifications:
   email: false
-
-branches:
-  only:
-  - master
-
-after_success:
-  # push coverage results to Coveralls
-  - julia -e 'import Compat; using Compat.Pkg; cd(Pkg.dir("PiecewiseLinearOpt")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
-  # push coverage results to Codecov
-  - julia -e 'import Compat; using Compat.Pkg; cd(Pkg.dir("PiecewiseLinearOpt")); Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'
