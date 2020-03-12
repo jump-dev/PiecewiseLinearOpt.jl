@@ -1,13 +1,19 @@
+abstract type Method end
+abstract type UnivariateMethod <: Method end
+
+@enum DIRECTION Graph Epigraph Hypograph
+
 abstract type Segment{D,F} end
 
 struct SegmentPointRep{D,F} <: Segment{D,F}
     input_vals::Vector{NTuple{D,Float64}}
-    output_vals::Vector{NTuple{D,Float64}}
+    output_vals::Vector{NTuple{F,Float64}}
 
     function SegmentPointRep{D,F}(input_vals::Vector{NTuple{D,Float64}}, output_vals::Vector{NTuple{F,Float64}}) where {D,F}
         if length(input_vals) != length(output_vals)
             error("Must specify the same number of input and output values.")
         end
+        # TODO: Run verifier to ensure this is actually a PWL function
         return new{D,F}(input_vals, output_vals)
     end
 end
@@ -22,13 +28,13 @@ struct PWLFunction{D, F, T <: Segment{D, F}}
     segments::Vector{T}
     meta::Dict
 
-    function PWLFunction{T}(segments::Vector{T}) where {T <: Segment}
+    function PWLFunction{D, F, T}(segments::Vector{T}) where {D, F, T <: Segment}
         return new(segments, Dict())
     end
 end
 
-const UnivariatePWLFunction{F} = PWLFunction{SegmentPointRep{1,F}}
-const BivariatePWLFunction{F} = PWLFunction{SegmentPointRep{2,F}}
+const UnivariatePWLFunction{F} = PWLFunction{1, F, SegmentPointRep{1,F}}
+const BivariatePWLFunction{F} = PWLFunction{2, F, SegmentPointRep{2,F}}
 
 #
 # struct
