@@ -1,0 +1,1 @@
+struct ZigZagInteger <: Method end

@@ -1,6 +1,6 @@
-struct Logarithmic <: Method end
+struct LogarithmicEmbedding <: Method end
 
-function formulate_pwl!(model::JuMP.Model, input_vars::Tuple{VarOrAff}, output_vars::NTuple{F,VarOrAff}, pwl::UnivariatePWLFunction{F}, method::Logarithmic, direction::DIRECTION) where {F}
+function formulate_pwl!(model::JuMP.Model, input_vars::Tuple{VarOrAff}, output_vars::NTuple{F,VarOrAff}, pwl::UnivariatePWLFunction{F}, method::LogarithmicEmbedding, direction::DIRECTION) where {F}
     grid = _continuous_gridpoints_or_die(pwl)
 
     λ = _create_convex_multiplier_vars(model, grid, input_vars, output_vars, direction)
@@ -8,7 +8,7 @@ function formulate_pwl!(model::JuMP.Model, input_vars::Tuple{VarOrAff}, output_v
     return
 end
 
-function formulate_sos2!(model::JuMP.Model, λ::Vector{T}, method::Logarithmic) where {T <: VarOrAff}
+function formulate_sos2!(model::JuMP.Model, λ::Vector{T}, method::LogarithmicEmbedding) where {T <: VarOrAff}
     counter = model.ext[:PWL].counter
     n = length(λ)
     d = n - 1

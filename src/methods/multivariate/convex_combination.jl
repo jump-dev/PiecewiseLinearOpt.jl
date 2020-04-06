@@ -1,0 +1,1 @@
+struct ConvexCombination <: Method end

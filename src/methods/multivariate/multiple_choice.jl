@@ -1,0 +1,1 @@
+struct MultipleChoice <: Method end
