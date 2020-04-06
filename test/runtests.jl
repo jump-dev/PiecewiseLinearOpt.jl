@@ -9,17 +9,43 @@ const MOI = MathOptInterface
 using PiecewiseLinearOpt
 const PLO = PiecewiseLinearOpt
 
-# TODO: Add :SOS2 to this list, once Cbc supports it
-methods_1D = (Incremental(), Logarithmic())
+const methods_1D = (Incremental(), Logarithmic())
 @testset "Simple univariate" begin
-    m = JuMP.Model(Gurobi.Optimizer)
-    JuMP.@variable(m, x)
+    model = JuMP.Model(Gurobi.Optimizer)
+    JuMP.@variable(model, x)
 
     s1 = PLO.SegmentPointRep{1,1}([(1.,), (2.,)], [(2.5,), (3.5,)])
     s2 = PLO.SegmentPointRep{1,1}([(2.,), (3.,)], [(3.5,), (1.0,)])
     pwl = PLO.PWLFunction{1,1,PLO.SegmentPointRep{1,1}}([s1, s2])
 
-    piecewiselinear(m, x, pwl, method=PLO.Incremental())
+    y = piecewiselinear(model, (x,), pwl, method=PLO.Incremental())
+    JuMP.@objective(model, Min, y[1])
+
+    JuMP.optimize!(model)
+
+    @test JuMP.termination_status(model) == MOI.OPTIMAL
+    @test JuMP.value(x) ≈ 3.0 rtol=1e-4
+    @test JuMP.value(y[1]) ≈ 1.0 rtol=1e-4
+end
+
+const methods_2D = (Incremental(), Logarithmic())
+@testset "Simple bivariate" begin
+    model = JuMP.Model(Gurobi.Optimizer)
+    JuMP.@variable(model, x[1:2])
+
+    s1 = PLO.SegmentPointRep{2,1}([(0.0, 0.0), (0.0, 1.0), (1.0, 1.0)], [(0.0,), (1.0,), (2.0,)])
+    s2 = PLO.SegmentPointRep{2,1}([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0)], [(0.0,), (3.0,), (2.0,)])
+    pwl = PLO.PWLFunction{2,1,PLO.SegmentPointRep{2,1}}([s1, s2])
+
+    y = piecewiselinear(model, (x[1], x[2]), pwl)
+    JuMP.@objective(model, Min, y[1])
+
+    JuMP.optimize!(model)
+
+    @test JuMP.termination_status(model) == MOI.OPTIMAL
+    @test JuMP.value(x[1]) ≈ 0.0 rtol=1e-4
+    @test JuMP.value(x[2]) ≈ 0.0 rtol=1e-4
+    @test JuMP.value(y[1]) ≈ 0.0 rtol=1e-4
 end
 
 @testset "1D: $method" for method in methods_1D
@@ -34,24 +60,26 @@ end
         push!(segments, PLO.SegmentPointRep{1,1}([(x_l,), (x_r,)], [(sin(x_l),), (sin(x_r),)]))
     end
     pwl = PLO.PWLFunction{1,1,PLO.SegmentPointRep{1,1}}(segments)
-    z = piecewiselinear(model, x, pwl, method=method)
-    JuMP.@objective(model, Max, z)
+    y = piecewiselinear(model, (x,), pwl, method=method)
+    JuMP.@objective(model, Max, y[1])
 
     JuMP.optimize!(model)
 
     @test JuMP.termination_status(model) == MOI.OPTIMAL
     @test JuMP.value(x) ≈ 1.75474 rtol=1e-4
-    @test JuMP.value(z) ≈ 0.98313 rtol=1e-4
+    @test JuMP.value(y[1]) ≈ 0.98313 rtol=1e-4
+    @test JuMP.objective_value(model) ≈ 0.98313 rtol=1e-4
+    @test JuMP.objective_value(model) ≈ JuMP.value(y[1]) rtol=1e-4
 
-    JuMP.@constraint(model, x ≤ 1.5z)
+    JuMP.@constraint(model, x ≤ 1.5y[1])
 
     JuMP.optimize!(model)
 
     @test JuMP.termination_status(model) == MOI.OPTIMAL
     @test JuMP.value(x) ≈ 1.36495 rtol=1e-4
-    @test JuMP.value(z) ≈ 0.90997 rtol=1e-4
+    @test JuMP.value(y[1]) ≈ 0.90997 rtol=1e-4
     @test JuMP.objective_value(model) ≈ 0.90997 rtol=1e-4
-    @test JuMP.objective_value(model) ≈ JuMP.value(z) rtol=1e-4
+    @test JuMP.objective_value(model) ≈ JuMP.value(y[1]) rtol=1e-4
 end
 
 # println("\nbivariate tests")

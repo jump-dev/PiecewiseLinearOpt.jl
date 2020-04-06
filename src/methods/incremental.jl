@@ -1,7 +1,8 @@
 struct Incremental <: Method end
 
-function _formulate!(model::JuMP.Model, input_vars::Tuple{VarOrAff}, output_vars::NTuple{F,VarOrAff}, pwl::UnivariatePWLFunction, method::Incremental, direction::DIRECTION) where {F}
-    xs, ys = _continuous_breakpoints_or_die(pwl)
+function formulate_pwl!(model::JuMP.Model, input_vars::Tuple{VarOrAff}, output_vars::NTuple{F,VarOrAff}, pwl::UnivariatePWLFunction, method::Incremental, direction::DIRECTION) where {F}
+    grid = _continuous_gridpoints_or_die(pwl)
+    @show xs, ys = grid.input_vals, grid.output_vals
 
     counter = model.ext[:PWL].counter
     n = length(pwl.segments) + 1

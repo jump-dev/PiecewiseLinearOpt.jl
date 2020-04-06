@@ -1,15 +1,42 @@
-function _continuous_breakpoints_or_die(pwl::UnivariatePWLFunction{F}) where {F}
-    xs = Set{Tuple{Float64}}()
+# function _continuous_gridpoints_or_die(pwl::UnivariatePWLFunction{F}) where {F}
+#     xs = Set{Tuple{Float64}}()
+#     for segment in pwl.segments
+#         for val in segment.input_vals
+#             push!(xs, val)
+#         end
+#     end
+#     ys = Dict{Tuple{Float64},NTuple{F,Float64}}()
+#     for segment in pwl.segments
+#         for i in 1:length(segment.input_vals)
+#             x = segment.input_vals[i]
+#             y = segment.output_vals[i]
+#             if haskey(ys, x)
+#                 if y != ys[x]
+#                     error("Expected piecewise linear function to be continuous.")
+#                 end
+#             else
+#                 ys[x] = y
+#             end
+#         end
+#     end
+#     X = sort!(collect(xs))
+#     Y = [ys[x] for x in X]
+#     return X, Y
+# end
+
+function _continuous_gridpoints_or_die(pwl:: PWLFunction{D, F, SegmentPointRep{D, F}}) where {D, F}
+    # Step 1: Collect all input points
+    xs = Set{NTuple{D, Float64}}()
     for segment in pwl.segments
         for val in segment.input_vals
             push!(xs, val)
         end
     end
-    ys = Dict{Tuple{Float64},NTuple{F,Float64}}()
+
+    # Step 2: Verify continuity
+    ys = Dict{NTuple{D, Float64}, NTuple{F, Float64}}()
     for segment in pwl.segments
-        for i in 1:length(segment.input_vals)
-            x = segment.input_vals[i]
-            y = segment.output_vals[i]
+        for (x, y) in zip(segment.input_vals, segment.output_vals)
             if haskey(ys, x)
                 if y != ys[x]
                     error("Expected piecewise linear function to be continuous.")
@@ -19,9 +46,20 @@ function _continuous_breakpoints_or_die(pwl::UnivariatePWLFunction{F}) where {F}
             end
         end
     end
-    X = sort!(collect(xs))
-    Y = [ys[x] for x in X]
-    return X, Y
+
+    @assert length(xs) == length(ys)
+
+    # Step 3: Build grid, and verify every point is included in PWL function
+    axes = [sort!(unique(x[i] for x in xs)) for i in 1:D]
+
+    x_grid = collect(Base.Iterators.product(axes...))
+    y_grid = map(x -> get(ys, x, nothing), x_grid)
+
+    if length(x_grid) != length(xs)
+        error("Decomposition is not aligned along a grid.")
+    end
+
+    return Grid(x_grid, y_grid)
 end
 
 function _constrain_output_var(model::JuMP.Model, output_var::VarOrAff, func_val::VarOrAff, direction::DIRECTION)
@@ -36,23 +74,60 @@ function _constrain_output_var(model::JuMP.Model, output_var::VarOrAff, func_val
     return
 end
 
-function _create_convex_multiplier_vars(model::JuMP.Model, xs::Vector{NTuple{D,Float64}}, ys::Vector{NTuple{F,Float64}}, input_vars::NTuple{D,JuMP.VariableRef}, output_vars::NTuple{F,JuMP.VariableRef}, direction::DIRECTION) where {D,F}
-    counter = model.ext[:PWL].counter
-    n = length(xs)
-    @assert n == length(ys)
+struct Grid{D, F}
+    input_vals::Array{NTuple{D, Float64}, D}
+    output_vals::Array{NTuple{F, Float64}, D}
 
-    λ = JuMP.@variable(model, [1:n], lower_bound=0, upper_bound=1, base_name="λ_$counter")
+    function Grid(input_vals::Array{NTuple{D, Float64}, D}, output_vals::Array{NTuple{F, Float64}, D}) where {D, F}
+        if size(input_vals) != size(output_vals)
+            error("Incompatible input/output sizes $(size(input_vals)) and $(size(output_vals)). Must be the same.")
+        end
+        return new{D, F}(input_vals, output_vals)
+    end
+end
+
+function _create_convex_multiplier_vars(model::JuMP.Model, grid::Grid{D, F}, input_vars::NTuple{D,JuMP.VariableRef}, output_vars::NTuple{F,JuMP.VariableRef}, direction::DIRECTION) where {D,F}
+    counter = model.ext[:PWL].counter
+
+    # TODO: Name λ variables
+    λ = similar(Array{JuMP.VariableRef}, axes(grid.input_vals))
+    for I in eachindex(λ)
+        λ[I] = JuMP.@variable(model, lower_bound=0, upper_bound=1)
+    end
+
     JuMP.@constraint(model, sum(λ) == 1)
     for j in 1:D
-        JuMP.@constraint(model, sum(λ[i]* xs[i][j] for i in 1:n) == input_vars[j])
+        JuMP.@constraint(model, sum(λ[I] * grid.input_vals[I][j] for I in eachindex(λ)) == input_vars[j])
     end
     for j in 1:F
-        _constrain_output_var(model, output_vars[j], sum(λ[i]*ys[i][j] for i in 1:n), direction)
+        _constrain_output_var(model, output_vars[j], sum(λ[I]*grid.output_vals[I][j] for I in eachindex(λ)), direction)
     end
     return λ
 end
 
-function _sos2_encoding_constraints!(m::JuMP.Model, λ::Vector{JuMP.VariableRef}, y::Vector{JuMP.VariableRef}, h::Vector{Vector{Float64}}, B::Vector{Vector{Float64}})
+function _check_triangle(segment::SegmentPointRep{D}) where {D}
+    if !(length(segment.input_vals) == length(segment.output_vals) == D + 1)
+        error("Encountered something that was not a simplex while expecting a trianglulation.")
+    end
+    return
+end
+
+function _check_triangle(segment::SegmentHyperplaneRep{D}) where {D}
+    if length(segment.breakpoints) != D + 1
+        error("Encountered something that was not a simplex while expecting a trianglulation.")
+    end
+    return
+end
+
+function _check_triangulation(pwl::PWLFunction) where {D, F}
+    # TODO: Add check that segments lie in a single subrectangle
+    for segment in pwl.segments
+        _check_triangle(segment)
+    end
+    return
+end
+
+function _sos2_encoding_constraints!(m::JuMP.Model, λ::Vector{T}, y::Vector{JuMP.VariableRef}, h::Vector{Vector{Float64}}, B::Vector{Vector{Float64}}) where {T <: VarOrAff}
     n = length(λ) - 1
     for b in B
         JuMP.@constraints(m, begin
