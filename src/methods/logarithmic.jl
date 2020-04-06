@@ -1,17 +1,5 @@
 struct Logarithmic <: Method end
 
-function _reflected_gray_codes(k::Int)
-    if k == 0
-        return Vector{Float64}[]
-    elseif k == 1
-        return [[0.0], [1.0]]
-    else
-        codes′ = _reflected_gray_codes(k-1)
-        return vcat([vcat(code, 0.0) for code in codes′],
-                    [vcat(code, 1.0) for code in reverse(codes′)])
-    end
-end
-
 function formulate_pwl!(model::JuMP.Model, input_vars::Tuple{VarOrAff}, output_vars::NTuple{F,VarOrAff}, pwl::UnivariatePWLFunction{F}, method::Logarithmic, direction::DIRECTION) where {F}
     grid = _continuous_gridpoints_or_die(pwl)
 

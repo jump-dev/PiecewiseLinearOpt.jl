@@ -9,8 +9,8 @@ const MOI = MathOptInterface
 using PiecewiseLinearOpt
 const PLO = PiecewiseLinearOpt
 
-const methods_1D = (Incremental(), Logarithmic())
-@testset "Simple univariate" begin
+const methods_1D = (Incremental(), Logarithmic(), DisaggregatedLogarithmic())
+@testset "Simple univariate" for method in methods_1D
     model = JuMP.Model(Gurobi.Optimizer)
     JuMP.@variable(model, x)
 
@@ -18,7 +18,7 @@ const methods_1D = (Incremental(), Logarithmic())
     s2 = PLO.SegmentPointRep{1,1}([(2.,), (3.,)], [(3.5,), (1.0,)])
     pwl = PLO.PWLFunction{1,1,PLO.SegmentPointRep{1,1}}([s1, s2])
 
-    y = piecewiselinear(model, (x,), pwl, method=PLO.Incremental())
+    y = piecewiselinear(model, (x,), pwl, method=method)
     JuMP.@objective(model, Min, y[1])
 
     JuMP.optimize!(model)
@@ -28,8 +28,9 @@ const methods_1D = (Incremental(), Logarithmic())
     @test JuMP.value(y[1]) ≈ 1.0 rtol=1e-4
 end
 
-const methods_2D = (Incremental(), Logarithmic())
-@testset "Simple bivariate" begin
+const sos2_methods = (Logarithmic(),)
+const methods_2D = (DisaggregatedLogarithmic(), [SixStencil(sos2_method) for sos2_method in sos2_methods]...)
+@testset "Simple bivariate" for method in methods_2D
     model = JuMP.Model(Gurobi.Optimizer)
     JuMP.@variable(model, x[1:2])
 
@@ -37,7 +38,7 @@ const methods_2D = (Incremental(), Logarithmic())
     s2 = PLO.SegmentPointRep{2,1}([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0)], [(0.0,), (3.0,), (2.0,)])
     pwl = PLO.PWLFunction{2,1,PLO.SegmentPointRep{2,1}}([s1, s2])
 
-    y = piecewiselinear(model, (x[1], x[2]), pwl)
+    y = piecewiselinear(model, (x[1], x[2]), pwl, method = method)
     JuMP.@objective(model, Min, y[1])
 
     JuMP.optimize!(model)
