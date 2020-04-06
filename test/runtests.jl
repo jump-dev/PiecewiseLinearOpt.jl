@@ -9,7 +9,7 @@ const MOI = MathOptInterface
 using PiecewiseLinearOpt
 const PLO = PiecewiseLinearOpt
 
-const methods_1D = (Incremental(), Logarithmic(), DisaggregatedLogarithmic())
+const methods_1D = (DisaggregatedLogarithmic(), Incremental(), LogarithmicEmbedding(), LogarithmicIndependentBranching(), NativeSOS2(), ZigZagBinary(), ZigZagInteger())
 @testset "Simple univariate" for method in methods_1D
     model = JuMP.Model(Gurobi.Optimizer)
     JuMP.@variable(model, x)
@@ -28,7 +28,7 @@ const methods_1D = (Incremental(), Logarithmic(), DisaggregatedLogarithmic())
     @test JuMP.value(y[1]) ≈ 1.0 rtol=1e-4
 end
 
-const sos2_methods = (Logarithmic(),)
+const sos2_methods = (LogarithmicEmbedding(), LogarithmicIndependentBranching(), NativeSOS2(), ZigZagBinary(), ZigZagInteger())
 const methods_2D = (DisaggregatedLogarithmic(), [SixStencil(sos2_method) for sos2_method in sos2_methods]...)
 @testset "Simple bivariate" for method in methods_2D
     model = JuMP.Model(Gurobi.Optimizer)
