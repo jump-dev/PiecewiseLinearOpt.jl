@@ -1,5 +1,4 @@
 # PiecewiseLinearOpt
-
 A package for modeling optimization problems containing piecewise linear functions. Current support is for (the graphs of) continuous univariate functions.
 
 This package is an accompaniment to a paper entitled [_Nonconvex piecewise linear functions: Advanced formulations and simple modeling tools_](https://arxiv.org/abs/1708.00050), by Joey Huchette and Juan Pablo Vielma.
