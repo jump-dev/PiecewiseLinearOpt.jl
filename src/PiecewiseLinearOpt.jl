@@ -35,6 +35,8 @@ include(joinpath("methods", "univariate", "logarithmic_independent_branching.jl"
 include(joinpath("methods", "univariate", "native_sos2.jl"))
 include(joinpath("methods", "univariate", "zig_zag_binary.jl"))
 include(joinpath("methods", "univariate", "zig_zag_integer.jl"))
+# ConvexCombination has an SOS2 formulation, so defer this until after the
+# multivariate formulations are defined
 include(joinpath("methods", "univariate", "sos2_formulation_base.jl"))
 
 # Consider the colloqial "log" to refer to the embedding formulation
@@ -44,15 +46,17 @@ export Logarithmic
 export K1, NineStencil, SixStencil, UnionJack
 include(joinpath("methods", "bivariate", "k1.jl"))
 include(joinpath("methods", "bivariate", "nine_stencil.jl"))
+include(joinpath("methods", "bivariate", "optimal_triangle_selection.jl"))
 include(joinpath("methods", "bivariate", "six_stencil.jl"))
 include(joinpath("methods", "bivariate", "union_jack.jl"))
+include(joinpath("methods", "bivariate", "common.jl"))
 
 export ConvexCombination, DisaggregatedLogarithmic, MultipleChoice, OptimalIndependentBranching, OptimalTriangleSelection
 include(joinpath("methods", "multivariate", "convex_combination.jl"))
 include(joinpath("methods", "multivariate", "disaggregated_logarithmic.jl"))
 include(joinpath("methods", "multivariate", "multiple_choice.jl"))
-include(joinpath("methods", "multivariate", "optimal_independent_branching.jl"))
-include(joinpath("methods", "multivariate", "optimal_triangle_selection.jl"))
+# include(joinpath("methods", "multivariate", "optimal_independent_branching.jl"))
+# include(joinpath("methods", "multivariate", "optimal_triangle_selection.jl"))
 
 function formulate_pwl!(model::JuMP.Model, input_vals::Vector{NTuple{D,VarOrAff}}, output_vals::Vector{NTuple{F,VarOrAff}}, pwl::PWLFunction, method::Method, direction::DIRECTION) where {D,F}
     error("No support for a R^$D -> R^$F piecewise linear function using the $method method.")

@@ -8,10 +8,10 @@ function formulate_sos2!(model::JuMP.Model, λ::Vector{T}, method::ZigZagInteger
         return nothing
     end
     k = ceil(Int, log2(d))
-    codes = _integer_zigzag_codes(k)
-    lb = [minimum(t[i] for t in codes) for i in 1:k]
-    ub = [maximum(t[i] for t in codes) for i in 1:k]
-    y = JuMP.@variable(model, [i=1:k], Int, lower_bound = lb[i], upper_bound = ub[i], base_name = "y_$counter")
-    _sos2_encoding_constraints!(model, λ, y, codes, _unit_vector_hyperplanes(k))
+    if k == 0
+        return nothing
+    end
+    y = JuMP.@variable(model, [i in 1:k], Int, lower_bound = 0, upper_bound = 2^(k - i), base_name = "y_$counter")
+    _sos2_encoding_constraints!(model, λ, y, _integer_zigzag_codes(k), _unit_vector_hyperplanes(k))
     return nothing
 end

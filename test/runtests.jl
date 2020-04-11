@@ -9,7 +9,7 @@ const MOI = MathOptInterface
 using PiecewiseLinearOpt
 const PLO = PiecewiseLinearOpt
 
-const methods_1D = (DisaggregatedLogarithmic(), Incremental(), LogarithmicEmbedding(), LogarithmicIndependentBranching(), NativeSOS2(), ZigZagBinary(), ZigZagInteger())
+const methods_1D = (ConvexCombination(), DisaggregatedLogarithmic(), Incremental(), LogarithmicEmbedding(), LogarithmicIndependentBranching(), NativeSOS2(), ZigZagBinary(), ZigZagInteger())
 @testset "Simple univariate" for method in methods_1D
     model = JuMP.Model(Gurobi.Optimizer)
     JuMP.@variable(model, x)
@@ -28,8 +28,8 @@ const methods_1D = (DisaggregatedLogarithmic(), Incremental(), LogarithmicEmbedd
     @test JuMP.value(y[1]) ≈ 1.0 rtol=1e-4
 end
 
-const sos2_methods = (LogarithmicEmbedding(), LogarithmicIndependentBranching(), NativeSOS2(), ZigZagBinary(), ZigZagInteger())
-const methods_2D = (DisaggregatedLogarithmic(), [SixStencil(sos2_method) for sos2_method in sos2_methods]...)
+const sos2_methods = (ConvexCombination(), LogarithmicEmbedding(), LogarithmicIndependentBranching(), NativeSOS2(), ZigZagBinary(), ZigZagInteger())
+const methods_2D = (ConvexCombination(), DisaggregatedLogarithmic(), [K1(sos2_method) for sos2_method in methods_1D]..., [NineStencil(sos2_method) for sos2_method in methods_1D]..., [SixStencil(sos2_method) for sos2_method in methods_1D]..., [UnionJack(sos2_method) for sos2_method in methods_1D]...)
 @testset "Simple bivariate" for method in methods_2D
     model = JuMP.Model(Gurobi.Optimizer)
     JuMP.@variable(model, x[1:2])

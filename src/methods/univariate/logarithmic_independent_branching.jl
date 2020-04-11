@@ -8,6 +8,9 @@ function formulate_sos2!(model::JuMP.Model, λ::Vector{T}, method::LogarithmicIn
         return nothing
     end
     k = ceil(Int, log2(d))
+    if k == 0
+        return nothing
+    end
     z = JuMP.@variable(model, [1:k], Bin, base_name = "y_$counter")
     _H = _reflected_gray_codes(k)
     H = Dict(i => _H[i] for i in 1:d)

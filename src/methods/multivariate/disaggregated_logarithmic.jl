@@ -18,11 +18,13 @@ function formulate_pwl!(model::JuMP.Model, input_vars::NTuple{D, VarOrAff}, outp
     end
 
     r = ceil(Int, log2(length(segments)))
+    if r == 0
+        return nothing
+    end
     _H = _reflected_gray_codes(r)
     H = Dict(segments[i] => _H[i] for i in 1:length(segments))
     z = JuMP.@variable(model, [1:r], Bin, base_name = "z_$counter")
     for j in 1:r
         JuMP.@constraint(model, sum(sum(γ[seg, i] * H[seg][j] for i in 1:num_bps[seg]) for seg in segments) == z[j])
     end
-    return
 end

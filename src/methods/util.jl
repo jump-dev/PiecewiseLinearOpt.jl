@@ -60,6 +60,23 @@ function _continuous_gridpoints_or_die(pwl:: PWLFunction{D, F, SegmentPointRep{D
     return Grid(x_grid, y_grid)
 end
 
+function _canonicalize_triangulation(pwl::PWLFunction{D, F, SegmentPointRep{D, F}}, grid::Grid{D, F}) where {D, F}
+    _check_triangulation(pwl)
+
+    xs = grid.input_vals
+    U = [unique(x[j] for x in xs) for j in 1:D]
+    for j in 1:D
+        @assert issorted(U[j])
+    end
+    x_to_i = [Dict(U[j][i] => i for i in 1:size(xs, j)) for j in 1:D]
+
+    canonical_input_segments = Vector{NTuple{D, Float64}}[]
+    for segment in pwl.segments
+        push!(canonical_input_segments, [ntuple(j -> x_to_i[j][v[j]], D) for v in segment.input_vals])
+    end
+    return canonical_input_segments
+end
+
 function _create_convex_multiplier_vars(model::JuMP.Model, grid::Grid{D, F}, input_vars::NTuple{D,JuMP.VariableRef}, output_vars::NTuple{F,JuMP.VariableRef}, direction::DIRECTION) where {D,F}
     counter = model.ext[:PWL].counter
 
