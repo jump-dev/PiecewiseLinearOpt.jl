@@ -43,9 +43,10 @@ include(joinpath("methods", "univariate", "sos2_formulation_base.jl"))
 const Logarithmic = LogarithmicEmbedding
 export Logarithmic
 
-export K1, NineStencil, SixStencil, UnionJack
+export K1, NineStencil, OptimalIndendentBranching, OptimalTriangleSelection, SixStencil, UnionJack
 include(joinpath("methods", "bivariate", "k1.jl"))
 include(joinpath("methods", "bivariate", "nine_stencil.jl"))
+include(joinpath("methods", "bivariate", "optimal_independent_branching.jl"))
 include(joinpath("methods", "bivariate", "optimal_triangle_selection.jl"))
 include(joinpath("methods", "bivariate", "six_stencil.jl"))
 include(joinpath("methods", "bivariate", "union_jack.jl"))
@@ -55,8 +56,6 @@ export ConvexCombination, DisaggregatedLogarithmic, MultipleChoice, OptimalIndep
 include(joinpath("methods", "multivariate", "convex_combination.jl"))
 include(joinpath("methods", "multivariate", "disaggregated_logarithmic.jl"))
 include(joinpath("methods", "multivariate", "multiple_choice.jl"))
-# include(joinpath("methods", "multivariate", "optimal_independent_branching.jl"))
-# include(joinpath("methods", "multivariate", "optimal_triangle_selection.jl"))
 
 function formulate_pwl!(model::JuMP.Model, input_vals::Vector{NTuple{D,VarOrAff}}, output_vals::Vector{NTuple{F,VarOrAff}}, pwl::PWLFunction, method::Method, direction::DIRECTION) where {D,F}
     error("No support for a R^$D -> R^$F piecewise linear function using the $method method.")

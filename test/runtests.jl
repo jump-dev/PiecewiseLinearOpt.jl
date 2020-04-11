@@ -29,7 +29,7 @@ const methods_1D = (ConvexCombination(), DisaggregatedLogarithmic(), Incremental
 end
 
 const sos2_methods = (ConvexCombination(), LogarithmicEmbedding(), LogarithmicIndependentBranching(), NativeSOS2(), ZigZagBinary(), ZigZagInteger())
-const methods_2D = (ConvexCombination(), DisaggregatedLogarithmic(), [K1(sos2_method) for sos2_method in methods_1D]..., [NineStencil(sos2_method) for sos2_method in methods_1D]..., [SixStencil(sos2_method) for sos2_method in methods_1D]..., [UnionJack(sos2_method) for sos2_method in methods_1D]...)
+const methods_2D = (ConvexCombination(), DisaggregatedLogarithmic(), OptimalIndendentBranching(Gurobi.Optimizer), [K1(sos2_method) for sos2_method in methods_1D]..., [NineStencil(sos2_method) for sos2_method in methods_1D]..., [OptimalTriangleSelection(Gurobi.Optimizer, sos2_method) for sos2_method in methods_1D]..., [SixStencil(sos2_method) for sos2_method in methods_1D]..., [UnionJack(sos2_method) for sos2_method in methods_1D]...)
 @testset "Simple bivariate" for method in methods_2D
     model = JuMP.Model(Gurobi.Optimizer)
     JuMP.@variable(model, x[1:2])
