@@ -31,7 +31,7 @@ function _continuous_gridpoints_or_die(pwl:: PWLFunction{D, F, SegmentPointRep{D
         end
     end
 
-    # Step 2: Verify continuity
+    # Step 2: Verify that function is not multivalued
     ys = Dict{NTuple{D, Float64}, NTuple{F, Float64}}()
     for segment in pwl.segments
         for (x, y) in zip(segment.input_vals, segment.output_vals)
@@ -45,6 +45,7 @@ function _continuous_gridpoints_or_die(pwl:: PWLFunction{D, F, SegmentPointRep{D
         end
     end
 
+
     @assert length(xs) == length(ys)
 
     # Step 3: Build grid, and verify every point is included in PWL function
@@ -55,6 +56,20 @@ function _continuous_gridpoints_or_die(pwl:: PWLFunction{D, F, SegmentPointRep{D
 
     if length(x_grid) != length(xs)
         error("Decomposition is not aligned along a grid.")
+    end
+
+    # Step 4: Verify that the domain is equal to the convex hull of the gridpoints
+    # TODO: Implement this.
+    if D == 1
+        if length(pwl.segments) != length(x_grid) - 1
+            error("Univariate piecewise linear function does not have a connected domain.")
+        end
+    elseif D == 2
+        if length(pwl.segments) != 2 * (size(x_grid, 1) - 1) * (size(x_grid, 2) - 1)
+            error("Bivariate piecewise linear function domain is not rectangular.")
+        end
+    else
+        Base.warn("Cannot currently verify that multivariate piecewise linear functions have domains equal to entire grid of breakpoints.")
     end
 
     return Grid(x_grid, y_grid)
