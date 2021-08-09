@@ -48,7 +48,7 @@ function BivariatePWLFunction(x, y, fz::Function; pattern=:BestFit, seed=hash((l
         @assert xU == X[SEt][1] == X[NEt][1]
         @assert yL == X[SWt][2] == X[SEt][2]
         @assert yU == X[NWt][2] == X[NEt][2]
-        SW, NW, NE, SE = fz(xL,yL), fz(xL,yU), fz(xU,yU), fz(xU,yL)
+        SW, NW, NE, SE = Z[SWt], Z[NWt], Z[NEt], Z[SEt]
         mid1 = 0.5*(SW+NE)
         mid2 = 0.5*(NW+SE)
 
