@@ -44,7 +44,7 @@ function BivariatePWLFunction(x, y, fz::Function; pattern=:BestFit, seed=hash((l
     m = length(x)
     n = length(y)
 
-    mt = MersenneTwister(seed)
+    mt = Random.MersenneTwister(seed)
     # run for each square on [x[i],x[i+1]] × [y[i],y[i+1]]
     for i in 1:length(x)-1, j in 1:length(y)-1
         SWt, NWt, NEt, SEt = LinearIndices((m,n))[i,j], LinearIndices((m,n))[i,j+1], LinearIndices((m,n))[i+1,j+1], LinearIndices((m,n))[i+1,j]

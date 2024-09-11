@@ -6,10 +6,10 @@
 module PiecewiseLinearOpt
 
 using JuMP
-import MathOptInterface
-const MOI = MathOptInterface
-using LinearAlgebra
-using Random
+
+import LinearAlgebra
+import MathOptInterface as MOI
+import Random
 
 export PWLFunction, UnivariatePWLFunction, BivariatePWLFunction, piecewiselinear
 

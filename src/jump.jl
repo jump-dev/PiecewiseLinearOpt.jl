@@ -220,8 +220,8 @@ function sos2_encoding_constraints!(m, λ, y, h, B)
     n = length(λ)-1
     for b in B
         JuMP.@constraints(m, begin
-            dot(b,h[1])*λ[1] + sum(min(dot(b,h[v]),dot(b,h[v-1]))*λ[v] for v in 2:n) + dot(b,h[n])*λ[n+1] ≤ dot(b,y)
-            dot(b,h[1])*λ[1] + sum(max(dot(b,h[v]),dot(b,h[v-1]))*λ[v] for v in 2:n) + dot(b,h[n])*λ[n+1] ≥ dot(b,y)
+            LinearAlgebra.dot(b,h[1])*λ[1] + sum(min(LinearAlgebra.dot(b,h[v]),LinearAlgebra.dot(b,h[v-1]))*λ[v] for v in 2:n) + LinearAlgebra.dot(b,h[n])*λ[n+1] ≤ LinearAlgebra.dot(b,y)
+            LinearAlgebra.dot(b,h[1])*λ[1] + sum(max(LinearAlgebra.dot(b,h[v]),LinearAlgebra.dot(b,h[v-1]))*λ[v] for v in 2:n) + LinearAlgebra.dot(b,h[n])*λ[n+1] ≥ LinearAlgebra.dot(b,y)
         end)
     end
     return nothing
@@ -365,9 +365,9 @@ function compute_hyperplanes(C::Vector{Vector{T}}) where T <: Number
         if indices == [n-1]
             break
         end
-        if rank(d[indices,:]) == length(indices) && length(indices) <= k-1
+        if LinearAlgebra.rank(d[indices,:]) == length(indices) && length(indices) <= k-1
             if length(indices) == k-1
-                nullsp = nullspace(d[indices,:])
+                nullsp = LinearAlgebra.nullspace(d[indices,:])
                 @assert size(nullsp,2) == 1
                 v = vec(nullsp)
                 push!(spanners, canonical!(v))
@@ -406,7 +406,7 @@ function compute_hyperplanes(C::Vector{Vector{T}}) where T <: Number
 end
 
 function canonical!(v::Vector{Float64})
-    normalize!(v)
+    LinearAlgebra.normalize!(v)
     for j in 1:length(v)
         if abs(v[j]) < 1e-8
             v[j] = 0
@@ -582,7 +582,7 @@ function piecewiselinear(m::JuMP.Model, x₁::VarOrAff, x₂::VarOrAff, pwl::Biv
                 A = [p¹[1] p¹[2] 1
                      p²[1] p²[2] 1
                      p³[1] p³[2] 1]
-                @assert rank(A) == 3
+                @assert LinearAlgebra.rank(A) == 3
                 b = [0, 0, 1]
                 q = A \ b
                 @assert isapprox(q[1]*p¹[1] + q[2]*p¹[2] + q[3], 0, atol=1e-4)
