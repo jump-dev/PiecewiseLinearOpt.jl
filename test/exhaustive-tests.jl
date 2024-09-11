@@ -1,3 +1,7 @@
+# Copyright (c) 2016: Joey Huchette and contributors
+#
+# Use of this source code is governed by an MIT-style license that can be found
+# in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
 # using Cbc # slow, not recommended
 # solver = CbcSolver(logLevel=0, integerTolerance=1e-9, primalTolerance=1e-9, ratioGap=1e-8)
