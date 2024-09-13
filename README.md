@@ -114,7 +114,7 @@ Supported bivariate formulations for entire constraint:
 
 * Convex combination (`:CC`)
 * Multiple choice (`:MC`)
-* Dissaggregated Logarithmic (`:DisaggLogarithmic`)
+* Disaggregated Logarithmic (`:DisaggLogarithmic`)
 
 Also, you can use any univariate formulation for bivariate functions as well.
 They will be used to impose two axis-aligned SOS2 constraints, along with the
