@@ -116,8 +116,8 @@ function PWLFunctionPointRep{2,1}(
             corners1 = [(xL, yL), (xL, yU), (xU, yL)] # SW, NW, SE
             corners2 = [(xU, yL), (xL, yU), (xU, yU)] # SE, NW, NE
         else
-            corners1 = [(xL, yL), (xL, yU), (xU, yL)] # SW, NW, SE
-            corners2 = [(xU, yL), (xL, yU), (xU, yU)] # SE, NW, NE
+            corners1 = [(xL, yL), (xU, yU), (xU, yL)] # SW, NE, SE
+            corners2 = [(xL, yL), (xL, yU), (xU, yU)] # SW, NW, NE
         end
 
         push!(segments, SegmentPointRep{2,1}(corners1, [(fz(c...),) for c in corners1]))
