@@ -5,7 +5,7 @@ UnionJack() = UnionJack(Logarithmic())
 
 axis_method(method::UnionJack) = method.axis_method
 
-function formulate_triangle_selection!(model::JuMP.Model, λ::Matrix{JuMP.VariableRef}, triangle_direction::Matrix{Bool}, method::UnionJack)
+function formulate_triangle_selection!(model::JuMP.Model, λ::Matrix{JuMP.VariableRef}, triangle_direction::Matrix{Bool}, method::UnionJack, _::UnionJackTriangulation)
     n_1, n_2 = size(λ)
     @assert size(triangle_direction) == (n_1 - 1, n_2 - 1)
     counter = model.ext[:PWL].counter

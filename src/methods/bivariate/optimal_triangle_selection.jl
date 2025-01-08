@@ -7,7 +7,7 @@ OptimalTriangleSelection(sub_solver) = OptimalTriangleSelection(sub_solver, Loga
 
 axis_method(method::OptimalTriangleSelection) = method.axis_method
 
-function formulate_triangle_selection!(model::JuMP.Model, λ::Matrix{JuMP.VariableRef}, triangle_direction::Matrix{Bool}, method::OptimalTriangleSelection)
+function formulate_triangle_selection!(model::JuMP.Model, λ::Matrix{JuMP.VariableRef}, triangle_direction::Matrix{Bool}, method::OptimalTriangleSelection, _::GridTriangulation)
     counter = model.ext[:PWL].counter
     n_1, n_2 = size(λ)
     J = Set((i, j) for i in 1:n_1, j in 1:n_2)

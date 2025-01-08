@@ -73,7 +73,7 @@ end
 # implementation works just fine.
 const SOS2Method = Union{LogarithmicEmbedding, LogarithmicIndependentBranching, NativeSOS2, ZigZagBinary, ZigZagInteger}
 
-function formulate_pwl!(model::JuMP.Model, input_vars::Tuple{VarOrAff}, output_vars::NTuple{F,VarOrAff}, pwl::UnivariatePWLFunction{F}, method::SOS2Method, direction::DIRECTION) where {F}
+function formulate_pwl!(model::JuMP.Model, input_vars::Tuple{VarOrAff}, output_vars::NTuple{F,VarOrAff}, pwl::PWLFunctionPointRep{1, F}, method::SOS2Method, direction::DIRECTION) where {F}
     grid = _continuous_gridpoints_or_die(pwl)
     λ = _create_convex_multiplier_vars(model, grid, input_vars, output_vars, direction)
     formulate_sos2!(model, λ, method)
@@ -92,7 +92,7 @@ function formulate_sos2!(model::JuMP.Model, λ::Vector{T}, method::Method) where
         push!(segments, SegmentPointRep{D, F}([(d[i],), (d[i+1],)], [output_left, output_right]))
     end
     dummy_input_var = JuMP.@variable(model, lower_bound = 0, upper_bound = 1)
-    dummy_pwl = UnivariatePWLFunction{F}(segments)
+    dummy_pwl = PWLFunctionPointRep{1, F}(segments, Intervals())
     formulate_pwl!(model, (dummy_input_var,), tuple(λ...), dummy_pwl, method, Graph)
     return nothing
 end

@@ -1,6 +1,6 @@
 const BivariateSOS2Method = Union{K1, OptimalTriangleSelection, NineStencil, SixStencil, UnionJack}
 
-function formulate_pwl!(model::JuMP.Model, input_vars::NTuple{2, VarOrAff}, output_vars::NTuple{F, VarOrAff}, pwl::BivariatePWLFunction{F}, method::BivariateSOS2Method, direction::DIRECTION) where {F}
+function formulate_pwl!(model::JuMP.Model, input_vars::NTuple{2, VarOrAff}, output_vars::NTuple{F, VarOrAff}, pwl::PWLFunctionPointRep{2, F}, method::BivariateSOS2Method, direction::DIRECTION) where {F}
     initPWL!(model)
     counter = model.ext[:PWL].counter
     counter += 1
@@ -58,5 +58,9 @@ function formulate_pwl!(model::JuMP.Model, input_vars::NTuple{2, VarOrAff}, outp
         end
     end
 
-    formulate_triangle_selection!(model, λ, triangle_direction, method)
+    formulate_triangle_selection!(model, λ, triangle_direction, method, pwl.structure)
+end
+
+function formulate_triangle_selection!(model::JuMP.Model, λ::Matrix{JuMP.VariableRef}, triangle_direction::Matrix{Bool}, method::BivariateSOS2Method, structure::GridTriangulation)
+    error("The triangulation structure $structure is not suppported for method $method")
 end

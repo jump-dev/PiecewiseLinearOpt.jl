@@ -5,7 +5,7 @@ K1() = K1(Logarithmic())
 
 axis_method(method::K1) = method.axis_method
 
-function formulate_triangle_selection!(model::JuMP.Model, λ::Matrix{JuMP.VariableRef}, triangle_direction::Matrix{Bool}, method::K1)
+function formulate_triangle_selection!(model::JuMP.Model, λ::Matrix{JuMP.VariableRef}, triangle_direction::Matrix{Bool}, method::K1, structure::K1Triangulation)
     n_1, n_2 = size(λ)
     @assert size(triangle_direction) == (n_1 - 1, n_2 - 1)
     counter = model.ext[:PWL].counter
