@@ -3,7 +3,6 @@ __precompile__()
 module PiecewiseLinearOpt
 
 import JuMP
-const MOI = JuMP.MOI
 using LinearAlgebra
 using Random
 

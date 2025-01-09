@@ -66,7 +66,7 @@ function formulate_triangle_selection!(model::JuMP.Model, λ::Matrix{JuMP.Variab
 
         JuMP.@objective(sub_model, Min, sum(x) + sum(y))
         JuMP.optimize!(sub_model)
-        if JuMP.primal_status(sub_model) == MOI.FEASIBLE_POINT
+        if JuMP.primal_status(sub_model) == JuMP.FEASIBLE_POINT
             x_val = JuMP.value.(x)
             y_val = JuMP.value.(y)
             break

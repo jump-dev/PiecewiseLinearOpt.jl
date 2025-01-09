@@ -115,7 +115,7 @@ function formulate_pwl!(model::JuMP.Model, input_vars::NTuple{2, VarOrAff}, outp
         JuMP.@objective(sub_model, Min, sum(x) + sum(y))
         JuMP.unset_silent(sub_model)
         JuMP.optimize!(sub_model)
-        if JuMP.primal_status(sub_model) == MOI.FEASIBLE_POINT
+        if JuMP.primal_status(sub_model) == JuMP.FEASIBLE_POINT
             x_val = JuMP.value.(x)
             y_val = JuMP.value.(y)
             break
