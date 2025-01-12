@@ -1,6 +1,10 @@
 struct LogarithmicIndependentBranching <: Method end
 
-function formulate_sos2!(model::JuMP.Model, λ::Vector{T}, method::LogarithmicIndependentBranching) where {T <: VarOrAff}
+function formulate_sos2!(
+    model::JuMP.Model,
+    λ::Vector{T},
+    method::LogarithmicIndependentBranching,
+) where {T<:VarOrAff}
     counter = model.ext[:PWL].counter
     n = length(λ)
     d = n - 1
@@ -17,10 +21,13 @@ function formulate_sos2!(model::JuMP.Model, λ::Vector{T}, method::LogarithmicIn
     H[0] = H[1]
     H[d+1] = H[d]
     for j in 1:k
-        JuMP.@constraints(model, begin
-            sum(λ[i] for i in 1:n if H[i-1][j] == H[i][j] == 1) ≤     z[j]
-            sum(λ[i] for i in 1:n if H[i-1][j] == H[i][j] == 0) ≤ 1 - z[j]
-        end)
+        JuMP.@constraints(
+            model,
+            begin
+                sum(λ[i] for i in 1:n if H[i-1][j] == H[i][j] == 1) ≤ z[j]
+                sum(λ[i] for i in 1:n if H[i-1][j] == H[i][j] == 0) ≤ 1 - z[j]
+            end
+        )
     end
     return nothing
 end

@@ -30,7 +30,12 @@ const VarOrAff = Union{JuMP.VariableRef,JuMP.AffExpr}
 
 include("methods/util.jl")
 
-export Incremental, LogarithmicEmbedding, LogarithmicIndependentBranching, NativeSOS2, ZigZagBinary, ZigZagInteger
+export Incremental,
+    LogarithmicEmbedding,
+    LogarithmicIndependentBranching,
+    NativeSOS2,
+    ZigZagBinary,
+    ZigZagInteger
 include("methods/univariate/incremental.jl")
 
 include("methods/univariate/logarithmic_embedding.jl")
@@ -46,7 +51,12 @@ include("methods/univariate/sos2_formulation_base.jl")
 const Logarithmic = LogarithmicEmbedding
 export Logarithmic
 
-export K1, NineStencil, OptimalIndependentBranching, OptimalTriangleSelection, SixStencil, UnionJack
+export K1,
+    NineStencil,
+    OptimalIndependentBranching,
+    OptimalTriangleSelection,
+    SixStencil,
+    UnionJack
 include("methods/bivariate/k1.jl")
 include("methods/bivariate/nine_stencil.jl")
 include("methods/bivariate/optimal_independent_branching.jl")
@@ -66,20 +76,25 @@ function formulate_pwl!(
     output_vals::Vector{NTuple{F,VarOrAff}},
     pwl::PWLFunction,
     method::Method,
-    direction::DIRECTION) where {D,F}
-    error("No support for a R^$D -> R^$F piecewise linear function using the $method method.")
+    direction::DIRECTION,
+) where {D,F}
+    return error(
+        "No support for a R^$D -> R^$F piecewise linear function using the $method method.",
+    )
 end
 
 _default_method(::Val{1}) = Logarithmic()
 _default_method(::Val{2}) = SixStencil()
 # _default_method(::Val) = MultipleChoice()
 
-function piecewiselinear(model::JuMP.Model,
-                         input_vars::NTuple{D,VarOrAff},
-                         pwl::PWLFunction{D,F,SegmentPointRep{D,F}};
-                         method::Method = _default_method(Val(D)),
-                         direction::DIRECTION = Graph,
-                         output_vars::Union{Nothing,NTuple{F,VarOrAff}} = nothing) where {D,F}
+function piecewiselinear(
+    model::JuMP.Model,
+    input_vars::NTuple{D,VarOrAff},
+    pwl::PWLFunction{D,F,SegmentPointRep{D,F}};
+    method::Method = _default_method(Val(D)),
+    direction::DIRECTION = Graph,
+    output_vars::Union{Nothing,NTuple{F,VarOrAff}} = nothing,
+) where {D,F}
     initPWL!(model)
     counter = model.ext[:PWL].counter
     counter += 1
@@ -87,15 +102,25 @@ function piecewiselinear(model::JuMP.Model,
 
     if isempty(pwl.segments)
         error(
-            "I don't know how to handle a piecewise linear function with no breakpoints."
+            "I don't know how to handle a piecewise linear function with no breakpoints.",
         )
     end
 
-    output_lb = minimum(minimum(segment.output_vals) for segment in pwl.segments)
-    output_ub = maximum(maximum(segment.output_vals) for segment in pwl.segments)
+    output_lb =
+        minimum(minimum(segment.output_vals) for segment in pwl.segments)
+    output_ub =
+        maximum(maximum(segment.output_vals) for segment in pwl.segments)
 
     if output_vars === nothing
-        output_vars = tuple(JuMP.@variable(model, [i in 1:F], lower_bound=output_lb[i], upper_bound=output_ub[i], base_name="y_$counter")...)
+        output_vars = tuple(
+            JuMP.@variable(
+                model,
+                [i in 1:F],
+                lower_bound = output_lb[i],
+                upper_bound = output_ub[i],
+                base_name = "y_$counter"
+            )...,
+        )
     end
 
     formulate_pwl!(model, input_vars, output_vars, pwl, method, direction)
@@ -108,7 +133,7 @@ function piecewiselinear(
     pwl::PWLFunction{1,1,SegmentPointRep{1,1}};
     method::Method = _default_method(Val(1)),
     direction::DIRECTION = Graph,
-    output_var::Union{Nothing, VarOrAff} = nothing
+    output_var::Union{Nothing,VarOrAff} = nothing,
 )
     return piecewiselinear(
         model,
@@ -116,7 +141,7 @@ function piecewiselinear(
         pwl;
         method = method,
         direction = direction,
-        output_vars = isnothing(output_var) ? nothing : (output_var,)
+        output_vars = isnothing(output_var) ? nothing : (output_var,),
     )[1]
 end
 
@@ -127,7 +152,7 @@ function piecewiselinear(
     pwl::PWLFunction{2,1,SegmentPointRep{2,1}};
     method::Method = _default_method(Val(2)),
     direction::DIRECTION = Graph,
-    output_var::Union{Nothing, VarOrAff} = nothing
+    output_var::Union{Nothing,VarOrAff} = nothing,
 )
     return piecewiselinear(
         model,
@@ -135,9 +160,8 @@ function piecewiselinear(
         pwl;
         method = method,
         direction = direction,
-        output_vars = isnothing(output_var) ? nothing : (output_var,)
+        output_vars = isnothing(output_var) ? nothing : (output_var,),
     )[1]
 end
-
 
 end # module
