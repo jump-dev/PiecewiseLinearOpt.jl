@@ -1,3 +1,7 @@
-.DS_Store
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
 Manifest.toml
+*.DS_Store
+.DS_Store
 .vscode/settings.json

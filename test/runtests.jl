@@ -1,3 +1,8 @@
+# Copyright (c) 2016: Joey Huchette and contributors
+#
+# Use of this source code is governed by an MIT-style license that can be found
+# in the LICENSE.md file or at https://opensource.org/licenses/MIT.
+
 using PiecewiseLinearOpt
 using HiGHS
 using JuMP
@@ -31,12 +36,10 @@ const methods_1D = [
     @objective(model, Min, y[1])
 
     optimize!(model)
-
     @test termination_status(model) == MOI.OPTIMAL
     @test value(x) ≈ 3.0 rtol=1e-4
     @test value(y[1]) ≈ 1.0 rtol=1e-4
 end
-
 const sos2_methods = [
     ConvexCombination(),
     LogarithmicEmbedding(),
@@ -45,7 +48,6 @@ const sos2_methods = [
     ZigZagBinary(),
     ZigZagInteger()
 ]
-
 const methods_2D_gen = [
     ConvexCombination(),
     DisaggregatedLogarithmic(),
@@ -54,11 +56,9 @@ const methods_2D_gen = [
     [OptimalTriangleSelection(optimizer, sos2_method) for sos2_method in methods_1D]...,
     [SixStencil(sos2_method) for sos2_method in methods_1D]...,
 ]
-
 @testset "Simple bivariate" for method in methods_2D_gen
     model = Model(optimizer)
     @variable(model, x[1:2])
-
     s1 = PLO.SegmentPointRep{2,1}([(0.0, 0.0), (0.0, 1.0), (1.0, 1.0)], [(0.0,), (1.0,), (2.0,)])
     s2 = PLO.SegmentPointRep{2,1}([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0)], [(0.0,), (3.0,), (2.0,)])
     pwl = PLO.PWLFunction{2,1,PLO.SegmentPointRep{2,1}}([s1, s2], PLO.UnstructuredTriangulation())
@@ -83,19 +83,14 @@ end
     pwl = PLO.UnivariatePWLFunction(xs, zs)
     y = piecewiselinear(model, x, pwl, method=method)
     @objective(model, Max, y)
-
     optimize!(model)
-
     @test termination_status(model) == MOI.OPTIMAL
     @test value(x) ≈ 1.75474 rtol=1e-4
     @test value(y) ≈ 0.98313 rtol=1e-4
     @test objective_value(model) ≈ 0.98313 rtol=1e-4
     @test objective_value(model) ≈ value(y) rtol=1e-4
-
     @constraint(model, x ≤ 1.5y)
-
     optimize!(model)
-
     @test termination_status(model) == MOI.OPTIMAL
     @test value(x) ≈ 1.36495 rtol=1e-4
     @test value(y) ≈ 0.90997 rtol=1e-4
