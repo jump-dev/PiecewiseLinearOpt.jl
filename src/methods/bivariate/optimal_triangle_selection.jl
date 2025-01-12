@@ -62,7 +62,7 @@ function formulate_triangle_selection!(
             if r[1] > s[1] || (r[1] == s[1] && r[2] ≥ s[2])
                 continue
             end
-            edge_is_far_away = norm(r .- s, Inf) > 1
+            edge_is_far_away = LinearAlgebra.norm(r .- s, Inf) > 1
             edge_is_diagonal =
                 !edge_is_far_away && (abs(r[1] - s[1]) == abs(r[2] - s[2]) == 1)
             if edge_is_diagonal

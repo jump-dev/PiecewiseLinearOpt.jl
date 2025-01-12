@@ -7,8 +7,8 @@ module PiecewiseLinearOpt
 
 using JuMP
 
-using LinearAlgebra
-using Random
+import LinearAlgebra
+import Random
 
 export PWLFunction, UnivariatePWLFunction, BivariatePWLFunction, piecewiselinear
 

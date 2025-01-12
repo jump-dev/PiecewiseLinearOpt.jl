@@ -230,9 +230,9 @@ function _compute_hyperplanes(C::Vector{Vector{T}}) where {T<:Number}
         if indices == [n - 1]
             break
         end
-        if rank(d[indices, :]) == length(indices) && length(indices) <= k - 1
+        if LinearAlgebra.rank(d[indices, :]) == length(indices) && length(indices) <= k - 1
             if length(indices) == k - 1
-                nullsp = nullspace(d[indices, :])
+                nullsp = LinearAlgebra.nullspace(d[indices, :])
                 @assert size(nullsp, 2) == 1
                 v = vec(nullsp)
                 push!(spanners, canonical!(v))

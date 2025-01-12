@@ -28,7 +28,7 @@ function formulate_pwl!(
             coeffs, offset = constraint.coeffs, constraint.offset
             JuMP.@constraint(
                 model,
-                dot(coeffs, x_hat[seg, :]) + offset * z[seg] ≥ 0
+                LinearAlgebra.dot(coeffs, x_hat[seg, :]) + offset * z[seg] ≥ 0
             )
         end
         for i in 1:F
@@ -36,7 +36,7 @@ function formulate_pwl!(
             coeffs, offset = output_func.coeffs, output_func.offset
             JuMP.@constraint(
                 model,
-                y_hat[seg, i] == dot(coeffs, x_hat[seg, :]) + offset * z[seg]
+                y_hat[seg, i] == LinearAlgebra.dot(coeffs, x_hat[seg, :]) + offset * z[seg]
             )
         end
     end

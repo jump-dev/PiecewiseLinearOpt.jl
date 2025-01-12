@@ -15,12 +15,12 @@ function _sos2_encoding_constraints!(
         JuMP.@constraints(
             m,
             begin
-                dot(b, h[1]) * λ[1] +
-                sum(min(dot(b, h[v]), dot(b, h[v-1])) * λ[v] for v in 2:n) +
-                dot(b, h[n]) * λ[n+1] ≤ dot(b, y)
-                dot(b, h[1]) * λ[1] +
-                sum(max(dot(b, h[v]), dot(b, h[v-1])) * λ[v] for v in 2:n) +
-                dot(b, h[n]) * λ[n+1] ≥ dot(b, y)
+                LinearAlgebra.dot(b, h[1]) * λ[1] +
+                sum(min(LinearAlgebra.dot(b, h[v]), LinearAlgebra.dot(b, h[v-1])) * λ[v] for v in 2:n) +
+                LinearAlgebra.dot(b, h[n]) * λ[n+1] ≤ LinearAlgebra.dot(b, y)
+                LinearAlgebra.dot(b, h[1]) * λ[1] +
+                sum(max(LinearAlgebra.dot(b, h[v]), LinearAlgebra.dot(b, h[v-1])) * λ[v] for v in 2:n) +
+                LinearAlgebra.dot(b, h[n]) * λ[n+1] ≥ LinearAlgebra.dot(b, y)
             end
         )
     end
