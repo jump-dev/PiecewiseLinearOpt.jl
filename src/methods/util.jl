@@ -1,3 +1,8 @@
+# Copyright (c) 2016: Joey Huchette and contributors
+#
+# Use of this source code is governed by an MIT-style license that can be found
+# in the LICENSE.md file or at https://opensource.org/licenses/MIT.
+
 function _constrain_output_var(
     model::JuMP.Model,
     output_var::VarOrAff,
