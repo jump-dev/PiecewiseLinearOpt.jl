@@ -3,8 +3,6 @@ __precompile__()
 module PiecewiseLinearOpt
 
 import JuMP
-import MathOptInterface
-const MOI = MathOptInterface
 using LinearAlgebra
 using Random
 
@@ -26,38 +24,45 @@ end
 
 const VarOrAff = Union{JuMP.VariableRef,JuMP.AffExpr}
 
-include(joinpath("methods", "util.jl"))
+include("methods/util.jl")
 
 export Incremental, LogarithmicEmbedding, LogarithmicIndependentBranching, NativeSOS2, ZigZagBinary, ZigZagInteger
-include(joinpath("methods", "univariate", "incremental.jl"))
-include(joinpath("methods", "univariate", "logarithmic_embedding.jl"))
-include(joinpath("methods", "univariate", "logarithmic_independent_branching.jl"))
-include(joinpath("methods", "univariate", "native_sos2.jl"))
-include(joinpath("methods", "univariate", "zig_zag_binary.jl"))
-include(joinpath("methods", "univariate", "zig_zag_integer.jl"))
+include("methods/univariate/incremental.jl")
+
+include("methods/univariate/logarithmic_embedding.jl")
+include("methods/univariate/logarithmic_independent_branching.jl")
+include("methods/univariate/native_sos2.jl")
+include("methods/univariate/zig_zag_binary.jl")
+include("methods/univariate/zig_zag_integer.jl")
 # ConvexCombination has an SOS2 formulation, so defer this until after the
 # multivariate formulations are defined
-include(joinpath("methods", "univariate", "sos2_formulation_base.jl"))
+include("methods/univariate/sos2_formulation_base.jl")
 
 # Consider the colloqial "log" to refer to the embedding formulation
 const Logarithmic = LogarithmicEmbedding
 export Logarithmic
 
-export K1, NineStencil, OptimalIndendentBranching, OptimalTriangleSelection, SixStencil, UnionJack
-include(joinpath("methods", "bivariate", "k1.jl"))
-include(joinpath("methods", "bivariate", "nine_stencil.jl"))
-include(joinpath("methods", "bivariate", "optimal_independent_branching.jl"))
-include(joinpath("methods", "bivariate", "optimal_triangle_selection.jl"))
-include(joinpath("methods", "bivariate", "six_stencil.jl"))
-include(joinpath("methods", "bivariate", "union_jack.jl"))
-include(joinpath("methods", "bivariate", "common.jl"))
+export K1, NineStencil, OptimalIndependentBranching, OptimalTriangleSelection, SixStencil, UnionJack
+include("methods/bivariate/k1.jl")
+include("methods/bivariate/nine_stencil.jl")
+include("methods/bivariate/optimal_independent_branching.jl")
+include("methods/bivariate/optimal_triangle_selection.jl")
+include("methods/bivariate/six_stencil.jl")
+include("methods/bivariate/union_jack.jl")
+include("methods/bivariate/common.jl")
 
-export ConvexCombination, DisaggregatedLogarithmic, MultipleChoice, OptimalIndependentBranching, OptimalTriangleSelection
-include(joinpath("methods", "multivariate", "convex_combination.jl"))
-include(joinpath("methods", "multivariate", "disaggregated_logarithmic.jl"))
-include(joinpath("methods", "multivariate", "multiple_choice.jl"))
+export ConvexCombination, DisaggregatedLogarithmic, MultipleChoice
+include("methods/multivariate/convex_combination.jl")
+include("methods/multivariate/disaggregated_logarithmic.jl")
+include("methods/multivariate/multiple_choice.jl")
 
-function formulate_pwl!(model::JuMP.Model, input_vals::Vector{NTuple{D,VarOrAff}}, output_vals::Vector{NTuple{F,VarOrAff}}, pwl::PWLFunction, method::Method, direction::DIRECTION) where {D,F}
+function formulate_pwl!(
+    model::JuMP.Model,
+    input_vals::Vector{NTuple{D,VarOrAff}},
+    output_vals::Vector{NTuple{F,VarOrAff}},
+    pwl::PWLFunction,
+    method::Method,
+    direction::DIRECTION) where {D,F}
     error("No support for a R^$D -> R^$F piecewise linear function using the $method method.")
 end
 
@@ -92,5 +97,43 @@ function piecewiselinear(model::JuMP.Model,
     formulate_pwl!(model, input_vars, output_vars, pwl, method, direction)
     return output_vars
 end
+
+function piecewiselinear(
+    model::JuMP.Model,
+    input_var::VarOrAff,
+    pwl::PWLFunction{1,1,SegmentPointRep{1,1}};
+    method::Method = _default_method(Val(1)),
+    direction::DIRECTION = Graph,
+    output_var::Union{Nothing, VarOrAff} = nothing
+)
+    return piecewiselinear(
+        model,
+        (input_var,),
+        pwl;
+        method = method,
+        direction = direction,
+        output_vars = isnothing(output_var) ? nothing : (output_var,)
+    )[1]
+end
+
+function piecewiselinear(
+    model::JuMP.Model,
+    input_var_x::VarOrAff,
+    input_var_y::VarOrAff,
+    pwl::PWLFunction{2,1,SegmentPointRep{2,1}};
+    method::Method = _default_method(Val(2)),
+    direction::DIRECTION = Graph,
+    output_var::Union{Nothing, VarOrAff} = nothing
+)
+    return piecewiselinear(
+        model,
+        (input_var_x, input_var_y),
+        pwl;
+        method = method,
+        direction = direction,
+        output_vars = isnothing(output_var) ? nothing : (output_var,)
+    )[1]
+end
+
 
 end # module

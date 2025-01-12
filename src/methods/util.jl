@@ -85,7 +85,7 @@ function _canonicalize_triangulation(pwl::PWLFunction{D, F, SegmentPointRep{D, F
     end
     x_to_i = [Dict(U[j][i] => i for i in 1:size(xs, j)) for j in 1:D]
 
-    canonical_input_segments = Vector{NTuple{D, Float64}}[]
+    canonical_input_segments = Vector{NTuple{D, Int64}}[]
     for segment in pwl.segments
         push!(canonical_input_segments, [ntuple(j -> x_to_i[j][v[j]], D) for v in segment.input_vals])
     end

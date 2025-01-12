@@ -6,7 +6,7 @@ SixStencil() = SixStencil(Logarithmic())
 axis_method(method::SixStencil) = method.axis_method
 
 # TODO: Unit tests for biclique cover
-function formulate_triangle_selection!(model::JuMP.Model, λ::Matrix{JuMP.VariableRef}, triangle_direction::Matrix{Bool}, method::SixStencil)
+function formulate_triangle_selection!(model::JuMP.Model, λ::Matrix{JuMP.VariableRef}, triangle_direction::Matrix{Bool}, method::SixStencil, _::GridTriangulation)
     n_1, n_2 = size(λ)
     @assert size(triangle_direction) == (n_1 - 1, n_2 - 1)
     counter = model.ext[:PWL].counter

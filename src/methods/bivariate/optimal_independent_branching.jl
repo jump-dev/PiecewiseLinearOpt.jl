@@ -1,9 +1,9 @@
 # TODO: Generalize to multivariate case.
-struct OptimalIndendentBranching <: Method
+struct OptimalIndependentBranching <: Method
     sub_solver
 end
 
-function formulate_pwl!(model::JuMP.Model, input_vars::NTuple{2, VarOrAff}, output_vars::NTuple{F, VarOrAff}, pwl::BivariatePWLFunction{F}, method::OptimalIndendentBranching, direction::DIRECTION) where {F}
+function formulate_pwl!(model::JuMP.Model, input_vars::NTuple{2, VarOrAff}, output_vars::NTuple{F, VarOrAff}, pwl::PWLFunctionPointRep{2, F}, method::OptimalIndependentBranching, direction::DIRECTION) where {F}
     initPWL!(model)
     counter = model.ext[:PWL].counter
     counter += 1
@@ -61,7 +61,7 @@ function formulate_pwl!(model::JuMP.Model, input_vars::NTuple{2, VarOrAff}, outp
 
     t = ceil(Int, log2(2 * (n_1 - 1) * (n_2 - 1)))
     while true
-        @show method.sub_solver
+        #@show method.sub_solver
         sub_model = JuMP.Model(method.sub_solver)
         JuMP.@variable(sub_model, x[1:t, J], Bin)
         JuMP.@variable(sub_model, y[1:t, J], Bin)
@@ -86,7 +86,7 @@ function formulate_pwl!(model::JuMP.Model, input_vars::NTuple{2, VarOrAff}, outp
             end
         end
 
-        @show J
+        #@show J
         for r in J, s in J
             # lexicographic ordering on points on grid
             if r[1] > s[1] || (r[1] == s[1] && r[2] ≥ s[2])
@@ -113,13 +113,15 @@ function formulate_pwl!(model::JuMP.Model, input_vars::NTuple{2, VarOrAff}, outp
         end
 
         JuMP.@objective(sub_model, Min, sum(x) + sum(y))
+        JuMP.unset_silent(sub_model)
         JuMP.optimize!(sub_model)
-        if JuMP.primal_status(sub_model) == MOI.FEASIBLE_POINT
+        if JuMP.primal_status(sub_model) == JuMP.FEASIBLE_POINT
             x_val = JuMP.value.(x)
             y_val = JuMP.value.(y)
             break
         else
             t += 1
+            @show t
         end
     end
     z = JuMP.@variable(model, [1:t], Bin, base_name = "z_$counter")
