@@ -162,8 +162,7 @@ end
     d = 7
     xs = collect(range(1; stop = 2π, length = (d + 1)))
     zs = sin.(xs)
-    pwl = PLO.UnivariatePWLFunction(xs, zs)
-    y = piecewiselinear(model, x, pwl; method = method)
+    y = piecewiselinear(model, x, xs, zs; method = method)
     @objective(model, Max, y)
     optimize!(model)
     @test termination_status(model) == MOI.OPTIMAL
@@ -197,8 +196,7 @@ append!(method_pattern, uj_methods)
     @variable(model, x[1:2])
     d = range(0; stop = 1, length = 8)
     f = (x1, x2) -> 2 * (x1 - 1 / 3)^2 + 3 * (x2 - 4 / 7)^4
-    pwl = PLO.BivariatePWLFunction(d, d, f; pattern = pattern)
-    z = piecewiselinear(model, x[1], x[2], pwl; method = method)
+    z = piecewiselinear(model, x[1], x[2], d, d, f; method = method, pattern = pattern)
     @objective(model, Min, z)
     optimize!(model)
     @test termination_status(model) == MOI.OPTIMAL

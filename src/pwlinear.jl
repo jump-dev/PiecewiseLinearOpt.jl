@@ -161,7 +161,7 @@ function piecewiselinear(
     return piecewiselinear(
         model,
         (input_var_x, input_var_y),
-        BivariatePWLFunction(x, y, f; pattern = UnstructuredTriangulation());
+        BivariatePWLFunction(x, y, f; pattern = pattern);
         method = method,
         direction = direction,
         output_vars = isnothing(output_var) ? nothing : (output_var,),
