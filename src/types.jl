@@ -74,12 +74,17 @@ function PWLFunctionPointRep{1,1}(x::Vector, z::Vector)
         ) for i in 1:length(x)-1
     ]
 
-    return UnivariatePWLFunction(segments, Intervals())
+    return PWLFunction(segments, Intervals())
 end
 
-function PWLFunctionPointRep{1,1}(x::Vector, fz::Function)
-    z = [fz(xi) for xi in x]
-    return UnivariatePWLFunction(x, z)
+function PWLFunctionPointRep{1,1}(x, f::Function)
+    d = collect(x)
+    fd = [f(xi) for xi in d]
+    return PWLFunctionPointRep{1,1}(d, fd)
+end
+
+function PWLFunctionPointRep{1,1}(x, z)
+    return PWLFunctionPointRep{1,1}(collect(x), collect(z))
 end
 
 function PWLFunctionPointRep{2,1}(
@@ -141,5 +146,5 @@ function PWLFunctionPointRep{2,1}(
         )
     end
 
-    return BivariatePWLFunction(segments, structure)
+    return PWLFunction(segments, structure)
 end

@@ -40,6 +40,79 @@ const methods_1D = [
     @test value(x) ≈ 3.0 rtol = 1e-4
     @test value(y[1]) ≈ 1.0 rtol = 1e-4
 end
+
+@testset "Univariate pwlinear" begin
+
+    d = 0:0.01:1
+    f = (xi -> xi^2)
+    fd = [f(xi) for xi in d]
+    pwl = UnivariatePWLFunction(d, f)
+
+    model = Model(optimizer)
+    @variable(model, x)
+    y1 = piecewiselinear(model, (x,), pwl)
+    @constraint(model, x ≤ 0.75)
+    @objective(model, Max, y1[1])
+    optimize!(model)
+    @test termination_status(model) == MOI.OPTIMAL
+    @test value(y1[1]) ≈ f(value(x)) rtol = 1e-4
+    @test objective_value(model) ≈ 0.5625 rtol = 1e-4
+
+    model = Model(optimizer)
+    @variable(model, x)
+    y2 = piecewiselinear(model, x, d, f)
+    @constraint(model, x ≤ 0.75)
+    @objective(model, Max, y2)
+    optimize!(model)
+    @test termination_status(model) == MOI.OPTIMAL
+    @test value(y2) ≈ f(value(x)) rtol = 1e-4
+    @test objective_value(model) ≈ 0.5625 rtol = 1e-4
+
+    model = Model(optimizer)
+    @variable(model, x)
+    y3 = piecewiselinear(model, x, d, fd)
+    @constraint(model, x ≤ 0.75)
+    @objective(model, Max, y3)
+    optimize!(model)
+    @test termination_status(model) == MOI.OPTIMAL
+    @test value(y3) ≈ f(value(x)) rtol = 1e-4
+    @test objective_value(model) ≈ 0.5625 rtol = 1e-4
+end
+
+@testset "Bivariate pwlinear" begin
+
+    d = 0:0.05:1
+    f = (xi, yi) -> xi^2 + yi^2
+    pwl = BivariatePWLFunction(d, d, f)
+
+    model = Model(optimizer)
+    @variable(model, x)
+    @variable(model, y)
+    z1 = piecewiselinear(model, (x, y), pwl)
+    @constraint(model, x ≤ 0.75)
+    @constraint(model, y ≤ 0.75)
+    @objective(model, Max, z1[1])
+    optimize!(model)
+    @test termination_status(model) == MOI.OPTIMAL
+    @test value(x) ≈ 0.75 rtol = 1e-4
+    @test value(y) ≈ 0.75 rtol = 1e-4
+    @test value(z1[1]) ≈ 1.125 rtol = 1e-4
+
+    model = Model(optimizer)
+    @variable(model, x)
+    @variable(model, y)
+    z2 = piecewiselinear(model, x, y, d, d, f)
+    @constraint(model, x ≤ 0.75)
+    @constraint(model, y ≤ 0.75)
+    @objective(model, Max, z2)
+    optimize!(model)
+    @test termination_status(model) == MOI.OPTIMAL
+    @test value(x) ≈ 0.75 rtol = 1e-4
+    @test value(y) ≈ 0.75 rtol = 1e-4
+    @test value(z2) ≈ 1.125 rtol = 1e-4
+
+end
+
 const sos2_methods = [
     ConvexCombination(),
     LogarithmicEmbedding(),
