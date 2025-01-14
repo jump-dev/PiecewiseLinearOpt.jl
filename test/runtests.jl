@@ -196,7 +196,16 @@ append!(method_pattern, uj_methods)
     @variable(model, x[1:2])
     d = range(0; stop = 1, length = 8)
     f = (x1, x2) -> 2 * (x1 - 1 / 3)^2 + 3 * (x2 - 4 / 7)^4
-    z = piecewiselinear(model, x[1], x[2], d, d, f; method = method, pattern = pattern)
+    z = piecewiselinear(
+        model,
+        x[1],
+        x[2],
+        d,
+        d,
+        f;
+        method = method,
+        pattern = pattern,
+    )
     @objective(model, Min, z)
     optimize!(model)
     @test termination_status(model) == MOI.OPTIMAL
