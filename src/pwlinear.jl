@@ -137,7 +137,7 @@ function piecewiselinear(
 )
     return piecewiselinear(
         model,
-        (input_var,) ,
+        (input_var,),
         UnivariatePWLFunction(d, fd);
         method = method,
         direction = direction,

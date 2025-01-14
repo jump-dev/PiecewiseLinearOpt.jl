@@ -16,10 +16,20 @@ function _sos2_encoding_constraints!(
             m,
             begin
                 LinearAlgebra.dot(b, h[1]) * λ[1] +
-                sum(min(LinearAlgebra.dot(b, h[v]), LinearAlgebra.dot(b, h[v-1])) * λ[v] for v in 2:n) +
+                sum(
+                    min(
+                        LinearAlgebra.dot(b, h[v]),
+                        LinearAlgebra.dot(b, h[v-1]),
+                    ) * λ[v] for v in 2:n
+                ) +
                 LinearAlgebra.dot(b, h[n]) * λ[n+1] ≤ LinearAlgebra.dot(b, y)
                 LinearAlgebra.dot(b, h[1]) * λ[1] +
-                sum(max(LinearAlgebra.dot(b, h[v]), LinearAlgebra.dot(b, h[v-1])) * λ[v] for v in 2:n) +
+                sum(
+                    max(
+                        LinearAlgebra.dot(b, h[v]),
+                        LinearAlgebra.dot(b, h[v-1]),
+                    ) * λ[v] for v in 2:n
+                ) +
                 LinearAlgebra.dot(b, h[n]) * λ[n+1] ≥ LinearAlgebra.dot(b, y)
             end
         )

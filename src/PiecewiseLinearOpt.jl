@@ -72,5 +72,4 @@ include("methods/multivariate/multiple_choice.jl")
 
 include("pwlinear.jl")
 
-
 end # module

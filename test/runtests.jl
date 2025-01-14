@@ -42,7 +42,6 @@ const methods_1D = [
 end
 
 @testset "Univariate pwlinear" begin
-
     d = 0:0.01:1
     f = (xi -> xi^2)
     fd = [f(xi) for xi in d]
@@ -80,7 +79,6 @@ end
 end
 
 @testset "Bivariate pwlinear" begin
-
     d = 0:0.05:1
     f = (xi, yi) -> xi^2 + yi^2
     pwl = BivariatePWLFunction(d, d, f)
@@ -110,7 +108,6 @@ end
     @test value(x) ≈ 0.75 rtol = 1e-4
     @test value(y) ≈ 0.75 rtol = 1e-4
     @test value(z2) ≈ 1.125 rtol = 1e-4
-
 end
 
 const sos2_methods = [
