@@ -3,131 +3,148 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
-struct PWLFunction{D}
-    x::Vector{NTuple{D,Float64}}
-    z::Vector{Float64}
-    T::Vector{Vector{Int}}
-    meta::Dict
-end
+abstract type Method end
+abstract type UnivariateMethod <: Method end
 
-function PWLFunction{D}(
-    x::Vector{NTuple{D}},
-    z::Vector,
-    T::Vector{Vector},
-    meta::Dict,
-) where {D}
-    @assert length(x) == length(z)
-    for t in T
-        @assert minimum(t) > 0 && maximum(t) <= length(x)
+@enum DIRECTION Graph Epigraph Hypograph
+
+# TODO: Make eltypes of input_vals and output_vals a type parameter
+abstract type Segment{D,F} end
+
+struct SegmentPointRep{D,F} <: Segment{D,F}
+    input_vals::Vector{NTuple{D,Float64}}
+    output_vals::Vector{NTuple{F,Float64}}
+
+    function SegmentPointRep{D,F}(
+        input_vals::Vector{NTuple{D,Float64}},
+        output_vals::Vector{NTuple{F,Float64}},
+    ) where {D,F}
+        if length(input_vals) != length(output_vals)
+            error("Must specify the same number of input and output values.")
+        end
+        # TODO: Run verifier to ensure this is actually a PWL function
+        return new{D,F}(input_vals, output_vals)
     end
-    return PWLFunction{D}(x, z, T, meta)
 end
 
-PWLFunction(x, z, T) = PWLFunction(x, z, T, Dict())
-
-const UnivariatePWLFunction = PWLFunction{1}
-
-function UnivariatePWLFunction(x, z)
-    @assert issorted(x)
-    return PWLFunction(
-        Tuple{Float64}[(xx,) for xx in x],
-        convert(Vector{Float64}, z),
-        [[i, i + 1] for i in 1:length(x)-1],
-    )
+struct AffineFunction{D}
+    coeffs::NTuple{D,Float64}
+    offset::Float64
 end
 
-function UnivariatePWLFunction(x, fz::Function)
-    @assert issorted(x)
-    return PWLFunction(
-        Tuple{Float64}[(xx,) for xx in x],
-        map(t -> convert(Float64, fz(t)), x),
-        [[i, i + 1] for i in 1:length(x)-1],
-    )
+struct SegmentHyperplaneRep{D,F} <: Segment{D,F}
+    # Domain given by f_i(x) >= 0 where f_i is i-th constraint in constraints
+    constraints::Vector{AffineFunction{D}}
+    funcs::NTuple{F,AffineFunction{D}}
 end
 
-const BivariatePWLFunction = PWLFunction{2}
+abstract type SegmentStructure{D} end
 
-function BivariatePWLFunction(
+struct Intervals <: SegmentStructure{1} end
+
+abstract type GridTriangulation <: SegmentStructure{2} end
+struct UnstructuredTriangulation <: GridTriangulation end
+struct K1Triangulation <: GridTriangulation end
+struct UnionJackTriangulation <: GridTriangulation end
+
+struct PWLFunction{D,F,T<:Segment{D,F}}
+    segments::Vector{T}
+    structure::SegmentStructure{D}
+end
+
+const PWLFunctionPointRep{D,F} = PWLFunction{D,F,SegmentPointRep{D,F}}
+const PWLFunctionHyperplaneRep{D,F} = PWLFunction{D,F,SegmentHyperplaneRep{D,F}}
+
+#const UnivariatePWLFunction{F} = PWLFunctionPointRep{1, F}
+#const BivariatePWLFunction{F} = PWLFunctionPointRep{2, F}
+
+const UnivariatePWLFunction = PWLFunctionPointRep{1,1}
+const BivariatePWLFunction = PWLFunctionPointRep{2,1}
+
+function PWLFunctionPointRep{1,1}(x::Vector, z::Vector)
+    if length(x) != length(z)
+        error("Mismatch in the number of points and function values")
+    end
+    xs = [convert(Float64, xi) for xi in x]
+    zs = [convert(Float64, zi) for zi in z]
+    segments = [
+        PiecewiseLinearOpt.SegmentPointRep{1,1}(
+            [(xs[i],), (xs[i+1],)],
+            [(zs[i],), (zs[i+1],)],
+        ) for i in 1:length(x)-1
+    ]
+
+    return PWLFunction(segments, Intervals())
+end
+
+function PWLFunctionPointRep{1,1}(x, f::Function)
+    d = collect(x)
+    fd = [f(xi) for xi in d]
+    return PWLFunctionPointRep{1,1}(d, fd)
+end
+
+function PWLFunctionPointRep{1,1}(x, z)
+    return PWLFunctionPointRep{1,1}(collect(x), collect(z))
+end
+
+function PWLFunctionPointRep{2,1}(
     x,
     y,
     fz::Function;
-    pattern = :BestFit,
+    pattern = :K1,
     seed = hash((length(x), length(y))),
 )
-    @assert issorted(x)
-    @assert issorted(y)
-    X = vec(collect(Base.product(x, y)))
-    # X = vec(Tuple{Float64,Float64}[(_x,_y) for _x in x, _y in y])
-    Z = map(t -> convert(Float64, fz(t...)), X)
-    T = Vector{Vector{Int}}()
-    m = length(x)
-    n = length(y)
-    mt = Random.MersenneTwister(seed)
-    # run for each square on [x[i],x[i+1]] × [y[i],y[i+1]]
-    for i in 1:length(x)-1, j in 1:length(y)-1
-        SWt, NWt, NEt, SEt = LinearIndices((m, n))[i, j],
-        LinearIndices((m, n))[i, j+1],
-        LinearIndices((m, n))[i+1, j+1],
-        LinearIndices((m, n))[i+1, j]
-        xL, xU, yL, yU = x[i], x[i+1], y[j], y[j+1]
-        @assert xL == X[SWt][1] == X[NWt][1]
-        @assert xU == X[SEt][1] == X[NEt][1]
-        @assert yL == X[SWt][2] == X[SEt][2]
-        @assert yU == X[NWt][2] == X[NEt][2]
-        SW, NW, NE, SE = Z[SWt], Z[NWt], Z[NEt], Z[SEt]
-        mid1 = 0.5 * (SW + NE)
-        mid2 = 0.5 * (NW + SE)
-        if pattern == :Upper
-            if mid1 > mid2
-                t1 = [SWt, NWt, NEt]
-                t2 = [SWt, NEt, SEt]
-            else
-                t1 = [SWt, NWt, SEt]
-                t2 = [SEt, NWt, NEt]
-            end
-        elseif pattern == :Lower
-            if mid1 > mid2
-                t1 = [SWt, NWt, SEt]
-                t2 = [SEt, NWt, NEt]
-            else
-                t1 = [SWt, NWt, NEt]
-                t2 = [SWt, NEt, SEt]
-            end
-        elseif pattern == :BestFit
-            mid3 = fz(0.5 * (xL + xU), 0.5 * (yL + yU))
-            if abs(mid1 - mid3) < abs(mid2 - mid3)
-                t1 = [SWt, NWt, NEt]
-                t2 = [SWt, NEt, SEt]
-            else
-                t1 = [SWt, NWt, SEt]
-                t2 = [SEt, NWt, NEt]
-            end
-        elseif pattern == :UnionJack
-            t1 = [SWt, SEt]
-            t2 = [NWt, NEt]
-            if iseven(i + j)
-                push!(t1, NWt)
-                push!(t2, SEt)
-            else
-                push!(t1, NEt)
-                push!(t2, SWt)
-            end
-        elseif pattern == :K1
-            t1 = [SEt, SWt, NWt]
-            t2 = [NWt, NEt, SEt]
-        elseif pattern == :Random
-            if rand(mt, Bool)
-                t1 = [NWt, NEt, SEt]
-                t2 = [SEt, SWt, NWt]
-            else
-                t1 = [SWt, NWt, NEt]
-                t2 = [NEt, SEt, SWt]
-            end
-        else
-            error("pattern $pattern not currently supported")
-        end
-        push!(T, t1)
-        push!(T, t2)
+    xs = [convert(Float64, xi) for xi in x]
+    ys = [convert(Float64, yi) for yi in y]
+
+    segments = SegmentPointRep{2,1}[]
+    structure = UnstructuredTriangulation()
+    if pattern == :K1
+        structure = K1Triangulation()
+    elseif pattern == :UnionJack
+        structure = UnionJackTriangulation()
     end
-    return PWLFunction{2}(X, Z, T, Dict(:structure => pattern))
+
+    mt = Random.MersenneTwister(seed)
+
+    # run for each square on [x[i],x[i+1]] × [y[i],y[i+1]]
+    for i in 1:length(xs)-1, j in 1:length(ys)-1
+        xL, xU, yL, yU = xs[i], xs[i+1], ys[j], ys[j+1]
+        mid1 = 0.5 * (fz(xL, yL) + fz(xU, yU))
+        mid2 = 0.5 * (fz(xL, yU) + fz(xU, yL))
+        mid3 = fz(0.5 * (xL + xU), 0.5 * (yL + yU))
+        diagonal_nw_se = true
+        if pattern == :Upper
+            diagonal_nw_se = (mid1 > mid2)
+        elseif pattern == :Lower
+            diagonal_nw_se = (mid1 < mid2)
+        elseif pattern == :BestFit
+            diagonal_nw_se = (abs(mid1 - mid3) < abs(mid2 - mid3))
+        elseif pattern == :K1
+            diagonal_nw_se = false
+        elseif pattern == :UnionJack
+            diagonal_nw_se = isodd(i + j)
+        elseif pattern == :Random
+            diagonal_nw_se = rand(mt, Bool)
+        end
+
+        if diagonal_nw_se
+            corners1 = [(xL, yL), (xL, yU), (xU, yL)] # SW, NW, SE
+            corners2 = [(xU, yL), (xL, yU), (xU, yU)] # SE, NW, NE
+        else
+            corners1 = [(xL, yL), (xU, yU), (xU, yL)] # SW, NE, SE
+            corners2 = [(xL, yL), (xL, yU), (xU, yU)] # SW, NW, NE
+        end
+
+        push!(
+            segments,
+            SegmentPointRep{2,1}(corners1, [(fz(c...),) for c in corners1]),
+        )
+        push!(
+            segments,
+            SegmentPointRep{2,1}(corners2, [(fz(c...),) for c in corners2]),
+        )
+    end
+
+    return PWLFunction(segments, structure)
 end
