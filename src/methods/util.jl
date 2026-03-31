@@ -175,7 +175,7 @@ function _check_triangle(segment::SegmentHyperplaneRep{D}) where {D}
     return
 end
 
-function _check_triangulation(pwl::PWLFunction) where {D,F}
+function _check_triangulation(pwl::PWLFunction)
     # TODO: Add check that segments lie in a single subrectangle
     for segment in pwl.segments
         _check_triangle(segment)
@@ -207,7 +207,7 @@ function _compute_hyperplanes(C::Vector{Vector{T}}) where {T<:Number}
         @assert n == 4
         spanners = Vector{Float64}[]
         for i in 1:n-1
-            v = canonical!(d[i, :])
+            v = _canonical!(d[i, :])
             v = [v[2], -v[1]]
             push!(spanners, v)
         end
@@ -236,7 +236,7 @@ function _compute_hyperplanes(C::Vector{Vector{T}}) where {T<:Number}
                 nullsp = LinearAlgebra.nullspace(d[indices, :])
                 @assert size(nullsp, 2) == 1
                 v = vec(nullsp)
-                push!(spanners, canonical!(v))
+                push!(spanners, _canonical!(v))
             end
             if indices[end] != n - 1
                 push!(indices, indices[end] + 1)
@@ -272,7 +272,7 @@ function _compute_hyperplanes(C::Vector{Vector{T}}) where {T<:Number}
 end
 
 function _canonical!(v::Vector{Float64})
-    normalize!(v)
+    LinearAlgebra.normalize!(v)
     for j in 1:length(v)
         if abs(v[j]) < 1e-8
             v[j] = 0

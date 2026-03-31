@@ -3,41 +3,59 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+"""
+    MultipleChoice()
+
+The multiple choice formulation for piecewise linear functions in hyperplane
+representation.
+
+This is the only method that supports `PWLFunction` objects with
+[`SegmentHyperplaneRep`](@ref PiecewiseLinearOpt.SegmentHyperplaneRep) segments,
+where each segment is defined by affine constraints and affine output functions.
+"""
 struct MultipleChoice <: Method end
 
 function formulate_pwl!(
     model::JuMP.Model,
-    input_vars::Tuple{VarOrAff},
+    input_vars::NTuple{D,VarOrAff},
     output_vars::NTuple{F,VarOrAff},
     pwl::PWLFunctionHyperplaneRep{D,F},
     method::MultipleChoice,
     direction::DIRECTION,
 ) where {D,F}
-    x_hat = JuMP.@variable(model, [segments, 1:D], base_name = "x_hat_$counter")
-    y_hat = JuMP.@variable(model, [segments, 1:F], base_name = "y_hat_$counter")
-    z = JuMP.@variable(model, [segments], Bin, base_name = "z_$counter")
+    counter = model.ext[:PWL].counter
+    segments = pwl.segments
+    S = 1:length(segments)
+    x_hat = JuMP.@variable(model, [S, 1:D], base_name = "x_hat_$counter")
+    y_hat = JuMP.@variable(model, [S, 1:F], base_name = "y_hat_$counter")
+    z = JuMP.@variable(model, [S], Bin, base_name = "z_$counter")
     JuMP.@constraint(model, sum(z) == 1)
     for i in 1:D
-        JuMP.@constraint(model, sum(x_hat[:, i]) == x[i])
+        JuMP.@constraint(model, sum(x_hat[:, i]) == input_vars[i])
     end
     for i in 1:F
-        JuMP.@constraint(model, sum(y_hat[:, i]) == y[i])
+        _constrain_output_var(
+            model,
+            output_vars[i],
+            sum(y_hat[:, i]),
+            direction,
+        )
     end
-    for seg in segments
+    for (s, seg) in enumerate(segments)
         for constraint in seg.constraints
             coeffs, offset = constraint.coeffs, constraint.offset
             JuMP.@constraint(
                 model,
-                LinearAlgebra.dot(coeffs, x_hat[seg, :]) + offset * z[seg] ≥ 0
+                LinearAlgebra.dot(coeffs, x_hat[s, :]) + offset * z[s] ≥ 0
             )
         end
         for i in 1:F
-            output_func = seg.output_funcs[i]
+            output_func = seg.funcs[i]
             coeffs, offset = output_func.coeffs, output_func.offset
             JuMP.@constraint(
                 model,
-                y_hat[seg, i] ==
-                LinearAlgebra.dot(coeffs, x_hat[seg, :]) + offset * z[seg]
+                y_hat[s, i] ==
+                LinearAlgebra.dot(coeffs, x_hat[s, :]) + offset * z[s]
             )
         end
     end

@@ -4,6 +4,15 @@
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
 # TODO: Implement bivariate version of the incremental formulation
+"""
+    Incremental()
+
+The incremental MIP formulation for univariate piecewise linear functions.
+
+Uses `n - 1` binary variables for a function with `n` breakpoints. The formulation
+is based on an incremental representation where each binary variable indicates
+whether the function has "passed" a given breakpoint.
+"""
 struct Incremental <: Method end
 
 function formulate_pwl!(

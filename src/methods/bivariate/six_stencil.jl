@@ -3,6 +3,18 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+"""
+    SixStencil()
+    SixStencil(axis_method::Method)
+
+Bivariate formulation using a six-stencil biclique cover for triangle selection.
+
+Uses 6 binary variables for triangle selection plus the binary variables from
+`axis_method` for the axis-aligned SOS2 constraints. Works with any grid
+triangulation pattern. This is the default method for bivariate functions.
+
+The default `axis_method` is [`Logarithmic`](@ref).
+"""
 struct SixStencil <: Method
     axis_method::Method
 end

@@ -3,6 +3,19 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+"""
+    UnionJack()
+    UnionJack(axis_method::Method)
+
+Bivariate formulation for Union Jack-triangulated grids.
+
+Uses only 1 binary variable for triangle selection plus the binary variables
+from `axis_method` for the axis-aligned SOS2 constraints. Requires the
+piecewise linear function to use a Union Jack triangulation
+(`pattern = :UnionJack`).
+
+The default `axis_method` is [`Logarithmic`](@ref).
+"""
 struct UnionJack <: Method
     axis_method::Method
 end

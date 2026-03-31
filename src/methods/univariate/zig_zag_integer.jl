@@ -3,6 +3,14 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+"""
+    ZigZagInteger()
+
+The zig-zag integer encoding formulation for SOS2 constraints.
+
+Uses `⌈log₂(n-1)⌉` general integer variables for `n` breakpoints. A variant
+of [`ZigZagBinary`](@ref) that uses integer variables instead of binary.
+"""
 struct ZigZagInteger <: Method end
 
 function formulate_sos2!(

@@ -3,6 +3,16 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+"""
+    LogarithmicEmbedding()
+
+The logarithmic embedding formulation for SOS2 constraints.
+
+Uses `⌈log₂(n-1)⌉` binary variables for `n` breakpoints, based on reflected
+Gray codes. This is the default method for univariate piecewise linear functions.
+
+`Logarithmic` is an alias for `LogarithmicEmbedding`.
+"""
 struct LogarithmicEmbedding <: Method end
 
 function formulate_sos2!(

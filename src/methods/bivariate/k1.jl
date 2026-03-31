@@ -3,6 +3,18 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+"""
+    K1()
+    K1(axis_method::Method)
+
+Bivariate formulation for K1-triangulated grids.
+
+Uses 2 binary variables for triangle selection plus the binary variables from
+`axis_method` for the axis-aligned SOS2 constraints. Requires the piecewise
+linear function to use a K1 triangulation (`pattern = :K1`).
+
+The default `axis_method` is [`Logarithmic`](@ref).
+"""
 struct K1 <: Method
     axis_method::Method
 end

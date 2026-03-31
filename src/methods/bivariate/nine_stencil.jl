@@ -3,6 +3,18 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+"""
+    NineStencil()
+    NineStencil(axis_method::Method)
+
+Bivariate formulation using a nine-stencil biclique cover for triangle selection.
+
+Uses 9 binary variables for triangle selection plus the binary variables from
+`axis_method` for the axis-aligned SOS2 constraints. Works with any grid
+triangulation pattern.
+
+The default `axis_method` is [`Logarithmic`](@ref).
+"""
 struct NineStencil <: Method
     axis_method::Method
 end

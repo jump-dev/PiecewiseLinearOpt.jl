@@ -6,11 +6,30 @@
 abstract type Method end
 abstract type UnivariateMethod <: Method end
 
+"""
+    DIRECTION
+
+Enum controlling how the output variable relates to the piecewise linear function value.
+
+- `Graph`: The output equals the function value, i.e., `z == f(x)`.
+- `Epigraph`: The output is an upper bound, i.e., `z >= f(x)`.
+- `Hypograph`: The output is a lower bound, i.e., `z <= f(x)`.
+"""
 @enum DIRECTION Graph Epigraph Hypograph
 
 # TODO: Make eltypes of input_vals and output_vals a type parameter
 abstract type Segment{D,F} end
 
+"""
+    SegmentPointRep{D,F}
+
+A segment of a piecewise linear function represented by its vertices (point representation).
+Each segment is a simplex defined by `D + 1` vertices in `D`-dimensional input space.
+
+# Fields
+- `input_vals::Vector{NTuple{D,Float64}}`: The input coordinates of the segment vertices.
+- `output_vals::Vector{NTuple{F,Float64}}`: The output values at each vertex.
+"""
 struct SegmentPointRep{D,F} <: Segment{D,F}
     input_vals::Vector{NTuple{D,Float64}}
     output_vals::Vector{NTuple{F,Float64}}
@@ -27,11 +46,27 @@ struct SegmentPointRep{D,F} <: Segment{D,F}
     end
 end
 
+"""
+    AffineFunction{D}
+
+An affine function `f(x) = coeffs ⋅ x + offset` in `D` dimensions.
+"""
 struct AffineFunction{D}
     coeffs::NTuple{D,Float64}
     offset::Float64
 end
 
+"""
+    SegmentHyperplaneRep{D,F}
+
+A segment of a piecewise linear function represented by affine constraints (hyperplane
+representation). The domain of the segment is defined by `f_i(x) >= 0` for each
+constraint, and the function values are given by affine functions.
+
+# Fields
+- `constraints::Vector{AffineFunction{D}}`: Linear constraints defining the segment domain.
+- `funcs::NTuple{F,AffineFunction{D}}`: Affine functions giving the output on this segment.
+"""
 struct SegmentHyperplaneRep{D,F} <: Segment{D,F}
     # Domain given by f_i(x) >= 0 where f_i is i-th constraint in constraints
     constraints::Vector{AffineFunction{D}}
@@ -47,6 +82,24 @@ struct UnstructuredTriangulation <: GridTriangulation end
 struct K1Triangulation <: GridTriangulation end
 struct UnionJackTriangulation <: GridTriangulation end
 
+"""
+    PWLFunction{D,F,T}
+
+A piecewise linear function from ℝ^D to ℝ^F, composed of a collection of
+segments of type `T`.
+
+`D` is the input dimension, `F` is the output dimension, and `T` is the
+segment representation type (either [`SegmentPointRep`](@ref PiecewiseLinearOpt.SegmentPointRep)
+or [`SegmentHyperplaneRep`](@ref PiecewiseLinearOpt.SegmentHyperplaneRep)).
+
+# Fields
+- `segments::Vector{T}`: The segments composing the piecewise linear function.
+- `structure::SegmentStructure{D}`: Metadata about the structure of the segments (e.g., grid triangulation type).
+
+# Type aliases
+- `UnivariatePWLFunction = PWLFunction{1,1,SegmentPointRep{1,1}}`: A univariate PWL function.
+- `BivariatePWLFunction = PWLFunction{2,1,SegmentPointRep{2,1}}`: A bivariate PWL function.
+"""
 struct PWLFunction{D,F,T<:Segment{D,F}}
     segments::Vector{T}
     structure::SegmentStructure{D}
@@ -58,7 +111,49 @@ const PWLFunctionHyperplaneRep{D,F} = PWLFunction{D,F,SegmentHyperplaneRep{D,F}}
 #const UnivariatePWLFunction{F} = PWLFunctionPointRep{1, F}
 #const BivariatePWLFunction{F} = PWLFunctionPointRep{2, F}
 
+"""
+    UnivariatePWLFunction
+
+A univariate piecewise linear function (ℝ → ℝ) in point representation.
+
+# Constructors
+
+    UnivariatePWLFunction(x::Vector, z::Vector)
+
+Construct from breakpoints `x` and corresponding function values `z`.
+
+    UnivariatePWLFunction(x, f::Function)
+
+Construct from breakpoints `x` and a function `f` evaluated at those points.
+
+# Examples
+```jldoctest
+julia> pwl = UnivariatePWLFunction([0.0, 1.0, 2.0], [0.0, 1.0, 0.0]);
+
+julia> pwl = UnivariatePWLFunction(0:0.5:2, x -> x^2);
+```
+"""
 const UnivariatePWLFunction = PWLFunctionPointRep{1,1}
+
+"""
+    BivariatePWLFunction
+
+A bivariate piecewise linear function (ℝ² → ℝ) in point representation,
+defined on a triangulated rectangular grid.
+
+# Constructor
+
+    BivariatePWLFunction(x, y, fz::Function; pattern=:K1, seed=...)
+
+Construct from grid breakpoints `x` and `y`, and a function `fz(xi, yi)`.
+The `pattern` keyword controls how grid rectangles are triangulated:
+- `:K1` (default), `:UnionJack`, `:BestFit`, `:Upper`, `:Lower`, `:Random`
+
+# Examples
+```jldoctest
+julia> pwl = BivariatePWLFunction(0:0.5:1, 0:0.5:1, (x, y) -> x + y);
+```
+"""
 const BivariatePWLFunction = PWLFunctionPointRep{2,1}
 
 function PWLFunctionPointRep{1,1}(x::Vector, z::Vector)

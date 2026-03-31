@@ -3,6 +3,15 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+"""
+    DisaggregatedLogarithmic()
+
+The disaggregated logarithmic formulation for piecewise linear functions.
+
+Uses `⌈log₂(S)⌉` binary variables where `S` is the number of segments.
+Works for any input dimension. More compact than [`ConvexCombination`](@ref)
+for functions with many segments.
+"""
 struct DisaggregatedLogarithmic <: Method end
 
 function formulate_pwl!(

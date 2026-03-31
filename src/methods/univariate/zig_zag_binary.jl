@@ -3,6 +3,14 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+"""
+    ZigZagBinary()
+
+The zig-zag binary encoding formulation for SOS2 constraints.
+
+Uses `⌈log₂(n-1)⌉` binary variables for `n` breakpoints with a zig-zag
+encoding scheme.
+"""
 struct ZigZagBinary <: Method end
 
 function formulate_sos2!(

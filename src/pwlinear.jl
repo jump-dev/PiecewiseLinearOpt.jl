@@ -106,6 +106,39 @@ function piecewiselinear(
     return output_vars
 end
 
+function piecewiselinear(
+    model::JuMP.Model,
+    input_vars::NTuple{D,VarOrAff},
+    pwl::PWLFunction{D,F,SegmentHyperplaneRep{D,F}};
+    method::Method = MultipleChoice(),
+    direction::DIRECTION = Graph,
+    output_vars::Union{Nothing,NTuple{F,VarOrAff}} = nothing,
+) where {D,F}
+    initPWL!(model)
+    counter = model.ext[:PWL].counter
+    counter += 1
+    model.ext[:PWL].counter = counter
+
+    if isempty(pwl.segments)
+        error(
+            "I don't know how to handle a piecewise linear function with no breakpoints.",
+        )
+    end
+
+    if output_vars === nothing
+        output_vars = tuple(
+            JuMP.@variable(
+                model,
+                [i in 1:F],
+                base_name = "y_$counter"
+            )...,
+        )
+    end
+
+    formulate_pwl!(model, input_vars, output_vars, pwl, method, direction)
+    return output_vars
+end
+
 # Specialization for univariate problems
 function piecewiselinear(
     model::JuMP.Model,

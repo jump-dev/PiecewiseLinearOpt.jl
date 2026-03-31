@@ -3,6 +3,14 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+"""
+    ConvexCombination()
+
+The convex combination ("lambda") formulation for piecewise linear functions.
+
+Uses one binary variable per segment. Works for any input dimension. Can also
+be used as a univariate SOS2 formulation method.
+"""
 struct ConvexCombination <: Method end
 
 function formulate_pwl!(

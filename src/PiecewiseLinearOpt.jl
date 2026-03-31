@@ -48,6 +48,12 @@ include("methods/univariate/zig_zag_integer.jl")
 include("methods/univariate/sos2_formulation_base.jl")
 
 # Consider the colloqial "log" to refer to the embedding formulation
+"""
+    Logarithmic
+
+Alias for [`LogarithmicEmbedding`](@ref). The default formulation method for
+univariate piecewise linear functions.
+"""
 const Logarithmic = LogarithmicEmbedding
 export Logarithmic
 
