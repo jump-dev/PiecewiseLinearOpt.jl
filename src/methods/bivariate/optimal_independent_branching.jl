@@ -16,11 +16,6 @@ function formulate_pwl!(
     method::OptimalIndependentBranching,
     direction::DIRECTION,
 ) where {F}
-    initPWL!(model)
-    counter = model.ext[:PWL].counter
-    counter += 1
-    model.ext[:PWL].counter = counter
-
     grid = _continuous_gridpoints_or_die(pwl)
 
     xs, ys = grid.input_vals, grid.output_vals
@@ -39,7 +34,7 @@ function formulate_pwl!(
         [1:n_1, 1:n_2],
         lower_bound = 0,
         upper_bound = 1,
-        base_name = "λ_$counter"
+        base_name = _pwl_name(model, "λ")
     )
     JuMP.@constraint(model, sum(λ) == 1)
     JuMP.@constraint(
@@ -165,7 +160,7 @@ function formulate_pwl!(
             @show t
         end
     end
-    z = JuMP.@variable(model, [1:t], Bin, base_name = "z_$counter")
+    z = JuMP.@variable(model, [1:t], Bin, base_name = _pwl_name(model, "z"))
 
     for k in 1:t
         JuMP.@constraints(

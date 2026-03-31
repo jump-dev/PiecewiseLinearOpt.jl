@@ -22,9 +22,8 @@ function formulate_pwl!(
     direction::DIRECTION,
 ) where {D,F}
     # TODO: assert PWL function is continuous
-    counter = model.ext[:PWL].counter
     segments = pwl.segments
-    z = JuMP.@variable(model, [segments], Bin, base_name = "z_$counter")
+    z = JuMP.@variable(model, [segments], Bin, base_name = _pwl_name(model, "z"))
     JuMP.@constraint(model, sum(z) == 1)
 
     all_input_vals = Set{NTuple{D,Float64}}()
@@ -49,7 +48,7 @@ function formulate_pwl!(
         [all_input_vals],
         lower_bound = 0,
         upper_bound = 1,
-        base_name = "λ_$counter"
+        base_name = _pwl_name(model, "λ")
     )
     JuMP.@constraint(model, sum(λ) == 1)
     for j in 1:D
@@ -81,9 +80,8 @@ function formulate_sos2!(
     λ::Vector{T},
     method::ConvexCombination,
 ) where {T<:VarOrAff}
-    counter = model.ext[:PWL].counter
     n = length(λ)
-    z = JuMP.@variable(model, [1:n-1], Bin, base_name = "z_$counter")
+    z = JuMP.@variable(model, [1:n-1], Bin, base_name = _pwl_name(model, "z"))
     JuMP.@constraint(model, sum(z) == 1)
     JuMP.@constraint(model, λ[1] ≤ z[1])
     for i in 2:n-1

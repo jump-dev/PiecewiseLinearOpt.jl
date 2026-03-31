@@ -26,6 +26,28 @@ function initPWL!(m::JuMP.Model)
     return nothing
 end
 
+"""
+    _next_pwl_id!(model::JuMP.Model) -> Int
+
+Atomically initialize the PWL extension (if needed), increment the counter,
+and return the new unique ID. Call this exactly once per `piecewiselinear()`
+invocation."""
+function _next_pwl_id!(model::JuMP.Model)
+    initPWL!(model)
+    model.ext[:PWL].counter += 1
+    return model.ext[:PWL].counter
+end
+
+"""
+    _pwl_name(model::JuMP.Model, varname::String) -> String
+
+Return a prefixed variable name like `"pwl3_λ"` using the current PWL counter.
+Use this in all formulation methods to generate descriptive variable names.
+"""
+function _pwl_name(model::JuMP.Model, varname::String)
+    return "pwl$(model.ext[:PWL].counter)_$(varname)"
+end
+
 const VarOrAff = Union{JuMP.VariableRef,JuMP.AffExpr}
 
 include("methods/util.jl")

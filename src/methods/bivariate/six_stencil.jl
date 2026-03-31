@@ -32,10 +32,8 @@ function formulate_triangle_selection!(
 )
     n_1, n_2 = size(λ)
     @assert size(triangle_direction) == (n_1 - 1, n_2 - 1)
-    counter = model.ext[:PWL].counter
-
     # diagonal lines running from SW to NE. Grouped with an offset of 3.
-    w_sw_ne = JuMP.@variable(model, [0:2], Bin, base_name = "w_sw_ne_$counter")
+    w_sw_ne = JuMP.@variable(model, [0:2], Bin, base_name = _pwl_name(model, "w_sw_ne"))
     for o in 0:2
         A_o = Set{Tuple{Int,Int}}()
         B_o = Set{Tuple{Int,Int}}()
@@ -89,7 +87,7 @@ function formulate_triangle_selection!(
         )
     end
 
-    w_se_nw = JuMP.@variable(model, [0:2], Bin, base_name = "w_se_nw_$counter")
+    w_se_nw = JuMP.@variable(model, [0:2], Bin, base_name = _pwl_name(model, "w_se_nw"))
     for o in 0:2
         A_o = Set{Tuple{Int,Int}}()
         B_o = Set{Tuple{Int,Int}}()

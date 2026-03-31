@@ -31,11 +31,9 @@ function formulate_triangle_selection!(
 )
     n_1, n_2 = size(λ)
     @assert size(triangle_direction) == (n_1 - 1, n_2 - 1)
-    counter = model.ext[:PWL].counter
-
     # TODO: Certify triangulation is "uniform"
 
-    w = JuMP.@variable(model, [1:2], Bin, base_name = "w_$counter")
+    w = JuMP.@variable(model, [1:2], Bin, base_name = _pwl_name(model, "w"))
     JuMP.@constraints(
         model,
         begin

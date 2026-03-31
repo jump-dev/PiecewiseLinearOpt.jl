@@ -18,7 +18,6 @@ function formulate_sos2!(
     λ::Vector{T},
     method::ZigZagInteger,
 ) where {T<:VarOrAff}
-    counter = model.ext[:PWL].counter
     n = length(λ)
     d = n - 1
     if 0 <= d <= 1
@@ -34,7 +33,7 @@ function formulate_sos2!(
         Int,
         lower_bound = 0,
         upper_bound = 2^(k - i),
-        base_name = "y_$counter"
+        base_name = _pwl_name(model, "y")
     )
     _sos2_encoding_constraints!(
         model,

@@ -32,8 +32,6 @@ function formulate_triangle_selection!(
 )
     n_1, n_2 = size(λ)
     @assert size(triangle_direction) == (n_1 - 1, n_2 - 1)
-    counter = model.ext[:PWL].counter
-
     # TODO: Certify triangulation is Union Jack
 
     # j_start = number of triangle segments incident to (1, 1), the lower-left
@@ -41,7 +39,7 @@ function formulate_triangle_selection!(
     j_start = triangle_direction[1, 1] ? 1 : 2
 
     # diagonal lines running from SW to NE. Grouped with an offset of 3.
-    z = JuMP.@variable(model, binary = true, base_name = "w_$counter")
+    z = JuMP.@variable(model, binary = true, base_name = _pwl_name(model, "w"))
 
     JuMP.@constraints(
         model,

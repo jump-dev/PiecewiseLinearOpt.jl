@@ -16,16 +16,15 @@ function formulate_pwl!(
     )
 end
 
+# default methods for dimensions 1 and 2
 _default_method(::Val{1}) = Logarithmic()
 _default_method(::Val{2}) = SixStencil()
 # _default_method(::Val) = MultipleChoice()
 
 """
     piecewiselinear(model, input_vars, pwl::PWLFunction; method, direction, output_vars)
-
     piecewiselinear(model, input_var, x, f::Function; method, direction, output_var)
     piecewiselinear(model, input_var, x, fd; method, direction, output_var)
-
     piecewiselinear(model, input_var_x, input_var_y, x, y, f::Function; method, direction, output_var, pattern)
 
 
@@ -74,10 +73,7 @@ function piecewiselinear(
     direction::DIRECTION = Graph,
     output_vars::Union{Nothing,NTuple{F,VarOrAff}} = nothing,
 ) where {D,F}
-    initPWL!(model)
-    counter = model.ext[:PWL].counter
-    counter += 1
-    model.ext[:PWL].counter = counter
+    _next_pwl_id!(model)
 
     if isempty(pwl.segments)
         error(
@@ -97,7 +93,7 @@ function piecewiselinear(
                 [i in 1:F],
                 lower_bound = output_lb[i],
                 upper_bound = output_ub[i],
-                base_name = "y_$counter"
+                base_name = _pwl_name(model, "y")
             )...,
         )
     end
@@ -114,10 +110,7 @@ function piecewiselinear(
     direction::DIRECTION = Graph,
     output_vars::Union{Nothing,NTuple{F,VarOrAff}} = nothing,
 ) where {D,F}
-    initPWL!(model)
-    counter = model.ext[:PWL].counter
-    counter += 1
-    model.ext[:PWL].counter = counter
+    _next_pwl_id!(model)
 
     if isempty(pwl.segments)
         error(
@@ -130,7 +123,7 @@ function piecewiselinear(
             JuMP.@variable(
                 model,
                 [i in 1:F],
-                base_name = "y_$counter"
+                base_name = _pwl_name(model, "y")
             )...,
         )
     end

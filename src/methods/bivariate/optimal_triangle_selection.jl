@@ -21,7 +21,6 @@ function formulate_triangle_selection!(
     method::OptimalTriangleSelection,
     _::GridTriangulation,
 )
-    counter = model.ext[:PWL].counter
     n_1, n_2 = size(λ)
     J = Set((i, j) for i in 1:n_1, j in 1:n_2)
     x_val = Matrix{Float64}(undef, n_1, n_2)
@@ -102,7 +101,7 @@ function formulate_triangle_selection!(
             t += 1
         end
     end
-    z = JuMP.@variable(model, [1:t], Bin, base_name = "z_$counter")
+    z = JuMP.@variable(model, [1:t], Bin, base_name = _pwl_name(model, "z"))
 
     for k in 1:t
         JuMP.@constraints(

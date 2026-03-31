@@ -26,7 +26,6 @@ function formulate_pwl!(
     grid = _continuous_gridpoints_or_die(pwl)
     xs, ys = grid.input_vals, grid.output_vals
 
-    counter = model.ext[:PWL].counter
     n = length(pwl.segments) + 1
     @assert length(xs) == length(ys) == n
 
@@ -35,9 +34,9 @@ function formulate_pwl!(
         [1:n],
         lower_bound = 0,
         upper_bound = 1,
-        base_name = "δ_$counter"
+        base_name = _pwl_name(model, "δ")
     )
-    z = JuMP.@variable(model, [1:n-1], Bin, base_name = "z_$counter")
+    z = JuMP.@variable(model, [1:n-1], Bin, base_name = _pwl_name(model, "z"))
     JuMP.@constraint(
         model,
         input_vars[1] ==

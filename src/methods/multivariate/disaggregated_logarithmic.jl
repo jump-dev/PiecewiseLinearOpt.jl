@@ -22,8 +22,6 @@ function formulate_pwl!(
     method::DisaggregatedLogarithmic,
     direction::DIRECTION,
 ) where {D,F}
-    counter = model.ext[:PWL].counter
-
     segments = pwl.segments
     num_bps = Dict(seg => length(seg.input_vals) for seg in segments)
 
@@ -32,7 +30,7 @@ function formulate_pwl!(
         [seg in segments, i in 1:num_bps[seg]],
         lower_bound = 0,
         upper_bound = 1,
-        base_name = "γ_$counter"
+        base_name = _pwl_name(model, "γ")
     )
     JuMP.@constraint(model, sum(γ) == 1)
 
@@ -59,7 +57,7 @@ function formulate_pwl!(
     end
     _H = _reflected_gray_codes(r)
     H = Dict(segments[i] => _H[i] for i in 1:length(segments))
-    z = JuMP.@variable(model, [1:r], Bin, base_name = "z_$counter")
+    z = JuMP.@variable(model, [1:r], Bin, base_name = _pwl_name(model, "z"))
     for j in 1:r
         JuMP.@constraint(
             model,

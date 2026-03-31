@@ -23,12 +23,11 @@ function formulate_pwl!(
     method::MultipleChoice,
     direction::DIRECTION,
 ) where {D,F}
-    counter = model.ext[:PWL].counter
     segments = pwl.segments
     S = 1:length(segments)
-    x_hat = JuMP.@variable(model, [S, 1:D], base_name = "x_hat_$counter")
-    y_hat = JuMP.@variable(model, [S, 1:F], base_name = "y_hat_$counter")
-    z = JuMP.@variable(model, [S], Bin, base_name = "z_$counter")
+    x_hat = JuMP.@variable(model, [S, 1:D], base_name = _pwl_name(model, "x_hat"))
+    y_hat = JuMP.@variable(model, [S, 1:F], base_name = _pwl_name(model, "y_hat"))
+    z = JuMP.@variable(model, [S], Bin, base_name = _pwl_name(model, "z"))
     JuMP.@constraint(model, sum(z) == 1)
     for i in 1:D
         JuMP.@constraint(model, sum(x_hat[:, i]) == input_vars[i])

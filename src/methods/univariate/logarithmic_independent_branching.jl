@@ -18,7 +18,6 @@ function formulate_sos2!(
     λ::Vector{T},
     method::LogarithmicIndependentBranching,
 ) where {T<:VarOrAff}
-    counter = model.ext[:PWL].counter
     n = length(λ)
     d = n - 1
     if 0 <= d <= 1
@@ -28,7 +27,7 @@ function formulate_sos2!(
     if k == 0
         return nothing
     end
-    z = JuMP.@variable(model, [1:k], Bin, base_name = "y_$counter")
+    z = JuMP.@variable(model, [1:k], Bin, base_name = _pwl_name(model, "y"))
     _H = _reflected_gray_codes(k)
     H = Dict(i => _H[i] for i in 1:d)
     H[0] = H[1]

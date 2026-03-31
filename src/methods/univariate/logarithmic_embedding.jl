@@ -20,7 +20,6 @@ function formulate_sos2!(
     λ::Vector{T},
     method::LogarithmicEmbedding,
 ) where {T<:VarOrAff}
-    counter = model.ext[:PWL].counter
     n = length(λ)
     d = n - 1
     if 0 <= d <= 1
@@ -30,7 +29,7 @@ function formulate_sos2!(
     if k == 0
         return nothing
     end
-    y = JuMP.@variable(model, [1:k], Bin, base_name = "y_$counter")
+    y = JuMP.@variable(model, [1:k], Bin, base_name = _pwl_name(model, "y"))
     _sos2_encoding_constraints!(
         model,
         λ,
