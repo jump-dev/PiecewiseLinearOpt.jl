@@ -32,7 +32,12 @@ function formulate_triangle_selection!(
 )
     n_1, n_2 = size(λ)
     @assert size(triangle_direction) == (n_1 - 1, n_2 - 1)
-    w = JuMP.@variable(model, [1:3, 1:3], Bin, base_name = _pwl_name(model, "w"))
+    w = JuMP.@variable(
+        model,
+        [1:3, 1:3],
+        Bin,
+        base_name = _pwl_name(model, "w")
+    )
     for o_1 in 1:3, o_2 in 1:3
         has_edge_across_stencil = Set{Tuple{Int,Int}}()
         for i in o_1:3:n_1, j in o_2:3:n_2

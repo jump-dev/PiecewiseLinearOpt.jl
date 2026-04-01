@@ -25,8 +25,10 @@ function formulate_pwl!(
 ) where {D,F}
     segments = pwl.segments
     S = 1:length(segments)
-    x_hat = JuMP.@variable(model, [S, 1:D], base_name = _pwl_name(model, "x_hat"))
-    y_hat = JuMP.@variable(model, [S, 1:F], base_name = _pwl_name(model, "y_hat"))
+    x_hat =
+        JuMP.@variable(model, [S, 1:D], base_name = _pwl_name(model, "x_hat"))
+    y_hat =
+        JuMP.@variable(model, [S, 1:F], base_name = _pwl_name(model, "y_hat"))
     z = JuMP.@variable(model, [S], Bin, base_name = _pwl_name(model, "z"))
     JuMP.@constraint(model, sum(z) == 1)
     for i in 1:D

@@ -23,7 +23,12 @@ function formulate_pwl!(
 ) where {D,F}
     # TODO: assert PWL function is continuous
     segments = pwl.segments
-    z = JuMP.@variable(model, [segments], Bin, base_name = _pwl_name(model, "z"))
+    z = JuMP.@variable(
+        model,
+        [segments],
+        Bin,
+        base_name = _pwl_name(model, "z")
+    )
     JuMP.@constraint(model, sum(z) == 1)
 
     all_input_vals = Set{NTuple{D,Float64}}()

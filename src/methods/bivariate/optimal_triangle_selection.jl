@@ -28,7 +28,7 @@ function formulate_triangle_selection!(
 
     t = 1
     while true
-        @show method.sub_solver
+        # @show method.sub_solver
         sub_model = JuMP.Model(method.sub_solver)
         JuMP.@variable(sub_model, x[1:t, J], Bin)
         JuMP.@variable(sub_model, y[1:t, J], Bin)

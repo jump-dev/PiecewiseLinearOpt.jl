@@ -12,10 +12,15 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 HiGHS = "1"
 JuMP = "1"
 julia = "1.10"
+LinearAlgebra = "1"
+Random = "1"
+Aqua = "0.8"
+Test = "1"
 
 [extras]
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 HiGHS = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "HiGHS"]
+test = ["Aqua", "Test", "HiGHS"]

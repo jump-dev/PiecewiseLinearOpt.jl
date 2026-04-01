@@ -133,7 +133,12 @@ function _create_convex_multiplier_vars(
     λ = similar(Array{JuMP.VariableRef}, axes(grid.input_vals))
     λ_name = _pwl_name(model, "λ")
     for I in eachindex(λ)
-        λ[I] = JuMP.@variable(model, lower_bound = 0, upper_bound = 1, base_name = λ_name)
+        λ[I] = JuMP.@variable(
+            model,
+            lower_bound = 0,
+            upper_bound = 1,
+            base_name = λ_name
+        )
     end
 
     JuMP.@constraint(model, sum(λ) == 1)
