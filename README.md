@@ -2,6 +2,7 @@
 
 [![Build Status](https://github.com/jump-dev/PiecewiseLinearOpt.jl/workflows/CI/badge.svg)](https://github.com/jump-dev/PiecewiseLinearOpt.jl/actions?query=workflow%3ACI)
 [![codecov](https://codecov.io/gh/jump-dev/PiecewiseLinearOpt.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/jump-dev/PiecewiseLinearOpt.jl)
+[![Aqua QA](https://juliatesting.github.io/Aqua.jl/dev/assets/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
 
 [PiecewiseLinearOpt.jl](https://github.com/jump-dev/PiecewiseLinearOpt.jl) is a
 JuMP extension for modeling optimization problems containing piecewise linear
@@ -33,37 +34,21 @@ Pkg.add("PiecewiseLinearOpt")
 ## Use with JuMP
 
 Current support is limited to modeling the graph of a continuous piecewise
-linear function, either univariate or bivariate, with the goal of adding support
-for the epigraphs of lower semicontinuous piecewise linear functions.
+linear function, with a primary focus on univariate or bivariate functions.
+There are also methods for more general multivariate problems.
 
 ### Univariate
 
-Consider a piecewise linear function `f`. The function is described a domain `d`,
-which is a set of breakpoints between pieces, and the function value `fd` at
-those breakpoints:
+Consider a piecewise linear function described by a domain `d`,
+which is a set of breakpoints between pieces, and the function value at
+those breakpoints given by the function `f` at those points:
 
 ```julia
-julia> f(x) = sin(x)
-f (generic function with 1 method)
-
 julia> d = 0:0.5:2pi
 0.0:0.5:6.0
 
-julia> fd = f.(d)
-13-element Vector{Float64}:
-  0.0
-  0.479425538604203
-  0.8414709848078965
-  0.9974949866040544
-  0.9092974268256817
-  0.5984721441039564
-  0.1411200080598672
- -0.35078322768961984
- -0.7568024953079282
- -0.977530117665097
- -0.9589242746631385
- -0.7055403255703919
- -0.27941549819892586
+julia> f(x) = sin(x)
+f (generic function with 1 method)
 ```
 
 To represent this function in a JuMP model, do:
@@ -72,13 +57,14 @@ To represent this function in a JuMP model, do:
 using JuMP, PiecewiseLinearOpt
 model = Model()
 @variable(model, x)
-z = PiecewiseLinearOpt.piecewiselinear(model, x, d, fd; method = :CC)
+z = PiecewiseLinearOpt.piecewiselinear(model, x, d, f; method = Logarithmic())
 @objective(model, Min, z) # minimize f(x)
 ```
 
 ### Bivariate
 
-Consider piecewise linear approximation for the function $f(x, y) = exp(x + y)$:
+Consider a piecewise linear approximation for the function $f(x, y) = exp(x + y)$
+on a triangular grid with a best fit pattern: 
 
 ```julia
 using JuMP, PiecewiseLinearOpt
@@ -92,38 +78,34 @@ z = PiecewiseLinearOpt.piecewiselinear(
     0:0.1:1,
     0:0.1:1,
     (u, v) -> exp(u + v);
-    method = :DisaggLogarithmic,
+    method = SixStencil(),
+    pattern = :BestFit
 )
 @objective(model, Min, z)
 ```
 
 ## Methods
 
+The following formualations are available in the package and is provided through the 
+`method` argument:
+
+Supported multivariate formulations:
+* `ConvexCombination()`
+* `DisaggregatedLogarithmic()`
+* `MultipleChoice()`: Limited support as it currently needs an explicit formulations with hyperplanes
+
 Supported univariate formulations:
+* `Incremental()`
+* `Logarithmic()`
+* `LogarithmicIndependentBranching()`
+* `NativeSOS2()`
+* `ZigZagBinary()`
+* `ZigZagInteger()`
 
-* Convex combination (`:CC`)
-* Multiple choice (`:MC`)
-* Native SOS2 branching (`:SOS2`)
-* Incremental (`:Incremental`)
-* Logarithmic (`:Logarithmic`; default)
-* Disaggregated Logarithmic (`:DisaggLogarithmic`)
-* Binary zig-zag (`:ZigZag`)
-* General integer zig-zag (`:ZigZagInteger`)
+The following bivariate formulations are available and can be combined with most univariate 
+formulations to impose two axis-aligned SOS2 constraints. See the associated paper for more details.
+* `K1(sos2_method)`: requires a K1 grid triangulation 
+* `UnionJack(sos2_method)`: requires a UnionJack grid triangulation 
+* `SixStencil(sos2_method)`: requires a grid triangulation
+* `NineStencil(sos2_method)`: requires a grid triangulation
 
-Supported bivariate formulations for entire constraint:
-
-* Convex combination (`:CC`)
-* Multiple choice (`:MC`)
-* Disaggregated Logarithmic (`:DisaggLogarithmic`)
-
-Also, you can use any univariate formulation for bivariate functions as well.
-They will be used to impose two axis-aligned SOS2 constraints, along with the
-"6-stencil" formulation for the triangle selection portion of the constraint.
-See the associated paper for more details. In particular, the following are also
-acceptable bivariate formulation choices:
-
-* Native SOS2 branching (`:SOS2`)
-* Incremental (`:Incremental`)
-* Logarithmic (`:Logarithmic`)
-* Binary zig-zag (`:ZigZag`)
-* General integer zig-zag (`:ZigZagInteger`)
