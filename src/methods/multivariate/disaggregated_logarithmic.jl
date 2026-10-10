@@ -9,7 +9,7 @@ function formulate_pwl!(
     formulation::PWLFormulation,
     input_vars::NTuple{D,_Scalar},
     output_vars::NTuple{F,_Scalar},
-    pwl::PWLFunctionPointRep{D,F},
+    pwl::PWLFunction{D,F},
     method::DisaggregatedLogarithmic,
     direction::DIRECTION,
 ) where {D,F}

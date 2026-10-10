@@ -4,9 +4,9 @@
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
 # TODO: Generalize to multivariate case.
-struct OptimalTriangleSelection <: Method
-    sub_solver::Any
-    axis_method::Method
+struct OptimalTriangleSelection{S,M<:Method} <: Method
+    sub_solver::S
+    axis_method::M
 end
 function OptimalTriangleSelection(sub_solver)
     return OptimalTriangleSelection(sub_solver, Logarithmic())

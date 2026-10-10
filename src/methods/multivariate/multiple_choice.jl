@@ -11,7 +11,7 @@ function formulate_pwl!(
     formulation::PWLFormulation,
     input_vars::NTuple{D,_Scalar},
     output_vars::NTuple{F,_Scalar},
-    pwl::PWLFunctionPointRep{D,F},
+    pwl::PWLFunction{D,F},
     method::MultipleChoice,
     direction::DIRECTION,
 ) where {D,F}
@@ -30,7 +30,7 @@ function _formulate_multiple_choice!(
     formulation::PWLFormulation,
     input_vars::NTuple{D,_Scalar},
     output_vars::NTuple{F,_Scalar},
-    segments::Vector{SegmentHyperplaneRep{D,F}},
+    segments::Vector{_HyperplaneSegment{D,F}},
     direction::DIRECTION,
 ) where {D,F}
     model = formulation.model
@@ -76,7 +76,7 @@ end
 
 # Returns f.coeffs ⋅ x + f.offset * z, which equals f(x) when z = 1 and is
 # zero when z = 0 (forcing x = 0, as segments are bounded).
-function _homogenize(f::AffineFunction{D}, x, z) where {D}
+function _homogenize(f::_AffineFunction{D}, x, z) where {D}
     return sum(f.coeffs[j] * x[j] for j in 1:D) + f.offset * z
 end
 
@@ -102,7 +102,7 @@ function _hyperplane_rep(seg::SegmentPointRep{D,F}) where {D,F}
 
     # μ_i(x) = M_inv[i, :] ⋅ (x - v_0) for i = 1, ..., D
     constraints = [
-        AffineFunction{D}(
+        _AffineFunction{D}(
             ntuple(j -> M_inv[i, j], D),
             -LinearAlgebra.dot(M_inv[i, :], v_0),
         ) for i in 1:D
@@ -111,7 +111,10 @@ function _hyperplane_rep(seg::SegmentPointRep{D,F}) where {D,F}
     c = vec(sum(M_inv; dims = 1))
     push!(
         constraints,
-        AffineFunction{D}(ntuple(j -> -c[j], D), 1 + LinearAlgebra.dot(c, v_0)),
+        _AffineFunction{D}(
+            ntuple(j -> -c[j], D),
+            1 + LinearAlgebra.dot(c, v_0),
+        ),
     )
 
     # f_k(x) = y_0 + sum((y_i - y_0) * μ_i(x) for i in 1:D)
@@ -119,10 +122,10 @@ function _hyperplane_rep(seg::SegmentPointRep{D,F}) where {D,F}
         y_0 = seg.output_vals[1][k]
         Δ = [seg.output_vals[i+1][k] - y_0 for i in 1:D]
         g = transpose(M_inv) * Δ
-        return AffineFunction{D}(
+        return _AffineFunction{D}(
             ntuple(j -> g[j], D),
             y_0 - LinearAlgebra.dot(g, v_0),
         )
     end
-    return SegmentHyperplaneRep{D,F}(constraints, funcs)
+    return _HyperplaneSegment{D,F}(constraints, funcs)
 end

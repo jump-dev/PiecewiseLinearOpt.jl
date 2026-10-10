@@ -4,15 +4,15 @@
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
 # TODO: Generalize to multivariate case.
-struct OptimalIndependentBranching <: Method
-    sub_solver::Any
+struct OptimalIndependentBranching{S} <: Method
+    sub_solver::S
 end
 
 function formulate_pwl!(
     formulation::PWLFormulation,
     input_vars::NTuple{2,_Scalar},
     output_vars::NTuple{F,_Scalar},
-    pwl::PWLFunctionPointRep{2,F},
+    pwl::PWLFunction{2,F},
     method::OptimalIndependentBranching,
     direction::DIRECTION,
 ) where {F}

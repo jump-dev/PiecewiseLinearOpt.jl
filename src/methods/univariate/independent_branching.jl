@@ -59,7 +59,7 @@ function formulate_pwl!(
     formulation::PWLFormulation,
     input_vars::Tuple{_Scalar},
     output_vars::NTuple{F,_Scalar},
-    pwl::PWLFunctionPointRep{1,F},
+    pwl::PWLFunction{1,F},
     method::IndependentBranching,
     direction::DIRECTION,
 ) where {F}

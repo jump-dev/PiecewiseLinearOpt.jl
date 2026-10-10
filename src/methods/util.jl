@@ -39,9 +39,7 @@ struct Grid{D,F}
     end
 end
 
-function _continuous_gridpoints_or_die(
-    pwl::PWLFunction{D,F,SegmentPointRep{D,F}},
-) where {D,F}
+function _continuous_gridpoints_or_die(pwl::PWLFunction{D,F}) where {D,F}
     # Step 1: Collect all input points
     xs = Set{NTuple{D,Float64}}()
     for segment in pwl.segments
@@ -103,7 +101,7 @@ function _continuous_gridpoints_or_die(
 end
 
 function _canonicalize_triangulation(
-    pwl::PWLFunction{D,F,SegmentPointRep{D,F}},
+    pwl::PWLFunction{D,F},
     grid::Grid{D,F},
 ) where {D,F}
     _check_triangulation(pwl)

@@ -282,7 +282,7 @@ function formulate_pwl!(
     formulation::PWLFormulation,
     input_vars::Tuple{_Scalar},
     output_vars::NTuple{F,_Scalar},
-    pwl::PWLFunctionPointRep{1,F},
+    pwl::PWLFunction{1,F},
     method::SOS2Method,
     direction::DIRECTION,
 ) where {F}
@@ -330,7 +330,7 @@ function formulate_sos2!(
             base_name = _name(formulation, "t")
         ),
     )
-    dummy_pwl = PWLFunctionPointRep{1,F}(segments, Intervals())
+    dummy_pwl = PWLFunction(segments, Intervals())
     formulate_pwl!(
         formulation,
         (dummy_input_var,),

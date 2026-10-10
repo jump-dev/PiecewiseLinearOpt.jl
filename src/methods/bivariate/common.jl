@@ -10,7 +10,7 @@ function formulate_pwl!(
     formulation::PWLFormulation,
     input_vars::NTuple{2,_Scalar},
     output_vars::NTuple{F,_Scalar},
-    pwl::PWLFunctionPointRep{2,F},
+    pwl::PWLFunction{2,F},
     method::BivariateSOS2Method,
     direction::DIRECTION,
 ) where {F}
@@ -40,7 +40,7 @@ function _grid_convex_multipliers!(
     formulation::PWLFormulation,
     input_vars::NTuple{2,_Scalar},
     output_vars::NTuple{F,_Scalar},
-    pwl::PWLFunctionPointRep{2,F},
+    pwl::PWLFunction{2,F},
     direction::DIRECTION,
 ) where {F}
     grid = _continuous_gridpoints_or_die(pwl)
@@ -62,7 +62,7 @@ end
 # -----
 # | / |
 # -----
-function _triangle_directions(pwl::PWLFunctionPointRep{2}, grid::Grid{2})
+function _triangle_directions(pwl::PWLFunction{2}, grid::Grid{2})
     n_1, n_2 = size(grid.input_vals)
     triangle_direction = fill(false, (n_1 - 1, n_2 - 1))
     for input_seg in _canonicalize_triangulation(pwl, grid)

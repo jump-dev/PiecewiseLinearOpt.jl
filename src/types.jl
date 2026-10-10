@@ -4,14 +4,27 @@
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
 abstract type Method end
-abstract type UnivariateMethod <: Method end
+
+# Print methods as they are constructed, e.g. SixStencil(LogarithmicEmbedding())
+# instead of SixStencil{LogarithmicEmbedding}(LogarithmicEmbedding()).
+function Base.show(io::IO, method::Method)
+    print(io, nameof(typeof(method)), "(")
+    fields = (getfield(method, f) for f in fieldnames(typeof(method)))
+    join(io, (repr(x; context = io) for x in fields), ", ")
+    print(io, ")")
+    return
+end
 
 @enum DIRECTION Graph Epigraph Hypograph
 
-# TODO: Make eltypes of input_vals and output_vals a type parameter
-abstract type Segment{D,F} end
+"""
+    SegmentPointRep{D,F}(input_vals, output_vals)
 
-struct SegmentPointRep{D,F} <: Segment{D,F}
+A piece of a piecewise linear function from R^D to R^F, given by the points
+`input_vals` and the function values `output_vals` at them. The piece is the
+convex hull of the points, and the function is affine on it.
+"""
+struct SegmentPointRep{D,F}
     input_vals::Vector{NTuple{D,Float64}}
     output_vals::Vector{NTuple{F,Float64}}
 
@@ -27,15 +40,17 @@ struct SegmentPointRep{D,F} <: Segment{D,F}
     end
 end
 
-struct AffineFunction{D}
+struct _AffineFunction{D}
     coeffs::NTuple{D,Float64}
     offset::Float64
 end
 
-struct SegmentHyperplaneRep{D,F} <: Segment{D,F}
-    # Domain given by f_i(x) >= 0 where f_i is i-th constraint in constraints
-    constraints::Vector{AffineFunction{D}}
-    funcs::NTuple{F,AffineFunction{D}}
+# The hyperplane representation of a simplex segment, used internally by the
+# MultipleChoice method and for evaluation: the domain is given by f(x) ≥ 0 for
+# each f in constraints, and the function value by funcs.
+struct _HyperplaneSegment{D,F}
+    constraints::Vector{_AffineFunction{D}}
+    funcs::NTuple{F,_AffineFunction{D}}
 end
 
 abstract type SegmentStructure{D} end
@@ -114,19 +129,31 @@ struct RandomTriangulation <: GridTriangulation
 end
 RandomTriangulation() = RandomTriangulation(nothing)
 
-struct PWLFunction{D,F,T<:Segment{D,F}}
-    segments::Vector{T}
-    structure::SegmentStructure{D}
+"""
+    PWLFunction(segments::Vector{SegmentPointRep{D,F}}, structure::SegmentStructure{D})
+
+A piecewise linear function from R^D to R^F, given by its `segments`. The
+`structure` describes how the segments are arranged, e.g. `Intervals()` for a
+univariate function, a [`GridTriangulation`](@ref) for a bivariate function on
+a grid, or `Unstructured{D}()`.
+
+See also [`UnivariatePWLFunction`](@ref) and [`BivariatePWLFunction`](@ref) for
+constructing functions from breakpoints and function values.
+"""
+struct PWLFunction{D,F,S<:SegmentStructure{D}}
+    segments::Vector{SegmentPointRep{D,F}}
+    structure::S
 end
 
-const PWLFunctionPointRep{D,F} = PWLFunction{D,F,SegmentPointRep{D,F}}
-const PWLFunctionHyperplaneRep{D,F} = PWLFunction{D,F,SegmentHyperplaneRep{D,F}}
+function PWLFunction{D,F}(
+    segments::Vector{SegmentPointRep{D,F}},
+    structure::SegmentStructure{D},
+) where {D,F}
+    return PWLFunction(segments, structure)
+end
 
-#const UnivariatePWLFunction{F} = PWLFunctionPointRep{1, F}
-#const BivariatePWLFunction{F} = PWLFunctionPointRep{2, F}
-
-const UnivariatePWLFunction = PWLFunctionPointRep{1,1}
-const BivariatePWLFunction = PWLFunctionPointRep{2,1}
+const UnivariatePWLFunction = PWLFunction{1,1}
+const BivariatePWLFunction = PWLFunction{2,1}
 
 function _check_strictly_increasing(xs::Vector{Float64}, name::String)
     for i in 1:length(xs)-1
@@ -137,7 +164,16 @@ function _check_strictly_increasing(xs::Vector{Float64}, name::String)
     return
 end
 
-function PWLFunctionPointRep{1,1}(x::Vector, z::Vector)
+"""
+    UnivariatePWLFunction(x, f::Function)
+    UnivariatePWLFunction(x, z::AbstractVector)
+
+The piecewise linear function with the strictly increasing breakpoints `x`,
+which interpolates `f(x[i])`, or `z[i]`, at the breakpoints.
+"""
+UnivariatePWLFunction
+
+function PWLFunction{1,1}(x::Vector, z::Vector)
     if length(x) != length(z)
         error("Mismatch in the number of points and function values")
     end
@@ -154,14 +190,14 @@ function PWLFunctionPointRep{1,1}(x::Vector, z::Vector)
     return PWLFunction(segments, Intervals())
 end
 
-function PWLFunctionPointRep{1,1}(x, f::Function)
+function PWLFunction{1,1}(x::AbstractVector, f::Function)
     d = collect(x)
     fd = [f(xi) for xi in d]
-    return PWLFunctionPointRep{1,1}(d, fd)
+    return PWLFunction{1,1}(d, fd)
 end
 
-function PWLFunctionPointRep{1,1}(x, z)
-    return PWLFunctionPointRep{1,1}(collect(x), collect(z))
+function PWLFunction{1,1}(x::AbstractVector, z::AbstractVector)
+    return PWLFunction{1,1}(collect(x), collect(z))
 end
 
 """
@@ -175,7 +211,7 @@ the grid is split into two triangles as given by `triangulation`, see
 """
 BivariatePWLFunction
 
-function PWLFunctionPointRep{2,1}(
+function PWLFunction{2,1}(
     x,
     y,
     f::Function;
@@ -188,7 +224,7 @@ function PWLFunctionPointRep{2,1}(
     return _grid_pwl_function(xs, ys, z, triangulation, center)
 end
 
-function PWLFunctionPointRep{2,1}(
+function PWLFunction{2,1}(
     x,
     y,
     z::AbstractMatrix;
@@ -296,7 +332,7 @@ function with one output and a tuple otherwise. Every segment must be a simplex.
 Where the function is discontinuous, the value of the first segment containing
 `x` is returned.
 """
-function (pwl::PWLFunctionPointRep{D,F})(x::Vararg{Real,D}) where {D,F}
+function (pwl::PWLFunction{D,F})(x::Vararg{Real,D}) where {D,F}
     for seg in pwl.segments
         h = _hyperplane_rep(seg)
         if all(c -> _evaluate(c, x) ≥ -1e-9, h.constraints)
@@ -307,6 +343,6 @@ function (pwl::PWLFunctionPointRep{D,F})(x::Vararg{Real,D}) where {D,F}
     return error("The point $x is outside the domain of the function.")
 end
 
-function _evaluate(f::AffineFunction{D}, x) where {D}
+function _evaluate(f::_AffineFunction{D}, x) where {D}
     return sum(f.coeffs[j] * x[j] for j in 1:D) + f.offset
 end

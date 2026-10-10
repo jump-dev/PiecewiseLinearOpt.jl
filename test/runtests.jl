@@ -224,10 +224,7 @@ end
         [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0)],
         [(5.0,), (3.0,), (7.0,)],
     )
-    pwl = PLO.PWLFunction{2,1,PLO.SegmentPointRep{2,1}}(
-        [s1, s2],
-        PLO.UnstructuredTriangulation(),
-    )
+    pwl = PLO.PWLFunction([s1, s2], PLO.UnstructuredTriangulation())
     model = Model(optimizer)
     @variable(model, x[1:2])
     y, _ = piecewiselinear(model, (x[1], x[2]), pwl; method = MultipleChoice())
@@ -338,10 +335,7 @@ const methods_2D_gen = [
         [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0)],
         [(0.0,), (3.0,), (2.0,)],
     )
-    pwl = PLO.PWLFunction{2,1,PLO.SegmentPointRep{2,1}}(
-        [s1, s2],
-        PLO.UnstructuredTriangulation(),
-    )
+    pwl = PLO.PWLFunction([s1, s2], PLO.UnstructuredTriangulation())
 
     y, _ = piecewiselinear(model, (x[1], x[2]), pwl; method = method)
     @objective(model, Min, y[1])

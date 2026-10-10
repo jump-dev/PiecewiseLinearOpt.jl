@@ -81,7 +81,7 @@ w = piecewiselinear(model, x[1], x[2], 0:0.1:1, 0:0.1:1, (a, b) -> a * b)
 function piecewiselinear(
     model::JuMP.GenericModel,
     input_vars::Union{Tuple,AbstractVector},
-    pwl::PWLFunction{D,F,SegmentPointRep{D,F}};
+    pwl::PWLFunction{D,F};
     method::Method = _default_method(Val(D)),
     direction::DIRECTION = Graph,
     output_vars::Union{Nothing,Tuple,AbstractVector} = nothing,

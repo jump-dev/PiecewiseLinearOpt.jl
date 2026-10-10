@@ -3,8 +3,8 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
-struct UnionJack <: Method
-    axis_method::Method
+struct UnionJack{M<:Method} <: Method
+    axis_method::M
 end
 UnionJack() = UnionJack(Logarithmic())
 
