@@ -40,6 +40,10 @@ end
 
 abstract type SegmentStructure{D} end
 
+# Segments without any known structure, e.g. a triangulation in higher
+# dimensions
+struct Unstructured{D} <: SegmentStructure{D} end
+
 struct Intervals <: SegmentStructure{1} end
 
 abstract type GridTriangulation <: SegmentStructure{2} end

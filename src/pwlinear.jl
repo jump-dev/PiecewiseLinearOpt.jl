@@ -5,8 +5,8 @@
 
 function formulate_pwl!(
     model::JuMP.Model,
-    input_vals::Vector{NTuple{D,VarOrAff}},
-    output_vals::Vector{NTuple{F,VarOrAff}},
+    input_vars::NTuple{D,VarOrAff},
+    output_vars::NTuple{F,VarOrAff},
     pwl::PWLFunction,
     method::Method,
     direction::DIRECTION,
@@ -85,10 +85,14 @@ function piecewiselinear(
         )
     end
 
-    output_lb =
-        minimum(minimum(segment.output_vals) for segment in pwl.segments)
-    output_ub =
-        maximum(maximum(segment.output_vals) for segment in pwl.segments)
+    output_lb = ntuple(
+        i -> minimum(v[i] for seg in pwl.segments for v in seg.output_vals),
+        F,
+    )
+    output_ub = ntuple(
+        i -> maximum(v[i] for seg in pwl.segments for v in seg.output_vals),
+        F,
+    )
 
     if output_vars === nothing
         output_vars = tuple(

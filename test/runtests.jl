@@ -6,7 +6,6 @@
 using PiecewiseLinearOpt
 using HiGHS
 using JuMP
-using LinearAlgebra
 using Test
 
 const PLO = PiecewiseLinearOpt
@@ -190,16 +189,6 @@ end
     @test value(z2) ≈ 1.125 rtol = 1e-4
 end
 
-const sos2_methods = [
-    ConvexCombination(),
-    GeneralizedCelaya(),
-    LogarithmicEmbedding(),
-    LogarithmicIndependentBranching(),
-    NativeSOS2(),
-    SymmetricCelaya(),
-    ZigZagBinary(),
-    ZigZagInteger(),
-]
 const methods_2D_gen = [
     ConvexCombination(),
     DisaggregatedLogarithmic(),
@@ -264,17 +253,12 @@ end
     @test objective_value(model) ≈ value(y) rtol = 1e-4
 end
 
-patterns = [:Upper, :Lower, :BestFit, :K1, :UnionJack, :Random]
-method_pattern = vec(collect(Iterators.product(methods_2D_gen, patterns)))
-k1_methods = [
-    (method, :K1) for method in [K1(sos2_method) for sos2_method in methods_1D]
+const patterns = [:Upper, :Lower, :BestFit, :K1, :UnionJack, :Random]
+const method_pattern = [
+    vec(collect(Iterators.product(methods_2D_gen, patterns)))
+    [(K1(sos2_method), :K1) for sos2_method in methods_1D]
+    [(UnionJack(sos2_method), :UnionJack) for sos2_method in methods_1D]
 ]
-uj_methods = [
-    (method, :UnionJack) for
-    method in [UnionJack(sos2_method) for sos2_method in methods_1D]
-]
-append!(method_pattern, k1_methods)
-append!(method_pattern, uj_methods)
 
 @testset "2D: $method, $pattern" for (method, pattern) in method_pattern
     model = Model(optimizer)
@@ -442,6 +426,278 @@ end
             @test value(y) ≈ y0 atol = 1e-5
         end
     end
+end
+
+@testset "Direction: $method" for method in methods_1D
+    xs = [0.0, 1.0, 2.0, 3.0]
+    zs = [0.0, 2.0, 1.0, 3.0]
+    for (direction, sense, other_bound) in (
+        (PLO.Epigraph, MIN_SENSE, maximum(zs)),
+        (PLO.Hypograph, MAX_SENSE, minimum(zs)),
+    )
+        model = Model(optimizer)
+        @variable(model, x)
+        y = piecewiselinear(
+            model,
+            x,
+            xs,
+            zs;
+            method = method,
+            direction = direction,
+        )
+        fix(x, 1.5)
+        @objective(model, sense, y)
+        optimize!(model)
+        @test termination_status(model) == MOI.OPTIMAL
+        @test value(y) ≈ 1.5 atol = 1e-5
+        # In the other direction, y is only limited by its bounds
+        @objective(model, sense == MIN_SENSE ? MAX_SENSE : MIN_SENSE, y)
+        optimize!(model)
+        @test termination_status(model) == MOI.OPTIMAL
+        @test value(y) ≈ other_bound atol = 1e-5
+    end
+end
+
+@testset "Direction: $method" for method in [
+    ConvexCombination(),
+    MultipleChoice(),
+    OptimalTriangleSelection(optimizer),
+    SixStencil(),
+]
+    d = 0:2
+    f = (a, b) -> a^2 - b
+    pwl = BivariatePWLFunction(d, d, f)
+    seg = pwl.segments[3]
+    z0 = sum(v[1] for v in seg.output_vals) / 3
+    for (direction, sense) in
+        ((PLO.Epigraph, MIN_SENSE), (PLO.Hypograph, MAX_SENSE))
+        model = Model(optimizer)
+        @variable(model, x[1:2])
+        z = piecewiselinear(
+            model,
+            (x[1], x[2]),
+            pwl;
+            method = method,
+            direction = direction,
+        )[1]
+        fix(x[1], sum(v[1] for v in seg.input_vals) / 3)
+        fix(x[2], sum(v[2] for v in seg.input_vals) / 3)
+        @objective(model, sense, z)
+        optimize!(model)
+        @test termination_status(model) == MOI.OPTIMAL
+        @test value(z) ≈ z0 atol = 1e-5
+    end
+end
+
+@testset "Multiple outputs: $method" for method in methods_1D
+    xs = [0.0, 1.0, 2.0, 3.0]
+    fs = ([0.0, 2.0, 1.0, 3.0], [5.0, -1.0, 4.0, 0.0])
+    segments = [
+        PLO.SegmentPointRep{1,2}(
+            [(xs[i],), (xs[i+1],)],
+            [(fs[1][i], fs[2][i]), (fs[1][i+1], fs[2][i+1])],
+        ) for i in 1:3
+    ]
+    pwl = PLO.PWLFunction(segments, PLO.Intervals())
+    model = Model(optimizer)
+    @variable(model, x)
+    y = piecewiselinear(model, (x,), pwl; method = method)
+    @test length(y) == 2
+    for x0 in (0.5, 1.25, 2.9)
+        fix(x, x0)
+        i = floor(Int, x0) + 1
+        t = x0 - xs[i]
+        for k in 1:2, sense in (MAX_SENSE, MIN_SENSE)
+            @objective(model, sense, y[k])
+            optimize!(model)
+            @test termination_status(model) == MOI.OPTIMAL
+            @test value(y[k]) ≈ (1 - t) * fs[k][i] + t * fs[k][i+1] atol = 1e-5
+        end
+    end
+end
+
+@testset "Multiple outputs: $method" for method in [
+    ConvexCombination(),
+    DisaggregatedLogarithmic(),
+    K1(),
+    MultipleChoice(),
+    OptimalTriangleSelection(optimizer),
+    SixStencil(),
+]
+    d = range(0; stop = 1, length = 3)
+    f = (a, b) -> a^2 + 3b^2 - a * b
+    g = (a, b) -> sin(3a) - b
+    base = BivariatePWLFunction(d, d, f)
+    segments = [
+        PLO.SegmentPointRep{2,2}(
+            s.input_vals,
+            [(f(v...), g(v...)) for v in s.input_vals],
+        ) for s in base.segments
+    ]
+    pwl = PLO.PWLFunction(segments, base.structure)
+    model = Model(optimizer)
+    @variable(model, x[1:2])
+    z = piecewiselinear(model, (x[1], x[2]), pwl; method = method)
+    for seg in segments
+        fix(x[1], sum(v[1] for v in seg.input_vals) / 3)
+        fix(x[2], sum(v[2] for v in seg.input_vals) / 3)
+        for k in 1:2, sense in (MAX_SENSE, MIN_SENSE)
+            @objective(model, sense, z[k])
+            optimize!(model)
+            @test termination_status(model) == MOI.OPTIMAL
+            @test value(z[k]) ≈ sum(v[k] for v in seg.output_vals) / 3 atol =
+                1e-5
+        end
+    end
+end
+
+@testset "Trivariate: $method" for method in [
+    ConvexCombination(),
+    DisaggregatedLogarithmic(),
+    MultipleChoice(),
+]
+    # Kuhn triangulation of the unit cube into 6 tetrahedra
+    g = v -> v[1] + 2v[2]^2 - 3v[1] * v[3]
+    segments = PLO.SegmentPointRep{3,1}[]
+    for σ in ((1, 2, 3), (1, 3, 2), (2, 1, 3), (2, 3, 1), (3, 1, 2), (3, 2, 1))
+        vertices = [(0.0, 0.0, 0.0)]
+        for j in σ
+            push!(vertices, ntuple(i -> i == j ? 1.0 : vertices[end][i], 3))
+        end
+        push!(
+            segments,
+            PLO.SegmentPointRep{3,1}(vertices, [(g(v),) for v in vertices]),
+        )
+    end
+    pwl = PLO.PWLFunction(segments, PLO.Unstructured{3}())
+    model = Model(optimizer)
+    @variable(model, x[1:3])
+    y = piecewiselinear(model, (x[1], x[2], x[3]), pwl; method = method)[1]
+    for seg in segments
+        for i in 1:3
+            fix(x[i], sum(v[i] for v in seg.input_vals) / 4)
+        end
+        y0 = sum(v[1] for v in seg.output_vals) / 4
+        for sense in (MAX_SENSE, MIN_SENSE)
+            @objective(model, sense, y)
+            optimize!(model)
+            @test termination_status(model) == MOI.OPTIMAL
+            @test value(y) ≈ y0 atol = 1e-5
+        end
+    end
+end
+
+@testset "Output variable" begin
+    model = Model(optimizer)
+    @variable(model, x)
+    @variable(model, y)
+    ret = piecewiselinear(model, x, [0, 1, 2], [0, 2, 1]; output_var = y)
+    @test ret === y
+    fix(x, 1.5)
+    @objective(model, Max, y)
+    optimize!(model)
+    @test termination_status(model) == MOI.OPTIMAL
+    @test value(y) ≈ 1.5 atol = 1e-5
+end
+
+@testset "Errors" begin
+    model = Model()
+    @variable(model, x[1:3])
+    # No segments
+    pwl = PLO.PWLFunction(PLO.SegmentPointRep{1,1}[], PLO.Intervals())
+    @test_throws ErrorException piecewiselinear(model, (x[1],), pwl)
+    # Discontinuous functions require MultipleChoice
+    s1 = PLO.SegmentPointRep{1,1}([(0.0,), (1.0,)], [(0.0,), (1.0,)])
+    s2 = PLO.SegmentPointRep{1,1}([(1.0,), (2.0,)], [(3.0,), (2.0,)])
+    pwl = PLO.PWLFunction([s1, s2], PLO.Intervals())
+    for method in (ConvexCombination(), Logarithmic(), Incremental())
+        @test_throws ErrorException piecewiselinear(
+            model,
+            (x[1],),
+            pwl;
+            method = method,
+        )
+    end
+    # Grid based methods require a connected domain
+    s2 = PLO.SegmentPointRep{1,1}([(2.0,), (3.0,)], [(3.0,), (2.0,)])
+    pwl = PLO.PWLFunction([s1, s2], PLO.Intervals())
+    @test_throws ErrorException piecewiselinear(
+        model,
+        (x[1],),
+        pwl;
+        method = Logarithmic(),
+    )
+    # Unsupported combinations of dimension and method
+    pwl = BivariatePWLFunction(0:1, 0:1, (a, b) -> a + b)
+    @test_throws ErrorException piecewiselinear(
+        model,
+        (x[1], x[2]),
+        pwl;
+        method = Incremental(),
+    )
+    s = PLO.SegmentPointRep{3,1}(
+        [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)],
+        [(0.0,), (1.0,), (2.0,), (3.0,)],
+    )
+    pwl = PLO.PWLFunction([s], PLO.Unstructured{3}())
+    @test_throws ErrorException piecewiselinear(
+        model,
+        (x[1], x[2], x[3]),
+        pwl;
+        method = SixStencil(),
+    )
+end
+
+# Several functions in one model: all methods must agree on the optimum
+@testset "Methods agree (univariate)" begin
+    supply, demand = [3.0, 4.0], [2.0, 2.5, 2.5]
+    xs = 0:4
+    cost = [[0.0, 2.0, 3.0, 3.5, 3.8], [0.0, 1.0, 2.5, 3.0, 3.2]]
+    objectives = map(methods_1D) do method
+        model = Model(optimizer)
+        @variable(model, x[1:2, 1:3] ≥ 0)
+        @constraint(model, [i in 1:2], sum(x[i, :]) == supply[i])
+        @constraint(model, [j in 1:3], sum(x[:, j]) == demand[j])
+        @objective(
+            model,
+            Min,
+            sum(
+                piecewiselinear(model, x[i, j], xs, cost[i]; method = method) for i in 1:2, j in 1:3
+            )
+        )
+        optimize!(model)
+        @test termination_status(model) == MOI.OPTIMAL
+        return objective_value(model)
+    end
+    @test all(isapprox.(objectives, objectives[1]; atol = 1e-5))
+end
+
+@testset "Methods agree (bivariate)" begin
+    d = range(0; stop = 1, length = 3)
+    f = (a, b) -> (a - 0.4)^2 - sin(3b) + a * b
+    methods = [
+        methods_2D_selection
+        OptimalIndependentBranching(optimizer)
+        K1()
+    ]
+    objectives = map(methods) do method
+        model = Model(optimizer)
+        @variable(model, 0 ≤ a[1:2] ≤ 1)
+        @variable(model, 0 ≤ b[1:2] ≤ 1)
+        @constraint(model, sum(a) == 1.1)
+        @constraint(model, sum(b) == 0.7)
+        @objective(
+            model,
+            Min,
+            sum(
+                piecewiselinear(model, a[i], b[i], d, d, f; method = method) for i in 1:2
+            )
+        )
+        optimize!(model)
+        @test termination_status(model) == MOI.OPTIMAL
+        return objective_value(model)
+    end
+    @test all(isapprox.(objectives, objectives[1]; atol = 1e-5))
 end
 
 @testset "Affine inputs: $method" for method in
