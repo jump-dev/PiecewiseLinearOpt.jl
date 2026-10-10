@@ -25,6 +25,9 @@ const methods_1D = [
     DisaggregatedLogarithmic(),
     GeneralizedCelaya(),
     Incremental(),
+    IndependentBranching(:biclique),
+    IndependentBranching(:balanced),
+    IndependentBranching(:brgc),
     LogarithmicEmbedding(),
     LogarithmicIndependentBranching(),
     MultipleChoice(),
@@ -33,6 +36,59 @@ const methods_1D = [
     ZigZagBinary(),
     ZigZagInteger(),
 ]
+
+# Checks that the levels (L, R) form a biclique cover of the conflict graph of
+# the CDC given by S: no level separates two points of the same set, and any
+# two points that are not in a common set are separated by some level.
+function is_valid_cover(S, cover)
+    J = reduce(union, S)
+    for (L, R) in cover
+        if !isdisjoint(L, R) || !issubset(union(L, R), J)
+            return false
+        end
+        for s in S
+            if !isdisjoint(s, L) && !isdisjoint(s, R)
+                return false
+            end
+        end
+    end
+    for u in J, v in J
+        if u < v && !any(s -> u in s && v in s, S)
+            if !any(
+                ((L, R),) -> (u in L && v in R) || (v in L && u in R),
+                cover,
+            )
+                return false
+            end
+        end
+    end
+    return true
+end
+
+@testset "Ordered CDC covers: $scheme" for scheme in
+                                           (:biclique, :balanced, :brgc)
+    for d in 1:20
+        # SOS2
+        S = [[i, i + 1] for i in 1:d]
+        cover = PLO._ordered_cdc_cover(S, scheme)
+        @test is_valid_cover(S, cover)
+        @test length(cover) == (d == 1 ? 0 : ceil(Int, log2(d)))
+        # Polytopes sharing none, one or two points with their neighbors
+        for shared in (0, 1, 2)
+            S, next = Vector{Int}[], 1
+            for i in 1:d
+                first = i == 1 ? next : next - shared
+                push!(S, collect(first:first+2*shared+mod(i, 3)))
+                next = S[end][end] + 1
+            end
+            cover = PLO._ordered_cdc_cover(S, scheme)
+            @test is_valid_cover(S, cover)
+            @test length(cover) == (d == 1 ? 0 : ceil(Int, log2(d)))
+        end
+    end
+    # Remark 4: the first part of each cut gets floor(n / 2) of the n sets
+    @test PLO._balanced_reversed_edge_ranking(6) == [2, 3, 1, 2, 3]
+end
 
 @testset "Simple univariate" for method in methods_1D
     model = Model(optimizer)
@@ -75,18 +131,86 @@ end
     end
 end
 
-@testset "Discontinuous univariate" begin
+const methods_discontinuous = [
+    IndependentBranching(:biclique),
+    IndependentBranching(:balanced),
+    IndependentBranching(:brgc),
+    MultipleChoice(),
+]
+
+@testset "Discontinuous univariate: $method" for method in methods_discontinuous
     model = Model(optimizer)
     @variable(model, x)
     s1 = PLO.SegmentPointRep{1,1}([(0.0,), (1.0,)], [(0.0,), (1.0,)])
     s2 = PLO.SegmentPointRep{1,1}([(1.0,), (2.0,)], [(3.0,), (2.0,)])
     pwl = PLO.PWLFunction([s1, s2], PLO.Intervals())
-    y = piecewiselinear(model, (x,), pwl; method = MultipleChoice())
+    y = piecewiselinear(model, (x,), pwl; method = method)
     @objective(model, Max, y[1])
     optimize!(model)
     @test termination_status(model) == MOI.OPTIMAL
     @test value(x) ≈ 1.0 atol = 1e-6
     @test value(y[1]) ≈ 3.0 atol = 1e-6
+
+    # A function with jumps, gaps in the domain and continuous stretches.
+    # Inside each segment, y must equal the interpolated value.
+    xs = [(0, 1), (1, 2), (2, 3), (3.5, 4), (4, 5), (5, 5.5), (6, 7), (7, 8)]
+    ys = [(0, 2), (1, 0), (0, 3), (3, -1), (2, 2), (2, 4), (4, 1), (1, 0)]
+    segments = [
+        PLO.SegmentPointRep{1,1}(
+            [(float(a),), (float(b),)],
+            [(float(c),), (float(e),)],
+        ) for ((a, b), (c, e)) in zip(xs, ys)
+    ]
+    pwl = PLO.PWLFunction(segments, PLO.Intervals())
+    model = Model(optimizer)
+    @variable(model, x)
+    y = piecewiselinear(model, (x,), pwl; method = method)[1]
+    for ((a, b), (c, e)) in zip(xs, ys)
+        fix(x, 0.3 * a + 0.7 * b)
+        for sense in (MAX_SENSE, MIN_SENSE)
+            @objective(model, sense, y)
+            optimize!(model)
+            @test termination_status(model) == MOI.OPTIMAL
+            @test value(y) ≈ 0.3 * c + 0.7 * e atol = 1e-5
+        end
+    end
+    # Points in the gaps of the domain are infeasible
+    fix(x, 3.2)
+    optimize!(model)
+    @test termination_status(model) == MOI.INFEASIBLE
+end
+
+@testset "Independent branching: $scheme" for scheme in
+                                              (:biclique, :balanced, :brgc)
+    # ceil(log2(d)) binaries for d segments, also for discontinuous functions
+    for d in (2, 3, 5, 8, 13), jump in (0.0, 1.0)
+        segments = [
+            PLO.SegmentPointRep{1,1}(
+                [(float(i),), (i + 1.0,)],
+                [(float(i),), (i + 1.0 + jump * isodd(i),)],
+            ) for i in 1:d
+        ]
+        pwl = PLO.PWLFunction(segments, PLO.Intervals())
+        model = Model()
+        @variable(model, x)
+        piecewiselinear(model, (x,), pwl; method = IndependentBranching(scheme))
+        @test num_constraints(model, VariableRef, MOI.ZeroOne) ==
+              ceil(Int, log2(d))
+    end
+    # Segments must be ordered so that only neighbors share points
+    s1 = PLO.SegmentPointRep{1,1}([(0.0,), (2.0,)], [(0.0,), (1.0,)])
+    s2 = PLO.SegmentPointRep{1,1}([(1.0,), (3.0,)], [(1.0,), (0.0,)])
+    s3 = PLO.SegmentPointRep{1,1}([(2.0,), (4.0,)], [(1.0,), (2.0,)])
+    pwl = PLO.PWLFunction([s1, s2, s3], PLO.Intervals())
+    model = Model()
+    @variable(model, x)
+    @test_throws ErrorException piecewiselinear(
+        model,
+        (x,),
+        pwl;
+        method = IndependentBranching(scheme),
+    )
+    @test_throws ErrorException IndependentBranching(:unknown)
 end
 
 @testset "Discontinuous bivariate" begin

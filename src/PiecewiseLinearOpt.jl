@@ -40,6 +40,7 @@ include("methods/util.jl")
 
 export GeneralizedCelaya,
     Incremental,
+    IndependentBranching,
     LogarithmicEmbedding,
     LogarithmicIndependentBranching,
     NativeSOS2,
@@ -48,6 +49,7 @@ export GeneralizedCelaya,
     ZigZagInteger
 include("methods/univariate/generalized_celaya.jl")
 include("methods/univariate/incremental.jl")
+include("methods/univariate/independent_branching.jl")
 include("methods/univariate/logarithmic_embedding.jl")
 include("methods/univariate/logarithmic_independent_branching.jl")
 include("methods/univariate/native_sos2.jl")

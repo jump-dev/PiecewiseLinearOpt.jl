@@ -244,21 +244,3 @@ function _sparsify_biclique_cover!(
     end
     return cover
 end
-
-function _add_biclique_cover!(
-    model::JuMP.Model,
-    λ::Matrix{JuMP.VariableRef},
-    cover::_BicliqueCover,
-)
-    counter = model.ext[:PWL].counter
-    z = JuMP.@variable(model, [1:length(cover)], Bin, base_name = "z_$counter")
-    for (k, (A, B)) in enumerate(cover)
-        if !isempty(A)
-            JuMP.@constraint(model, sum(λ[i, j] for (i, j) in A) ≤ z[k])
-        end
-        if !isempty(B)
-            JuMP.@constraint(model, sum(λ[i, j] for (i, j) in B) ≤ 1 - z[k])
-        end
-    end
-    return nothing
-end

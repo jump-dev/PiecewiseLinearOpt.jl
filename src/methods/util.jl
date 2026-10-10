@@ -161,6 +161,37 @@ function _create_convex_multiplier_vars(
     return λ
 end
 
+_multiplier(λ::AbstractArray, k::Int) = λ[k]
+_multiplier(λ::AbstractArray, k::Tuple) = λ[k...]
+
+# Adds the independent branching formulation given by the levels (L^j, R^j)
+# of a biclique cover of the conflict graph (Huchette and Vielma, 2019):
+#   sum(λ[L^j]) ≤ z_j,  sum(λ[R^j]) ≤ 1 - z_j,  z_j binary.
+# The levels index into λ, either linearly or by a tuple of indices.
+function _add_biclique_cover!(
+    model::JuMP.Model,
+    λ::AbstractArray,
+    cover::Vector{<:Tuple{AbstractVector,AbstractVector}},
+)
+    if isempty(cover)
+        return nothing
+    end
+    counter = model.ext[:PWL].counter
+    z = JuMP.@variable(model, [1:length(cover)], Bin, base_name = "z_$counter")
+    for (j, (L, R)) in enumerate(cover)
+        if !isempty(L)
+            JuMP.@constraint(model, sum(_multiplier(λ, k) for k in L) ≤ z[j])
+        end
+        if !isempty(R)
+            JuMP.@constraint(
+                model,
+                sum(_multiplier(λ, k) for k in R) ≤ 1 - z[j]
+            )
+        end
+    end
+    return nothing
+end
+
 function _check_triangle(segment::SegmentPointRep{D}) where {D}
     if !(length(segment.input_vals) == length(segment.output_vals) == D + 1)
         error(

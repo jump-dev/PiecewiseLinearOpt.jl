@@ -96,6 +96,10 @@ Supported multivariate formulations:
 Supported univariate formulations:
 * `GeneralizedCelaya()`
 * `Incremental()`
+* `IndependentBranching(scheme)`: Logarithmically sized ideal formulations from
+  [Lyu, Hicks and Huchette (2023)](https://arxiv.org/abs/2304.14542), with
+  `scheme` one of `:biclique` (default), `:balanced` or `:brgc`; supports
+  discontinuous functions
 * `Logarithmic()`
 * `LogarithmicIndependentBranching()`
 * `NativeSOS2()`
