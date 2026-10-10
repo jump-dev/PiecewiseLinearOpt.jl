@@ -3,6 +3,17 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+"""
+    LogarithmicIndependentBranching()
+
+The logarithmic independent branching formulation of univariate continuous
+piecewise linear functions (Vielma and Nemhauser, 2011), based on the binary
+reflected Gray code.
+
+For `d` segments, it uses `ceil(log2(d))` binary variables and
+`2 * ceil(log2(d))` constraints in addition to the `d + 1` convex multipliers.
+See also [`IndependentBranching`](@ref).
+"""
 struct LogarithmicIndependentBranching <: Method end
 
 function formulate_sos2!(

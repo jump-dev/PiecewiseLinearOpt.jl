@@ -3,6 +3,16 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+"""
+    UnionJack(axis_method = Logarithmic())
+
+Formulation of bivariate continuous piecewise linear functions on a grid where
+the diagonals alternate between neighboring cells, e.g.
+[`UnionJackTriangulation`](@ref).
+
+It combines an SOS2 constraint along each axis, formulated with `axis_method`,
+with 1 binary variable to select the triangle in the chosen cell.
+"""
 struct UnionJack{M<:Method} <: Method
     axis_method::M
 end

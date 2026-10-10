@@ -13,6 +13,8 @@ import Random
 export PWLFunction,
     UnivariatePWLFunction, BivariatePWLFunction, PWLFormulation, piecewiselinear
 
+export SegmentPointRep, SegmentStructure, Intervals, Unstructured
+
 export GridTriangulation,
     BestFitTriangulation,
     K1Triangulation,

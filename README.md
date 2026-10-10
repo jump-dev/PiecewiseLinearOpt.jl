@@ -2,6 +2,8 @@
 
 [![Build Status](https://github.com/jump-dev/PiecewiseLinearOpt.jl/workflows/CI/badge.svg)](https://github.com/jump-dev/PiecewiseLinearOpt.jl/actions?query=workflow%3ACI)
 [![codecov](https://codecov.io/gh/jump-dev/PiecewiseLinearOpt.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/jump-dev/PiecewiseLinearOpt.jl)
+[![Docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://jump.dev/PiecewiseLinearOpt.jl/stable)
+[![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://jump.dev/PiecewiseLinearOpt.jl/dev)
 
 [PiecewiseLinearOpt.jl](https://github.com/jump-dev/PiecewiseLinearOpt.jl) is a
 JuMP extension for modeling optimization problems containing piecewise linear
@@ -10,6 +12,10 @@ functions.
 This package is an accompaniment to a paper entitled
 [_Nonconvex piecewise linear functions: Advanced formulations and simple modeling tools_](https://arxiv.org/abs/1708.00050),
 by Joey Huchette and Juan Pablo Vielma.
+
+See the [documentation](https://jump.dev/PiecewiseLinearOpt.jl/stable) for
+details, including an overview of the formulation methods and a guide for
+migrating from version 0.4.
 
 ## Getting help
 

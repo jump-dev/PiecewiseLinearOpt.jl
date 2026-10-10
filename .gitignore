@@ -2,6 +2,7 @@
 *.jl.*.cov
 *.jl.mem
 Manifest.toml
+docs/build/
 *.DS_Store
 .DS_Store
 .vscode/settings.json

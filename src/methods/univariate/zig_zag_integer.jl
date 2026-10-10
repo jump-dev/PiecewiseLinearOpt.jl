@@ -3,6 +3,15 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+"""
+    ZigZagInteger()
+
+The general integer zig-zag formulation of univariate continuous piecewise
+linear functions (Huchette and Vielma, 2023).
+
+For `d` segments, it uses `ceil(log2(d))` bounded general integer variables and
+`2 * ceil(log2(d))` constraints in addition to the `d + 1` convex multipliers.
+"""
 struct ZigZagInteger <: Method end
 
 function formulate_sos2!(

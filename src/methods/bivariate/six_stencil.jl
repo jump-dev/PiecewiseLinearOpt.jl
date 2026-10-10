@@ -3,6 +3,16 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+"""
+    SixStencil(axis_method = Logarithmic())
+
+Formulation of bivariate continuous piecewise linear functions on any grid
+triangulation (Huchette and Vielma, 2023), the default method for bivariate
+functions.
+
+It combines an SOS2 constraint along each axis, formulated with `axis_method`,
+with 6 binary variables to select the triangle in the chosen cell.
+"""
 struct SixStencil{M<:Method} <: Method
     axis_method::M
 end

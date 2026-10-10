@@ -3,6 +3,16 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+"""
+    K1(axis_method = Logarithmic())
+
+Formulation of bivariate continuous piecewise linear functions on a grid where
+every cell is split along the diagonal from its upper left to its lower right
+corner, e.g. [`K1Triangulation`](@ref).
+
+It combines an SOS2 constraint along each axis, formulated with `axis_method`,
+with 2 binary variables to select the triangle in the chosen cell.
+"""
 struct K1{M<:Method} <: Method
     axis_method::M
 end

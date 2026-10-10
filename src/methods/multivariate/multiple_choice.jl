@@ -3,6 +3,14 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+"""
+    MultipleChoice()
+
+The multiple choice formulation of piecewise linear functions of any dimension
+(see Vielma, Ahmed and Nemhauser, 2010), with a copy of the input and a binary
+variable for each segment. The segments must be simplices, but the function
+may be discontinuous.
+"""
 struct MultipleChoice <: Method end
 
 # Each segment gets its own copy of the input, so the function need not be

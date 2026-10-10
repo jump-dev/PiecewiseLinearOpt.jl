@@ -4,6 +4,19 @@
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
 # TODO: Generalize to multivariate case.
+"""
+    OptimalIndependentBranching(sub_solver)
+
+Independent branching formulation with the fewest binary variables.
+
+It formulates bivariate continuous piecewise linear functions on any grid
+triangulation with the smallest number of binary variables (Huchette and
+Vielma, 2019), at least `ceil(log2(t))` for `t` triangles.
+
+That number is found by solving a mixed-integer program with `sub_solver`,
+e.g. `HiGHS.Optimizer`. The result is cached for each triangulation, but
+computing it is only practical for small grids, up to about 4×4 points.
+"""
 struct OptimalIndependentBranching{S} <: Method
     sub_solver::S
 end

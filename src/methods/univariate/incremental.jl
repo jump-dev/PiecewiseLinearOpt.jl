@@ -4,6 +4,15 @@
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
 # TODO: Implement bivariate version of the incremental formulation
+"""
+    Incremental()
+
+The incremental formulation of univariate continuous piecewise linear
+functions (see Vielma, Ahmed and Nemhauser, 2010).
+
+For `d` segments, it uses `d` binary variables and `d + 1` continuous variables
+for the fill of each segment.
+"""
 struct Incremental <: Method end
 
 function formulate_pwl!(

@@ -3,6 +3,17 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+"""
+    LogarithmicEmbedding()
+    Logarithmic()
+
+The logarithmic embedding formulation of univariate continuous piecewise linear
+functions (Vielma, 2018), the default method for univariate functions.
+
+For `d` segments, it uses `ceil(log2(d))` binary variables and
+`2 * ceil(log2(d))` constraints in addition to the `d + 1` convex multipliers.
+It can also be used as the axis method of the bivariate grid formulations.
+"""
 struct LogarithmicEmbedding <: Method end
 
 function formulate_sos2!(

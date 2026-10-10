@@ -15,6 +15,16 @@ function Base.show(io::IO, method::Method)
     return
 end
 
+"""
+    DIRECTION
+
+How the outputs `y` of [`piecewiselinear`](@ref) relate to the function value
+`f(x)`:
+
+- `PiecewiseLinearOpt.Graph`: `y == f(x)`
+- `PiecewiseLinearOpt.Epigraph`: `y >= f(x)`
+- `PiecewiseLinearOpt.Hypograph`: `y <= f(x)`
+"""
 @enum DIRECTION Graph Epigraph Hypograph
 
 """
@@ -53,12 +63,26 @@ struct _HyperplaneSegment{D,F}
     funcs::NTuple{F,_AffineFunction{D}}
 end
 
+"""
+    SegmentStructure{D}
+
+How the segments of a piecewise linear function of `D` inputs are arranged.
+"""
 abstract type SegmentStructure{D} end
 
-# Segments without any known structure, e.g. a triangulation in higher
-# dimensions
+"""
+    Unstructured{D}()
+
+Segments without any known structure, e.g. a triangulation in three or more
+dimensions.
+"""
 struct Unstructured{D} <: SegmentStructure{D} end
 
+"""
+    Intervals()
+
+The segments of a univariate function, which are intervals.
+"""
 struct Intervals <: SegmentStructure{1} end
 
 """

@@ -3,6 +3,17 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+"""
+    DisaggregatedLogarithmic()
+
+The logarithmic disaggregated convex combination formulation.
+
+It works for continuous piecewise linear functions of any dimension (see
+Vielma, Ahmed and Nemhauser, 2010), with a convex multiplier for each vertex of
+each segment.
+
+For `d` segments, it uses `ceil(log2(d))` binary variables.
+"""
 struct DisaggregatedLogarithmic <: Method end
 
 function formulate_pwl!(

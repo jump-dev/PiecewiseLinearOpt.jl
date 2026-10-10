@@ -3,6 +3,14 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+"""
+    NativeSOS2()
+
+Formulates univariate continuous piecewise linear functions with the convex
+multipliers in a special ordered set of type 2 (`MOI.SOS2`), leaving the
+branching to the solver. It adds no integer variables, but requires a solver
+that supports SOS2 constraints.
+"""
 struct NativeSOS2 <: Method end
 
 function formulate_sos2!(

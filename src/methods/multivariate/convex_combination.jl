@@ -3,6 +3,17 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+"""
+    ConvexCombination()
+
+The convex combination formulation of continuous piecewise linear functions.
+
+It works for functions of any dimension (see Vielma, Ahmed and Nemhauser,
+2010), with a convex multiplier for each breakpoint and a binary variable for
+each segment.
+
+It can also be used as the axis method of the bivariate grid formulations.
+"""
 struct ConvexCombination <: Method end
 
 function formulate_pwl!(
