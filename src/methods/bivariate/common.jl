@@ -14,10 +14,7 @@ function formulate_pwl!(
     method::BivariateSOS2Method,
     direction::DIRECTION,
 ) where {F}
-    initPWL!(model)
     counter = model.ext[:PWL].counter
-    counter += 1
-    model.ext[:PWL].counter = counter
 
     grid = _continuous_gridpoints_or_die(pwl)
 
@@ -28,9 +25,6 @@ function formulate_pwl!(
     @assert issorted(u_2)
 
     n_1, n_2 = size(xs)
-
-    x_1_to_i = Dict(u_1[i] => i for i in 1:n_1)
-    x_2_to_j = Dict(u_2[j] => j for j in 1:n_2)
 
     λ = JuMP.@variable(
         model,

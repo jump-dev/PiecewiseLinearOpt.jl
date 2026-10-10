@@ -91,13 +91,15 @@ The following formualations are available in the package and is provided through
 Supported multivariate formulations:
 * `ConvexCombination()`
 * `DisaggregatedLogarithmic()`
-* `MultipleChoice()`: Limited support as it currently needs an explicit formulations with hyperplanes
+* `MultipleChoice()`: Requires each segment to be a simplex (e.g. a triangulation in 2D); supports discontinuous functions
 
 Supported univariate formulations:
+* `GeneralizedCelaya()`
 * `Incremental()`
 * `Logarithmic()`
 * `LogarithmicIndependentBranching()`
 * `NativeSOS2()`
+* `SymmetricCelaya()`
 * `ZigZagBinary()`
 * `ZigZagInteger()`
 

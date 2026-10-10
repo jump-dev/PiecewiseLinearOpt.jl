@@ -16,10 +16,7 @@ function formulate_pwl!(
     method::OptimalIndependentBranching,
     direction::DIRECTION,
 ) where {F}
-    initPWL!(model)
     counter = model.ext[:PWL].counter
-    counter += 1
-    model.ext[:PWL].counter = counter
 
     grid = _continuous_gridpoints_or_die(pwl)
 
@@ -30,9 +27,6 @@ function formulate_pwl!(
     @assert issorted(u_2)
 
     n_1, n_2 = size(xs)
-
-    x_1_to_i = Dict(u_1[i] => i for i in 1:n_1)
-    x_2_to_j = Dict(u_2[j] => j for j in 1:n_2)
 
     λ = JuMP.@variable(
         model,
@@ -87,7 +81,6 @@ function formulate_pwl!(
 
     t = ceil(Int, log2(2 * (n_1 - 1) * (n_2 - 1)))
     while true
-        #@show method.sub_solver
         sub_model = JuMP.Model(method.sub_solver)
         JuMP.@variable(sub_model, x[1:t, J], Bin)
         JuMP.@variable(sub_model, y[1:t, J], Bin)
@@ -115,7 +108,6 @@ function formulate_pwl!(
             end
         end
 
-        #@show J
         for r in J, s in J
             # lexicographic ordering on points on grid
             if r[1] > s[1] || (r[1] == s[1] && r[2] ≥ s[2])
@@ -154,7 +146,6 @@ function formulate_pwl!(
         end
 
         JuMP.@objective(sub_model, Min, sum(x) + sum(y))
-        JuMP.unset_silent(sub_model)
         JuMP.optimize!(sub_model)
         if JuMP.primal_status(sub_model) == JuMP.FEASIBLE_POINT
             x_val = JuMP.value.(x)
@@ -162,7 +153,6 @@ function formulate_pwl!(
             break
         else
             t += 1
-            @show t
         end
     end
     z = JuMP.@variable(model, [1:t], Bin, base_name = "z_$counter")

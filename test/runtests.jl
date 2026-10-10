@@ -16,10 +16,13 @@ optimizer = optimizer_with_attributes(HiGHS.Optimizer, MOI.Silent() => true)
 const methods_1D = [
     ConvexCombination(),
     DisaggregatedLogarithmic(),
+    GeneralizedCelaya(),
     Incremental(),
     LogarithmicEmbedding(),
     LogarithmicIndependentBranching(),
+    MultipleChoice(),
     NativeSOS2(),
+    SymmetricCelaya(),
     ZigZagBinary(),
     ZigZagInteger(),
 ]
@@ -39,6 +42,75 @@ const methods_1D = [
     @test termination_status(model) == MOI.OPTIMAL
     @test value(x) ≈ 3.0 rtol = 1e-4
     @test value(y[1]) ≈ 1.0 rtol = 1e-4
+end
+
+@testset "Univariate sizes: $method" for method in methods_1D
+    # The encodings of the SOS2 formulations depend on the number of segments.
+    # Fixing x inside a segment, y must be pinned to the interpolated value
+    # (a weak formulation would let y range over the convex hull).
+    for n in 2:10
+        xs = collect(range(0; stop = 2π, length = n))
+        zs = sin.(xs)
+        model = Model(optimizer)
+        @variable(model, x)
+        y = piecewiselinear(model, x, xs, zs; method = method)
+        for i in 1:n-1
+            x0 = 0.3 * xs[i] + 0.7 * xs[i+1]
+            y0 = 0.3 * zs[i] + 0.7 * zs[i+1]
+            fix(x, x0)
+            for sense in (MAX_SENSE, MIN_SENSE)
+                @objective(model, sense, y)
+                optimize!(model)
+                @test termination_status(model) == MOI.OPTIMAL
+                @test value(y) ≈ y0 atol = 1e-5
+            end
+        end
+    end
+end
+
+@testset "Discontinuous univariate" begin
+    model = Model(optimizer)
+    @variable(model, x)
+    s1 = PLO.SegmentPointRep{1,1}([(0.0,), (1.0,)], [(0.0,), (1.0,)])
+    s2 = PLO.SegmentPointRep{1,1}([(1.0,), (2.0,)], [(3.0,), (2.0,)])
+    pwl = PLO.PWLFunction([s1, s2], PLO.Intervals())
+    y = piecewiselinear(model, (x,), pwl; method = MultipleChoice())
+    @objective(model, Max, y[1])
+    optimize!(model)
+    @test termination_status(model) == MOI.OPTIMAL
+    @test value(x) ≈ 1.0 atol = 1e-6
+    @test value(y[1]) ≈ 3.0 atol = 1e-6
+end
+
+@testset "Discontinuous bivariate" begin
+    # Two triangles sharing the diagonal from (0, 0) to (1, 1), with a jump
+    # across it.
+    s1 = PLO.SegmentPointRep{2,1}(
+        [(0.0, 0.0), (0.0, 1.0), (1.0, 1.0)],
+        [(0.0,), (1.0,), (2.0,)],
+    )
+    s2 = PLO.SegmentPointRep{2,1}(
+        [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0)],
+        [(5.0,), (3.0,), (7.0,)],
+    )
+    pwl = PLO.PWLFunction{2,1,PLO.SegmentPointRep{2,1}}(
+        [s1, s2],
+        PLO.UnstructuredTriangulation(),
+    )
+    model = Model(optimizer)
+    @variable(model, x[1:2])
+    y = piecewiselinear(model, (x[1], x[2]), pwl; method = MultipleChoice())
+    @objective(model, Max, y[1])
+    optimize!(model)
+    @test termination_status(model) == MOI.OPTIMAL
+    @test value(x[1]) ≈ 1.0 atol = 1e-6
+    @test value(x[2]) ≈ 1.0 atol = 1e-6
+    @test value(y[1]) ≈ 7.0 atol = 1e-6
+    # On the shared edge the lower triangle (s2) gives the larger value
+    @constraint(model, x[1] == 0.5)
+    @constraint(model, x[2] == 0.5)
+    optimize!(model)
+    @test value(y[1]) ≈ 6.0 atol = 1e-6
 end
 
 @testset "Univariate pwlinear" begin
@@ -112,15 +184,18 @@ end
 
 const sos2_methods = [
     ConvexCombination(),
+    GeneralizedCelaya(),
     LogarithmicEmbedding(),
     LogarithmicIndependentBranching(),
     NativeSOS2(),
+    SymmetricCelaya(),
     ZigZagBinary(),
     ZigZagInteger(),
 ]
 const methods_2D_gen = [
     ConvexCombination(),
     DisaggregatedLogarithmic(),
+    MultipleChoice(),
     #OptimalIndependentBranching(optimizer),
     [NineStencil(sos2_method) for sos2_method in methods_1D]...,
     [

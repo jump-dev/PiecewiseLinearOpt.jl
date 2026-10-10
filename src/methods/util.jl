@@ -92,7 +92,7 @@ function _continuous_gridpoints_or_die(
             )
         end
     else
-        Base.warn(
+        @warn(
             "Cannot currently verify that multivariate piecewise linear functions have domains equal to entire grid of breakpoints.",
         )
     end
@@ -166,125 +166,10 @@ function _check_triangle(segment::SegmentPointRep{D}) where {D}
     return
 end
 
-function _check_triangle(segment::SegmentHyperplaneRep{D}) where {D}
-    if length(segment.breakpoints) != D + 1
-        error(
-            "Encountered something that was not a simplex while expecting a trianglulation.",
-        )
-    end
-    return
-end
-
-function _check_triangulation(pwl::PWLFunction) where {D,F}
+function _check_triangulation(pwl::PWLFunction)
     # TODO: Add check that segments lie in a single subrectangle
     for segment in pwl.segments
         _check_triangle(segment)
     end
     return
-end
-
-function _generalized_celaya_hyperplanes(k::Int)
-    return _compute_hyperplanes(_generalized_celaya_codes(k))
-end
-
-function _symmetric_celaya_hyperplanes(k::Int)
-    return _compute_hyperplanes(_symmetric_celaya_codes(k))
-end
-
-# TODO: Figure out assumptions at play here
-function _compute_hyperplanes(C::Vector{Vector{T}}) where {T<:Number}
-    n = length(C)
-    k = length(C[1])
-
-    d = zeros(n - 1, k)
-    for i in 1:n-1
-        d[i, :] = C[i+1] - C[i]
-    end
-
-    if k <= 1
-        error("Cannot process codes of length $k")
-    elseif k == 2
-        @assert n == 4
-        spanners = Vector{Float64}[]
-        for i in 1:n-1
-            v = canonical!(d[i, :])
-            v = [v[2], -v[1]]
-            push!(spanners, v)
-        end
-        indices = [1]
-        approx12 = isapprox(spanners[1], spanners[2])
-        approx13 = isapprox(spanners[1], spanners[3])
-        approx23 = isapprox(spanners[2], spanners[3])
-        if !approx12
-            push!(indices, 2)
-        end
-        if !approx13 && !(!approx12 && approx23)
-            push!(indices, 3)
-        end
-        return spanners[indices]
-    end
-
-    indices = [1, 2]
-    spanners = Vector{Float64}[]
-    while !isempty(indices)
-        if indices == [n - 1]
-            break
-        end
-        if LinearAlgebra.rank(d[indices, :]) == length(indices) &&
-           length(indices) <= k - 1
-            if length(indices) == k - 1
-                nullsp = LinearAlgebra.nullspace(d[indices, :])
-                @assert size(nullsp, 2) == 1
-                v = vec(nullsp)
-                push!(spanners, canonical!(v))
-            end
-            if indices[end] != n - 1
-                push!(indices, indices[end] + 1)
-            else
-                pop!(indices)
-                indices[end] += 1
-            end
-        else
-            if indices[end] != n - 1
-                indices[end] += 1
-            else
-                pop!(indices)
-                indices[end] += 1
-            end
-        end
-    end
-
-    keepers = [1]
-    for i in 2:length(spanners)
-        alreadyin = false
-        for j in keepers
-            if isapprox(spanners[i], spanners[j])
-                alreadyin = true
-                break
-            end
-        end
-        if !alreadyin
-            push!(keepers, i)
-        end
-    end
-
-    return spanners[keepers]
-end
-
-function _canonical!(v::Vector{Float64})
-    normalize!(v)
-    for j in 1:length(v)
-        if abs(v[j]) < 1e-8
-            v[j] = 0
-        end
-    end
-    sgn = sign(v[findfirst([x != 0 for x in v])])
-    for j in 1:length(v)
-        if abs(v[j]) < 1e-8
-            v[j] = 0
-        else
-            v[j] *= sgn
-        end
-    end
-    return v
 end

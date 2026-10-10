@@ -5,41 +5,105 @@
 
 struct MultipleChoice <: Method end
 
+# Each segment gets its own copy of the input, so the function need not be
+# continuous.
 function formulate_pwl!(
     model::JuMP.Model,
-    input_vars::Tuple{VarOrAff},
+    input_vars::NTuple{D,VarOrAff},
     output_vars::NTuple{F,VarOrAff},
-    pwl::PWLFunctionHyperplaneRep{D,F},
+    pwl::PWLFunctionPointRep{D,F},
     method::MultipleChoice,
     direction::DIRECTION,
 ) where {D,F}
-    x_hat = JuMP.@variable(model, [segments, 1:D], base_name = "x_hat_$counter")
-    y_hat = JuMP.@variable(model, [segments, 1:F], base_name = "y_hat_$counter")
-    z = JuMP.@variable(model, [segments], Bin, base_name = "z_$counter")
+    segments = [_hyperplane_rep(seg) for seg in pwl.segments]
+    _formulate_multiple_choice!(
+        model,
+        input_vars,
+        output_vars,
+        segments,
+        direction,
+    )
+    return nothing
+end
+
+function _formulate_multiple_choice!(
+    model::JuMP.Model,
+    input_vars::NTuple{D,VarOrAff},
+    output_vars::NTuple{F,VarOrAff},
+    segments::Vector{SegmentHyperplaneRep{D,F}},
+    direction::DIRECTION,
+) where {D,F}
+    counter = model.ext[:PWL].counter
+    n = length(segments)
+
+    x_hat = JuMP.@variable(model, [1:n, 1:D], base_name = "x_hat_$counter")
+    z = JuMP.@variable(model, [1:n], Bin, base_name = "z_$counter")
     JuMP.@constraint(model, sum(z) == 1)
-    for i in 1:D
-        JuMP.@constraint(model, sum(x_hat[:, i]) == x[i])
+    for j in 1:D
+        JuMP.@constraint(model, sum(x_hat[:, j]) == input_vars[j])
     end
-    for i in 1:F
-        JuMP.@constraint(model, sum(y_hat[:, i]) == y[i])
+    for (i, seg) in enumerate(segments), constraint in seg.constraints
+        JuMP.@constraint(model, _homogenize(constraint, x_hat[i, :], z[i]) ≥ 0)
     end
-    for seg in segments
-        for constraint in seg.constraints
-            coeffs, offset = constraint.coeffs, constraint.offset
-            JuMP.@constraint(
-                model,
-                LinearAlgebra.dot(coeffs, x_hat[seg, :]) + offset * z[seg] ≥ 0
-            )
-        end
-        for i in 1:F
-            output_func = seg.output_funcs[i]
-            coeffs, offset = output_func.coeffs, output_func.offset
-            JuMP.@constraint(
-                model,
-                y_hat[seg, i] ==
-                LinearAlgebra.dot(coeffs, x_hat[seg, :]) + offset * z[seg]
-            )
-        end
+    for k in 1:F
+        rhs = sum(
+            _homogenize(seg.funcs[k], x_hat[i, :], z[i]) for
+            (i, seg) in enumerate(segments)
+        )
+        _constrain_output_var(model, output_vars[k], rhs, direction)
     end
     return nothing
+end
+
+# Returns f.coeffs ⋅ x + f.offset * z, which equals f(x) when z = 1 and is
+# zero when z = 0 (forcing x = 0, as segments are bounded).
+function _homogenize(f::AffineFunction{D}, x, z) where {D}
+    return sum(f.coeffs[j] * x[j] for j in 1:D) + f.offset * z
+end
+
+# Converts a simplex with vertices v_0, ..., v_D into the hyperplane
+# representation given by its barycentric coordinates μ_0, ..., μ_D ≥ 0.
+function _hyperplane_rep(seg::SegmentPointRep{D,F}) where {D,F}
+    if length(seg.input_vals) != D + 1
+        error(
+            "The MultipleChoice method requires every segment of a R^$D -> R^$F function to be a simplex with $(D + 1) points.",
+        )
+    end
+    v_0 = collect(seg.input_vals[1])
+    M = Matrix{Float64}(undef, D, D)
+    for i in 1:D
+        M[:, i] = collect(seg.input_vals[i+1]) .- v_0
+    end
+    if LinearAlgebra.rank(M) < D
+        error(
+            "The MultipleChoice method does not support degenerate segments: $(seg.input_vals)",
+        )
+    end
+    M_inv = inv(M)
+
+    # μ_i(x) = M_inv[i, :] ⋅ (x - v_0) for i = 1, ..., D
+    constraints = [
+        AffineFunction{D}(
+            ntuple(j -> M_inv[i, j], D),
+            -LinearAlgebra.dot(M_inv[i, :], v_0),
+        ) for i in 1:D
+    ]
+    # μ_0(x) = 1 - sum of the others
+    c = vec(sum(M_inv; dims = 1))
+    push!(
+        constraints,
+        AffineFunction{D}(ntuple(j -> -c[j], D), 1 + LinearAlgebra.dot(c, v_0)),
+    )
+
+    # f_k(x) = y_0 + sum((y_i - y_0) * μ_i(x) for i in 1:D)
+    funcs = ntuple(F) do k
+        y_0 = seg.output_vals[1][k]
+        Δ = [seg.output_vals[i+1][k] - y_0 for i in 1:D]
+        g = transpose(M_inv) * Δ
+        return AffineFunction{D}(
+            ntuple(j -> g[j], D),
+            y_0 - LinearAlgebra.dot(g, v_0),
+        )
+    end
+    return SegmentHyperplaneRep{D,F}(constraints, funcs)
 end
