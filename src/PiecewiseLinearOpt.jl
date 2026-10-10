@@ -16,7 +16,15 @@ include("types.jl")
 
 mutable struct PWLData
     counter::Int
-    PWLData() = new(0)
+    PWLData(counter::Int = 0) = new(counter)
+end
+
+function JuMP.copy_extension_data(
+    data::PWLData,
+    ::JuMP.AbstractModel,
+    ::JuMP.AbstractModel,
+)
+    return PWLData(data.counter)
 end
 
 function initPWL!(m::JuMP.Model)

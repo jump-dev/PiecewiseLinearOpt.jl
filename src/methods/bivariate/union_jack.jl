@@ -21,7 +21,16 @@ function formulate_triangle_selection!(
     @assert size(triangle_direction) == (n_1 - 1, n_2 - 1)
     counter = model.ext[:PWL].counter
 
-    # TODO: Certify triangulation is Union Jack
+    # In a Union Jack triangulation the diagonals alternate between neighboring
+    # cells.
+    for i in 1:n_1-1, j in 1:n_2-1
+        if triangle_direction[i, j] !=
+           xor(triangle_direction[1, 1], isodd(i + j))
+            error(
+                "The UnionJack method requires a Union Jack triangulation, but the diagonals of cell ($i, $j) and cell (1, 1) do not match.",
+            )
+        end
+    end
 
     # j_start = number of triangle segments incident to (1, 1), the lower-left
     # most point in the grid.

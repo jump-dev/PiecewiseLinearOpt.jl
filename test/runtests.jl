@@ -11,7 +11,15 @@ using Test
 
 const PLO = PiecewiseLinearOpt
 
-optimizer = optimizer_with_attributes(HiGHS.Optimizer, MOI.Silent() => true)
+# With the default tolerances, HiGHS occasionally reports a solve error because
+# rounding a binary within its integrality tolerance (1e-6) leaves a constraint
+# violated by more than the primal feasibility tolerance.
+optimizer = optimizer_with_attributes(
+    HiGHS.Optimizer,
+    MOI.Silent() => true,
+    "mip_feasibility_tolerance" => 1e-8,
+    "primal_feasibility_tolerance" => 1e-8,
+)
 
 const methods_1D = [
     ConvexCombination(),
@@ -196,7 +204,6 @@ const methods_2D_gen = [
     ConvexCombination(),
     DisaggregatedLogarithmic(),
     MultipleChoice(),
-    #OptimalIndependentBranching(optimizer),
     [NineStencil(sos2_method) for sos2_method in methods_1D]...,
     [
         OptimalTriangleSelection(optimizer, sos2_method) for
@@ -204,7 +211,10 @@ const methods_2D_gen = [
     ]...,
     [SixStencil(sos2_method) for sos2_method in methods_1D]...,
 ]
-@testset "Simple bivariate" for method in methods_2D_gen
+@testset "Simple bivariate" for method in [
+    methods_2D_gen
+    OptimalIndependentBranching(optimizer)
+]
     model = Model(optimizer)
     @variable(model, x[1:2])
     s1 = PLO.SegmentPointRep{2,1}(
@@ -299,4 +309,154 @@ append!(method_pattern, uj_methods)
     @test value(z) ≈ 0.148753 rtol = 1e-4
     @test objective_value(model) ≈ 0.148753 rtol = 1e-3
     @test objective_value(model) ≈ value(z) rtol = 1e-3
+end
+
+# Fixing the input at the centroid of each triangle, the output must be pinned
+# to the interpolated value. A formulation that selects the wrong triangle in
+# some cell lets the output deviate from it.
+function test_triangle_selection(method, pattern, n)
+    d = range(0; stop = 1, length = n)
+    f = (a, b) -> a^2 + 3b^2 - a * b + sin(3a)
+    pwl = BivariatePWLFunction(d, d, f; pattern = pattern)
+    model = Model(optimizer)
+    @variable(model, x[1:2])
+    z = piecewiselinear(model, (x[1], x[2]), pwl; method = method)[1]
+    for seg in pwl.segments
+        fix(x[1], sum(v[1] for v in seg.input_vals) / 3)
+        fix(x[2], sum(v[2] for v in seg.input_vals) / 3)
+        z0 = sum(v[1] for v in seg.output_vals) / 3
+        for sense in (MAX_SENSE, MIN_SENSE)
+            @objective(model, sense, z)
+            optimize!(model)
+            @test termination_status(model) == MOI.OPTIMAL
+            @test value(z) ≈ z0 atol = 1e-5
+        end
+    end
+    return
+end
+
+const methods_2D_selection = [
+    ConvexCombination(),
+    DisaggregatedLogarithmic(),
+    MultipleChoice(),
+    NineStencil(),
+    OptimalTriangleSelection(optimizer),
+    SixStencil(),
+]
+
+@testset "2D triangle selection: $method, $pattern" for method in
+                                                        methods_2D_selection,
+    pattern in patterns
+
+    test_triangle_selection(method, pattern, 4)
+end
+
+@testset "2D triangle selection: $method" for (method, pattern) in [
+        (K1(), :K1),
+        (UnionJack(), :UnionJack),
+    ],
+    n in (4, 5)
+
+    test_triangle_selection(method, pattern, n)
+end
+
+# The cover computed for OptimalIndependentBranching gets expensive quickly
+@testset "2D triangle selection: OptimalIndependentBranching, $pattern" for pattern in
+                                                                            patterns
+    test_triangle_selection(OptimalIndependentBranching(optimizer), pattern, 3)
+end
+
+@testset "Triangulation checks" begin
+    d = range(0; stop = 1, length = 4)
+    f = (a, b) -> a + b
+    for (method, pattern, structure) in (
+        (K1(), :UnionJack, PLO.K1Triangulation()),
+        (UnionJack(), :K1, PLO.UnionJackTriangulation()),
+    )
+        pwl = BivariatePWLFunction(d, d, f; pattern = pattern)
+        pwl = PLO.PWLFunction(pwl.segments, structure)
+        model = Model()
+        @variable(model, x[1:2])
+        @test_throws ErrorException piecewiselinear(
+            model,
+            (x[1], x[2]),
+            pwl;
+            method = method,
+        )
+    end
+    # K1 and UnionJack require the matching structure
+    model = Model()
+    @variable(model, x[1:2])
+    pwl = BivariatePWLFunction(d, d, f; pattern = :Upper)
+    @test_throws ErrorException piecewiselinear(
+        model,
+        (x[1], x[2]),
+        pwl;
+        method = K1(),
+    )
+end
+
+@testset "Input validation" begin
+    @test_throws ErrorException UnivariatePWLFunction([0, 2, 1], [0, 1, 2])
+    @test_throws ErrorException UnivariatePWLFunction([0, 1, 1], [0, 1, 2])
+    @test_throws ErrorException BivariatePWLFunction(
+        [0, 1],
+        [1, 0],
+        (a, b) -> a + b,
+    )
+    @test_throws ErrorException BivariatePWLFunction(
+        [0, 1],
+        [0, 1],
+        (a, b) -> a + b;
+        pattern = :Unknown,
+    )
+    # Segments that are not simplices cannot be used with MultipleChoice
+    s = PLO.SegmentPointRep{2,1}(
+        [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+        [(0.0,), (1.0,), (2.0,), (1.0,)],
+    )
+    pwl = PLO.PWLFunction([s], PLO.UnstructuredTriangulation())
+    model = Model()
+    @variable(model, x[1:2])
+    @test_throws ErrorException piecewiselinear(
+        model,
+        (x[1], x[2]),
+        pwl;
+        method = MultipleChoice(),
+    )
+end
+
+@testset "Affine inputs: $method" for method in methods_1D
+    # y = f(2x + 1), with breakpoints of f at 1:5
+    xs = 1:5
+    zs = [0.0, 2.0, 1.0, 3.0, -1.0]
+    model = Model(optimizer)
+    @variable(model, x)
+    y = piecewiselinear(model, 2x + 1, xs, zs; method = method)
+    for (x0, y0) in ((0.25, 0.5 * 0.0 + 0.5 * 2.0), (1.75, 0.5 * 3.0 - 0.5))
+        fix(x, x0)
+        for sense in (MAX_SENSE, MIN_SENSE)
+            @objective(model, sense, y)
+            optimize!(model)
+            @test termination_status(model) == MOI.OPTIMAL
+            @test value(y) ≈ y0 atol = 1e-5
+        end
+    end
+end
+
+@testset "Affine inputs: $method" for method in
+                                      [MultipleChoice(), SixStencil(), K1()]
+    d = 0:2
+    f = (a, b) -> a^2 - b
+    model = Model(optimizer)
+    @variable(model, x[1:2])
+    z = piecewiselinear(model, 2x[1], x[2] + 1, d, d, f; method = method)
+    fix(x[1], 0.5)
+    fix(x[2], 0.0)
+    for sense in (MAX_SENSE, MIN_SENSE)
+        @objective(model, sense, z)
+        optimize!(model)
+        @test termination_status(model) == MOI.OPTIMAL
+        @test value(z) ≈ f(1, 1) atol = 1e-5
+    end
 end

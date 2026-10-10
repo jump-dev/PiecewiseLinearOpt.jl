@@ -61,12 +61,24 @@ const PWLFunctionHyperplaneRep{D,F} = PWLFunction{D,F,SegmentHyperplaneRep{D,F}}
 const UnivariatePWLFunction = PWLFunctionPointRep{1,1}
 const BivariatePWLFunction = PWLFunctionPointRep{2,1}
 
+function _check_strictly_increasing(xs::Vector{Float64}, name::String)
+    for i in 1:length(xs)-1
+        if !(xs[i] < xs[i+1])
+            error("The breakpoints in $name must be strictly increasing.")
+        end
+    end
+    return
+end
+
+const _BIVARIATE_PATTERNS = (:Upper, :Lower, :BestFit, :K1, :UnionJack, :Random)
+
 function PWLFunctionPointRep{1,1}(x::Vector, z::Vector)
     if length(x) != length(z)
         error("Mismatch in the number of points and function values")
     end
     xs = [convert(Float64, xi) for xi in x]
     zs = [convert(Float64, zi) for zi in z]
+    _check_strictly_increasing(xs, "x")
     segments = [
         PiecewiseLinearOpt.SegmentPointRep{1,1}(
             [(xs[i],), (xs[i+1],)],
@@ -96,6 +108,13 @@ function PWLFunctionPointRep{2,1}(
 )
     xs = [convert(Float64, xi) for xi in x]
     ys = [convert(Float64, yi) for yi in y]
+    _check_strictly_increasing(xs, "x")
+    _check_strictly_increasing(ys, "y")
+    if !(pattern in _BIVARIATE_PATTERNS)
+        error(
+            "Unknown pattern $(repr(pattern)). Supported patterns are $(join(repr.(_BIVARIATE_PATTERNS), ", ")).",
+        )
+    end
 
     segments = SegmentPointRep{2,1}[]
     structure = UnstructuredTriangulation()
@@ -121,7 +140,7 @@ function PWLFunctionPointRep{2,1}(
         elseif pattern == :BestFit
             diagonal_nw_se = (abs(mid1 - mid3) < abs(mid2 - mid3))
         elseif pattern == :K1
-            diagonal_nw_se = false
+            diagonal_nw_se = true
         elseif pattern == :UnionJack
             diagonal_nw_se = isodd(i + j)
         elseif pattern == :Random

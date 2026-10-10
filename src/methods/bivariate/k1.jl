@@ -21,7 +21,12 @@ function formulate_triangle_selection!(
     @assert size(triangle_direction) == (n_1 - 1, n_2 - 1)
     counter = model.ext[:PWL].counter
 
-    # TODO: Certify triangulation is "uniform"
+    # The formulation assumes every cell is split along its NW-SE diagonal.
+    if !all(triangle_direction)
+        error(
+            "The K1 method requires a K1 triangulation, where every cell is split along the diagonal from its upper left to its lower right corner.",
+        )
+    end
 
     w = JuMP.@variable(model, [1:2], Bin, base_name = "w_$counter")
     JuMP.@constraints(

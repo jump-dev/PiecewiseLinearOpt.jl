@@ -126,16 +126,20 @@ end
 function _create_convex_multiplier_vars(
     model::JuMP.Model,
     grid::Grid{D,F},
-    input_vars::NTuple{D,JuMP.VariableRef},
-    output_vars::NTuple{F,JuMP.VariableRef},
+    input_vars::NTuple{D,VarOrAff},
+    output_vars::NTuple{F,VarOrAff},
     direction::DIRECTION,
 ) where {D,F}
     counter = model.ext[:PWL].counter
 
-    # TODO: Name λ variables
     λ = similar(Array{JuMP.VariableRef}, axes(grid.input_vals))
     for I in eachindex(λ)
-        λ[I] = JuMP.@variable(model, lower_bound = 0, upper_bound = 1)
+        λ[I] = JuMP.@variable(
+            model,
+            lower_bound = 0,
+            upper_bound = 1,
+            base_name = "λ_$counter[$(join(Tuple(I), ","))]"
+        )
     end
 
     JuMP.@constraint(model, sum(λ) == 1)
