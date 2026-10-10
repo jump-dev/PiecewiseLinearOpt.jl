@@ -13,6 +13,15 @@ import Random
 export PWLFunction,
     UnivariatePWLFunction, BivariatePWLFunction, PWLFormulation, piecewiselinear
 
+export GridTriangulation,
+    BestFitTriangulation,
+    K1Triangulation,
+    LowerTriangulation,
+    RandomTriangulation,
+    UnionJackTriangulation,
+    UnstructuredTriangulation,
+    UpperTriangulation
+
 include("types.jl")
 
 # Counts the piecewise linear functions added to a model, to give their

@@ -63,7 +63,8 @@ z = PiecewiseLinearOpt.piecewiselinear(model, x, d, f; method = Logarithmic())
 ### Bivariate
 
 Consider a piecewise linear approximation for the function $f(x, y) = exp(x + y)$
-on a triangular grid with a best fit pattern: 
+on a grid where each cell is split into two triangles along the diagonal that
+best fits the function:
 
 ```julia
 using JuMP, PiecewiseLinearOpt
@@ -78,10 +79,17 @@ z = PiecewiseLinearOpt.piecewiselinear(
     0:0.1:1,
     (u, v) -> exp(u + v);
     method = SixStencil(),
-    pattern = :BestFit
+    triangulation = BestFitTriangulation(),
 )
 @objective(model, Min, z)
 ```
+
+The function can also be given by a matrix of values at the grid points,
+`z[i, j] = f(x[i], y[j])`. The available triangulations are
+`K1Triangulation()` (the default), `UnionJackTriangulation()`,
+`UpperTriangulation()`, `LowerTriangulation()`, `BestFitTriangulation()` (not
+for matrix input) and `RandomTriangulation(seed)`. A `PWLFunction` can be
+evaluated at a point, e.g. `BivariatePWLFunction(x, y, f)(0.5, 0.5)`.
 
 ### General interface
 

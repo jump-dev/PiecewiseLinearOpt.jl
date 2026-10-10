@@ -19,7 +19,6 @@ function formulate_triangle_selection!(
     λ::Matrix{<:JuMP.AbstractVariableRef},
     triangle_direction::Matrix{Bool},
     method::OptimalTriangleSelection,
-    _::GridTriangulation,
 )
     cover =
         _optimal_biclique_cover(method.sub_solver, triangle_direction, false)

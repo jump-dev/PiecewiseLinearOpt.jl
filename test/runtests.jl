@@ -377,14 +377,25 @@ end
     @test objective_value(model) ≈ value(y) rtol = 1e-4
 end
 
-const patterns = [:Upper, :Lower, :BestFit, :K1, :UnionJack, :Random]
-const method_pattern = [
-    vec(collect(Iterators.product(methods_2D_gen, patterns)))
-    [(K1(sos2_method), :K1) for sos2_method in methods_1D]
-    [(UnionJack(sos2_method), :UnionJack) for sos2_method in methods_1D]
+const triangulations = [
+    UpperTriangulation(),
+    LowerTriangulation(),
+    BestFitTriangulation(),
+    K1Triangulation(),
+    UnionJackTriangulation(),
+    RandomTriangulation(),
+]
+const method_triangulation = [
+    vec(collect(Iterators.product(methods_2D_gen, triangulations)))
+    [(K1(sos2_method), K1Triangulation()) for sos2_method in methods_1D]
+    [
+        (UnionJack(sos2_method), UnionJackTriangulation()) for
+        sos2_method in methods_1D
+    ]
 ]
 
-@testset "2D: $method, $pattern" for (method, pattern) in method_pattern
+@testset "2D: $method, $triangulation" for (method, triangulation) in
+                                           method_triangulation
     model = Model(optimizer)
     @variable(model, x[1:2])
     d = range(0; stop = 1, length = 8)
@@ -397,7 +408,7 @@ const method_pattern = [
         d,
         f;
         method = method,
-        pattern = pattern,
+        triangulation = triangulation,
     )
     @objective(model, Min, z)
     optimize!(model)
@@ -422,10 +433,10 @@ end
 # Fixing the input at the centroid of each triangle, the output must be pinned
 # to the interpolated value. A formulation that selects the wrong triangle in
 # some cell lets the output deviate from it.
-function test_triangle_selection(method, pattern, n)
+function test_triangle_selection(method, triangulation, n)
     d = range(0; stop = 1, length = n)
     f = (a, b) -> a^2 + 3b^2 - a * b + sin(3a)
-    pwl = BivariatePWLFunction(d, d, f; pattern = pattern)
+    pwl = BivariatePWLFunction(d, d, f; triangulation = triangulation)
     model = Model(optimizer)
     @variable(model, x[1:2])
     (z,), _ = piecewiselinear(model, (x[1], x[2]), pwl; method = method)
@@ -452,37 +463,46 @@ const methods_2D_selection = [
     SixStencil(),
 ]
 
-@testset "2D triangle selection: $method, $pattern" for method in
-                                                        methods_2D_selection,
-    pattern in patterns
+@testset "2D triangle selection: $method, $triangulation" for method in
+                                                              methods_2D_selection,
+    triangulation in triangulations
 
-    test_triangle_selection(method, pattern, 4)
+    test_triangle_selection(method, triangulation, 4)
 end
 
-@testset "2D triangle selection: $method" for (method, pattern) in [
-        (K1(), :K1),
-        (UnionJack(), :UnionJack),
+@testset "2D triangle selection: $method" for (method, triangulation) in [
+        (K1(), K1Triangulation()),
+        (UnionJack(), UnionJackTriangulation()),
     ],
     n in (4, 5)
 
-    test_triangle_selection(method, pattern, n)
+    test_triangle_selection(method, triangulation, n)
 end
 
 # The cover computed for OptimalIndependentBranching gets expensive quickly
-@testset "2D triangle selection: OptimalIndependentBranching, $pattern" for pattern in
-                                                                            patterns
-    test_triangle_selection(OptimalIndependentBranching(optimizer), pattern, 3)
+@testset "2D triangle selection: OptimalIndependentBranching, $triangulation" for triangulation in
+                                                                                  triangulations
+    test_triangle_selection(
+        OptimalIndependentBranching(optimizer),
+        triangulation,
+        3,
+    )
 end
 
 @testset "Triangulation checks" begin
     d = range(0; stop = 1, length = 4)
-    f = (a, b) -> a + b
-    for (method, pattern, structure) in (
-        (K1(), :UnionJack, PLO.K1Triangulation()),
-        (UnionJack(), :K1, PLO.UnionJackTriangulation()),
+    # K1 and UnionJack check the triangulation itself, not how it was built
+    for (method, triangulation) in (
+        (K1(), UnionJackTriangulation()),
+        (K1(), UpperTriangulation()),
+        (UnionJack(), K1Triangulation()),
     )
-        pwl = BivariatePWLFunction(d, d, f; pattern = pattern)
-        pwl = PLO.PWLFunction(pwl.segments, structure)
+        pwl = BivariatePWLFunction(
+            d,
+            d,
+            (a, b) -> a * b;
+            triangulation = triangulation,
+        )
         model = Model()
         @variable(model, x[1:2])
         @test_throws ErrorException piecewiselinear(
@@ -492,16 +512,76 @@ end
             method = method,
         )
     end
-    # K1 and UnionJack require the matching structure
+    # For a * b, the lower triangulation splits every cell like K1
+    pwl = BivariatePWLFunction(
+        d,
+        d,
+        (a, b) -> a * b;
+        triangulation = LowerTriangulation(),
+    )
     model = Model()
     @variable(model, x[1:2])
-    pwl = BivariatePWLFunction(d, d, f; pattern = :Upper)
-    @test_throws ErrorException piecewiselinear(
-        model,
-        (x[1], x[2]),
-        pwl;
-        method = K1(),
+    _, formulation = piecewiselinear(model, x, pwl; method = K1())
+    @test formulation.method == K1()
+end
+
+@testset "Triangulations" begin
+    # A single cell with f = (a + b)^2: the corner values are SW = 0,
+    # SE = NW = 1 and NE = 4, so the value at the center is 2 when the cell is
+    # split along SW-NE, and 1 along NW-SE. The true value there is 1.
+    f = (a, b) -> (a + b)^2
+    center_value(t) =
+        BivariatePWLFunction(0:1, 0:1, f; triangulation = t)(0.5, 0.5)
+    @test center_value(UpperTriangulation()) ≈ 2
+    @test center_value(LowerTriangulation()) ≈ 1
+    @test center_value(BestFitTriangulation()) ≈ 1
+    @test center_value(K1Triangulation()) ≈ 1
+    # Union Jack alternates, starting with SW-NE in the first cell, while K1
+    # always splits along NW-SE
+    d = 0:3
+    pwl =
+        BivariatePWLFunction(d, d, f; triangulation = UnionJackTriangulation())
+    @test pwl(0.5, 0.5) ≈ 2  # (f(0, 0) + f(1, 1)) / 2
+    @test pwl(1.5, 0.5) ≈ 4  # (f(1, 1) + f(2, 0)) / 2
+    @test pwl(1.5, 1.5) ≈ 10  # (f(1, 1) + f(2, 2)) / 2
+    pwl = BivariatePWLFunction(d, d, f; triangulation = K1Triangulation())
+    @test pwl(0.5, 0.5) ≈ 1  # (f(0, 1) + f(1, 0)) / 2
+    @test pwl(1.5, 1.5) ≈ 9  # (f(1, 2) + f(2, 1)) / 2
+    # Random triangulations are reproducible
+    vertices(t) = [
+        s.input_vals for
+        s in BivariatePWLFunction(d, d, f; triangulation = t).segments
+    ]
+    @test vertices(RandomTriangulation(1)) == vertices(RandomTriangulation(1))
+    # The triangulation is stored as the structure of the function
+    @test pwl.structure == K1Triangulation()
+    # Function values can be given as a matrix
+    z = [f(a, b) for a in d, b in d]
+    for t in (K1Triangulation(), UpperTriangulation(), UnionJackTriangulation())
+        pwl_f = BivariatePWLFunction(d, d, f; triangulation = t)
+        pwl_z = BivariatePWLFunction(d, d, z; triangulation = t)
+        for a in 0:0.25:3, b in 0:0.25:3
+            @test pwl_z(a, b) ≈ pwl_f(a, b)
+        end
+    end
+    @test_throws ErrorException BivariatePWLFunction(d, d, z[1:3, :])
+    @test_throws ErrorException BivariatePWLFunction(
+        d,
+        d,
+        z;
+        triangulation = BestFitTriangulation(),
     )
+    # Evaluation outside the domain
+    @test_throws ErrorException pwl(4.0, 0.0)
+    # Matrix input in the convenience method
+    model = Model(optimizer)
+    @variable(model, x[1:2])
+    w = piecewiselinear(model, x[1], x[2], d, d, z)
+    fix(x[1], 1.5)
+    fix(x[2], 0.5)
+    @objective(model, Max, w)
+    optimize!(model)
+    @test value(w) ≈ pwl(1.5, 0.5) atol = 1e-5
 end
 
 @testset "Input validation" begin
@@ -516,7 +596,7 @@ end
         [0, 1],
         [0, 1],
         (a, b) -> a + b;
-        pattern = :Unknown,
+        triangulation = UnstructuredTriangulation(),
     )
     # Segments that are not simplices cannot be used with MultipleChoice
     s = PLO.SegmentPointRep{2,1}(
@@ -886,14 +966,19 @@ end
     )
 end
 
-@testset "Formulation: bivariate $method" for (method, pattern) in [
-    [(m, :Upper) for m in methods_2D_selection]
-    [(SixStencil(m), :Upper) for m in methods_1D]
-    (OptimalIndependentBranching(optimizer), :Upper)
-    (K1(), :K1)
-    (UnionJack(), :UnionJack)
+@testset "Formulation: bivariate $method" for (method, triangulation) in [
+    [(m, UpperTriangulation()) for m in methods_2D_selection]
+    [(SixStencil(m), UpperTriangulation()) for m in methods_1D]
+    (OptimalIndependentBranching(optimizer), UpperTriangulation())
+    (K1(), K1Triangulation())
+    (UnionJack(), UnionJackTriangulation())
 ]
-    pwl = BivariatePWLFunction(0:2, 0:2, (a, b) -> a^2 - b; pattern = pattern)
+    pwl = BivariatePWLFunction(
+        0:2,
+        0:2,
+        (a, b) -> a^2 - b;
+        triangulation = triangulation,
+    )
     model = Model()
     @variable(model, x[1:2])
     test_formulation(model, x, pwl, method)

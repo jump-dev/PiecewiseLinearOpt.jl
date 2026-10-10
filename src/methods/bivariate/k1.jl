@@ -15,7 +15,6 @@ function formulate_triangle_selection!(
     λ::Matrix{<:JuMP.AbstractVariableRef},
     triangle_direction::Matrix{Bool},
     method::K1,
-    structure::K1Triangulation,
 )
     model = formulation.model
     n_1, n_2 = size(λ)

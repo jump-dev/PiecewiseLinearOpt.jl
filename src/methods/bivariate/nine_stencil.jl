@@ -16,7 +16,6 @@ function formulate_triangle_selection!(
     λ::Matrix{<:JuMP.AbstractVariableRef},
     triangle_direction::Matrix{Bool},
     method::NineStencil,
-    _::GridTriangulation,
 )
     model = formulation.model
     n_1, n_2 = size(λ)

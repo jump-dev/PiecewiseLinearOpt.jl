@@ -61,7 +61,8 @@ which return the output only:
 
     piecewiselinear(model, input_var, x, f::Function; kwargs...)
     piecewiselinear(model, input_var, x, fx; kwargs...)
-    piecewiselinear(model, input_var_x, input_var_y, x, y, f::Function; pattern, kwargs...)
+    piecewiselinear(model, input_var_x, input_var_y, x, y, f::Function; triangulation, kwargs...)
+    piecewiselinear(model, input_var_x, input_var_y, x, y, z::AbstractMatrix; triangulation, kwargs...)
 
 ## Example
 
@@ -182,15 +183,15 @@ function piecewiselinear(
     input_var_y::_Scalar,
     x,
     y,
-    f::Function;
+    f::Union{Function,AbstractMatrix};
     output_var::Union{Nothing,_Scalar} = nothing,
-    pattern = :K1,
+    triangulation::GridTriangulation = K1Triangulation(),
     kwargs...,
 )
     z, _ = piecewiselinear(
         model,
         (input_var_x, input_var_y),
-        BivariatePWLFunction(x, y, f; pattern = pattern);
+        BivariatePWLFunction(x, y, f; triangulation = triangulation);
         output_vars = isnothing(output_var) ? nothing : (output_var,),
         kwargs...,
     )

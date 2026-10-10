@@ -46,10 +46,73 @@ struct Unstructured{D} <: SegmentStructure{D} end
 
 struct Intervals <: SegmentStructure{1} end
 
+"""
+    GridTriangulation
+
+A triangulation of a rectangular grid, where each cell is split into two
+triangles along one of its diagonals. The subtypes describe how the diagonals
+are chosen when constructing a [`BivariatePWLFunction`](@ref).
+"""
 abstract type GridTriangulation <: SegmentStructure{2} end
+
+"""
+    UnstructuredTriangulation()
+
+A grid triangulation without any known structure, e.g. one built segment by
+segment.
+"""
 struct UnstructuredTriangulation <: GridTriangulation end
+
+"""
+    K1Triangulation()
+
+Every cell is split along the diagonal from its upper left to its lower right
+corner.
+"""
 struct K1Triangulation <: GridTriangulation end
+
+"""
+    UnionJackTriangulation()
+
+The diagonals alternate between neighboring cells, forming a Union Jack pattern.
+"""
 struct UnionJackTriangulation <: GridTriangulation end
+
+"""
+    UpperTriangulation()
+
+Every cell is split along the diagonal with the larger average of the function
+values at its end points, which gives the largest interpolant.
+"""
+struct UpperTriangulation <: GridTriangulation end
+
+"""
+    LowerTriangulation()
+
+Every cell is split along the diagonal with the smaller average of the function
+values at its end points, which gives the smallest interpolant.
+"""
+struct LowerTriangulation <: GridTriangulation end
+
+"""
+    BestFitTriangulation()
+
+Every cell is split along the diagonal whose midpoint value is closest to the
+function value at the center of the cell. This requires the function, not only
+its values at the grid points.
+"""
+struct BestFitTriangulation <: GridTriangulation end
+
+"""
+    RandomTriangulation(seed = nothing)
+
+Every cell is split along a random diagonal. If `seed` is `nothing`, the seed is
+derived from the size of the grid.
+"""
+struct RandomTriangulation <: GridTriangulation
+    seed::Union{Nothing,Integer}
+end
+RandomTriangulation() = RandomTriangulation(nothing)
 
 struct PWLFunction{D,F,T<:Segment{D,F}}
     segments::Vector{T}
@@ -73,8 +136,6 @@ function _check_strictly_increasing(xs::Vector{Float64}, name::String)
     end
     return
 end
-
-const _BIVARIATE_PATTERNS = (:Upper, :Lower, :BestFit, :K1, :UnionJack, :Random)
 
 function PWLFunctionPointRep{1,1}(x::Vector, z::Vector)
     if length(x) != length(z)
@@ -103,71 +164,149 @@ function PWLFunctionPointRep{1,1}(x, z)
     return PWLFunctionPointRep{1,1}(collect(x), collect(z))
 end
 
+"""
+    BivariatePWLFunction(x, y, f::Function; triangulation = K1Triangulation())
+    BivariatePWLFunction(x, y, z::AbstractMatrix; triangulation = K1Triangulation())
+
+The piecewise linear function on the grid with breakpoints `x` and `y`, which
+interpolates `f(x[i], y[j])`, or `z[i, j]`, at the grid points. Each cell of
+the grid is split into two triangles as given by `triangulation`, see
+[`GridTriangulation`](@ref).
+"""
+BivariatePWLFunction
+
 function PWLFunctionPointRep{2,1}(
     x,
     y,
-    fz::Function;
-    pattern = :K1,
-    seed = hash((length(x), length(y))),
+    f::Function;
+    triangulation::GridTriangulation = K1Triangulation(),
 )
     xs = [convert(Float64, xi) for xi in x]
     ys = [convert(Float64, yi) for yi in y]
+    z = [convert(Float64, f(xi, yj)) for xi in xs, yj in ys]
+    center(i, j) = f(0.5 * (xs[i] + xs[i+1]), 0.5 * (ys[j] + ys[j+1]))
+    return _grid_pwl_function(xs, ys, z, triangulation, center)
+end
+
+function PWLFunctionPointRep{2,1}(
+    x,
+    y,
+    z::AbstractMatrix;
+    triangulation::GridTriangulation = K1Triangulation(),
+)
+    if size(z) != (length(x), length(y))
+        error(
+            "The matrix of function values must have size $((length(x), length(y))), got $(size(z)).",
+        )
+    end
+    xs = [convert(Float64, xi) for xi in x]
+    ys = [convert(Float64, yi) for yi in y]
+    zs = [convert(Float64, zij) for zij in z]
+    return _grid_pwl_function(xs, ys, zs, triangulation, nothing)
+end
+
+function _grid_pwl_function(
+    xs::Vector{Float64},
+    ys::Vector{Float64},
+    z::Matrix{Float64},
+    triangulation::GridTriangulation,
+    center::Union{Nothing,Function},
+)
     _check_strictly_increasing(xs, "x")
     _check_strictly_increasing(ys, "y")
-    if !(pattern in _BIVARIATE_PATTERNS)
-        error(
-            "Unknown pattern $(repr(pattern)). Supported patterns are $(join(repr.(_BIVARIATE_PATTERNS), ", ")).",
-        )
-    end
-
+    nw_se = _nw_se_diagonals(triangulation, xs, ys, z, center)
     segments = SegmentPointRep{2,1}[]
-    structure = UnstructuredTriangulation()
-    if pattern == :K1
-        structure = K1Triangulation()
-    elseif pattern == :UnionJack
-        structure = UnionJackTriangulation()
-    end
-
-    mt = Random.MersenneTwister(seed)
-
-    # run for each square on [x[i],x[i+1]] × [y[i],y[i+1]]
     for i in 1:length(xs)-1, j in 1:length(ys)-1
-        xL, xU, yL, yU = xs[i], xs[i+1], ys[j], ys[j+1]
-        mid1 = 0.5 * (fz(xL, yL) + fz(xU, yU))
-        mid2 = 0.5 * (fz(xL, yU) + fz(xU, yL))
-        mid3 = fz(0.5 * (xL + xU), 0.5 * (yL + yU))
-        diagonal_nw_se = true
-        if pattern == :Upper
-            diagonal_nw_se = (mid1 > mid2)
-        elseif pattern == :Lower
-            diagonal_nw_se = (mid1 < mid2)
-        elseif pattern == :BestFit
-            diagonal_nw_se = (abs(mid1 - mid3) < abs(mid2 - mid3))
-        elseif pattern == :K1
-            diagonal_nw_se = true
-        elseif pattern == :UnionJack
-            diagonal_nw_se = isodd(i + j)
-        elseif pattern == :Random
-            diagonal_nw_se = rand(mt, Bool)
-        end
-
-        if diagonal_nw_se
-            corners1 = [(xL, yL), (xL, yU), (xU, yL)] # SW, NW, SE
-            corners2 = [(xU, yL), (xL, yU), (xU, yU)] # SE, NW, NE
+        sw, se, nw, ne = (i, j), (i + 1, j), (i, j + 1), (i + 1, j + 1)
+        if nw_se[i, j]
+            triangles = ((sw, nw, se), (se, nw, ne))
         else
-            corners1 = [(xL, yL), (xU, yU), (xU, yL)] # SW, NE, SE
-            corners2 = [(xL, yL), (xL, yU), (xU, yU)] # SW, NW, NE
+            triangles = ((sw, ne, se), (sw, nw, ne))
         end
+        for t in triangles
+            push!(
+                segments,
+                SegmentPointRep{2,1}(
+                    [(xs[k], ys[l]) for (k, l) in t],
+                    [(z[k, l],) for (k, l) in t],
+                ),
+            )
+        end
+    end
+    return PWLFunction(segments, triangulation)
+end
 
-        push!(
-            segments,
-            SegmentPointRep{2,1}(corners1, [(fz(c...),) for c in corners1]),
-        )
-        push!(
-            segments,
-            SegmentPointRep{2,1}(corners2, [(fz(c...),) for c in corners2]),
+# Returns whether each cell (i, j) is split along its NW-SE diagonal, in which
+# case the value at the center of the cell is the average of the NW and SE
+# values, instead of the SW and NE values.
+function _nw_se_diagonals(::K1Triangulation, xs, ys, z, center)
+    return fill(true, length(xs) - 1, length(ys) - 1)
+end
+
+function _nw_se_diagonals(::UnionJackTriangulation, xs, ys, z, center)
+    return [isodd(i + j) for i in 1:length(xs)-1, j in 1:length(ys)-1]
+end
+
+function _nw_se_diagonals(::UpperTriangulation, xs, ys, z, center)
+    return [
+        z[i, j+1] + z[i+1, j] > z[i, j] + z[i+1, j+1] for i in 1:length(xs)-1,
+        j in 1:length(ys)-1
+    ]
+end
+
+function _nw_se_diagonals(::LowerTriangulation, xs, ys, z, center)
+    return [
+        z[i, j+1] + z[i+1, j] < z[i, j] + z[i+1, j+1] for i in 1:length(xs)-1,
+        j in 1:length(ys)-1
+    ]
+end
+
+function _nw_se_diagonals(::BestFitTriangulation, xs, ys, z, center)
+    if center === nothing
+        error(
+            "BestFitTriangulation requires the function itself, not only its values at the grid points.",
         )
     end
+    return [
+        abs(0.5 * (z[i, j+1] + z[i+1, j]) - center(i, j)) <
+        abs(0.5 * (z[i, j] + z[i+1, j+1]) - center(i, j)) for
+        i in 1:length(xs)-1, j in 1:length(ys)-1
+    ]
+end
 
-    return PWLFunction(segments, structure)
+function _nw_se_diagonals(t::RandomTriangulation, xs, ys, z, center)
+    seed = something(t.seed, hash((length(xs), length(ys))))
+    return rand(
+        Random.MersenneTwister(seed),
+        Bool,
+        length(xs) - 1,
+        length(ys) - 1,
+    )
+end
+
+function _nw_se_diagonals(t::GridTriangulation, xs, ys, z, center)
+    return error("Cannot construct a grid triangulation of type $(typeof(t)).")
+end
+
+"""
+    (pwl::PWLFunction)(x::Real...)
+
+Evaluates the piecewise linear function at `x`, returning a number for a
+function with one output and a tuple otherwise. Every segment must be a simplex.
+Where the function is discontinuous, the value of the first segment containing
+`x` is returned.
+"""
+function (pwl::PWLFunctionPointRep{D,F})(x::Vararg{Real,D}) where {D,F}
+    for seg in pwl.segments
+        h = _hyperplane_rep(seg)
+        if all(c -> _evaluate(c, x) ≥ -1e-9, h.constraints)
+            y = map(g -> _evaluate(g, x), h.funcs)
+            return F == 1 ? y[1] : y
+        end
+    end
+    return error("The point $x is outside the domain of the function.")
+end
+
+function _evaluate(f::AffineFunction{D}, x) where {D}
+    return sum(f.coeffs[j] * x[j] for j in 1:D) + f.offset
 end

@@ -30,26 +30,8 @@ function formulate_pwl!(
     formulate_sos2!(formulation, T_x, axis_method(method))
     formulate_sos2!(formulation, T_y, axis_method(method))
 
-    formulate_triangle_selection!(
-        formulation,
-        λ,
-        triangle_direction,
-        method,
-        pwl.structure,
-    )
+    formulate_triangle_selection!(formulation, λ, triangle_direction, method)
     return nothing
-end
-
-function formulate_triangle_selection!(
-    formulation::PWLFormulation,
-    λ::Matrix{<:JuMP.AbstractVariableRef},
-    triangle_direction::Matrix{Bool},
-    method::BivariateSOS2Method,
-    structure::GridTriangulation,
-)
-    return error(
-        "The triangulation structure $structure is not suppported for method $method",
-    )
 end
 
 # Adds a convex multiplier for each point of the grid underlying `pwl`, and
