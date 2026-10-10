@@ -15,14 +15,14 @@ end
 axis_method(method::OptimalTriangleSelection) = method.axis_method
 
 function formulate_triangle_selection!(
-    model::JuMP.Model,
-    λ::Matrix{JuMP.VariableRef},
+    formulation::PWLFormulation,
+    λ::Matrix{<:JuMP.AbstractVariableRef},
     triangle_direction::Matrix{Bool},
     method::OptimalTriangleSelection,
     _::GridTriangulation,
 )
     cover =
         _optimal_biclique_cover(method.sub_solver, triangle_direction, false)
-    _add_biclique_cover!(model, λ, cover)
+    _add_biclique_cover!(formulation, λ, cover)
     return nothing
 end

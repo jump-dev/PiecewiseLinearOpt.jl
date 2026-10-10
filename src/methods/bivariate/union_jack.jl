@@ -11,15 +11,15 @@ UnionJack() = UnionJack(Logarithmic())
 axis_method(method::UnionJack) = method.axis_method
 
 function formulate_triangle_selection!(
-    model::JuMP.Model,
-    λ::Matrix{JuMP.VariableRef},
+    formulation::PWLFormulation,
+    λ::Matrix{<:JuMP.AbstractVariableRef},
     triangle_direction::Matrix{Bool},
     method::UnionJack,
     _::UnionJackTriangulation,
 )
+    model = formulation.model
     n_1, n_2 = size(λ)
     @assert size(triangle_direction) == (n_1 - 1, n_2 - 1)
-    counter = model.ext[:PWL].counter
 
     # In a Union Jack triangulation the diagonals alternate between neighboring
     # cells.
@@ -37,14 +37,27 @@ function formulate_triangle_selection!(
     j_start = triangle_direction[1, 1] ? 1 : 2
 
     # diagonal lines running from SW to NE. Grouped with an offset of 3.
-    z = JuMP.@variable(model, binary = true, base_name = "w_$counter")
-
-    JuMP.@constraints(
-        model,
-        begin
+    z = _record!(
+        formulation,
+        JuMP.@variable(
+            model,
+            binary = true,
+            base_name = _name(formulation, "w")
+        ),
+    )
+    _record!(
+        formulation,
+        JuMP.@constraint(
+            model,
             sum(λ[i, j] for i in 1:2:n_1, j in j_start:2:n_2) ≤ z
+        ),
+    )
+    _record!(
+        formulation,
+        JuMP.@constraint(
+            model,
             sum(λ[i, j] for i in 2:2:n_1, j in (3-j_start):2:n_2) ≤ 1 - z
-        end
+        ),
     )
 
     return nothing

@@ -7,15 +7,15 @@ const BivariateSOS2Method =
     Union{K1,OptimalTriangleSelection,NineStencil,SixStencil,UnionJack}
 
 function formulate_pwl!(
-    model::JuMP.Model,
-    input_vars::NTuple{2,VarOrAff},
-    output_vars::NTuple{F,VarOrAff},
+    formulation::PWLFormulation,
+    input_vars::NTuple{2,_Scalar},
+    output_vars::NTuple{F,_Scalar},
     pwl::PWLFunctionPointRep{2,F},
     method::BivariateSOS2Method,
     direction::DIRECTION,
 ) where {F}
     λ, triangle_direction = _grid_convex_multipliers!(
-        model,
+        formulation,
         input_vars,
         output_vars,
         pwl,
@@ -27,21 +27,22 @@ function formulate_pwl!(
     T_x = [sum(λ[i, j] for i in 1:n_1) for j in 1:n_2]
     T_y = [sum(λ[i, j] for j in 1:n_2) for i in 1:n_1]
 
-    formulate_sos2!(model, T_x, axis_method(method))
-    formulate_sos2!(model, T_y, axis_method(method))
+    formulate_sos2!(formulation, T_x, axis_method(method))
+    formulate_sos2!(formulation, T_y, axis_method(method))
 
-    return formulate_triangle_selection!(
-        model,
+    formulate_triangle_selection!(
+        formulation,
         λ,
         triangle_direction,
         method,
         pwl.structure,
     )
+    return nothing
 end
 
 function formulate_triangle_selection!(
-    model::JuMP.Model,
-    λ::Matrix{JuMP.VariableRef},
+    formulation::PWLFormulation,
+    λ::Matrix{<:JuMP.AbstractVariableRef},
     triangle_direction::Matrix{Bool},
     method::BivariateSOS2Method,
     structure::GridTriangulation,
@@ -54,15 +55,15 @@ end
 # Adds a convex multiplier for each point of the grid underlying `pwl`, and
 # returns them together with the direction of the diagonal in each cell.
 function _grid_convex_multipliers!(
-    model::JuMP.Model,
-    input_vars::NTuple{2,VarOrAff},
-    output_vars::NTuple{F,VarOrAff},
+    formulation::PWLFormulation,
+    input_vars::NTuple{2,_Scalar},
+    output_vars::NTuple{F,_Scalar},
     pwl::PWLFunctionPointRep{2,F},
     direction::DIRECTION,
 ) where {F}
     grid = _continuous_gridpoints_or_die(pwl)
     λ = _create_convex_multiplier_vars(
-        model,
+        formulation,
         grid,
         input_vars,
         output_vars,

@@ -6,11 +6,10 @@
 struct LogarithmicEmbedding <: Method end
 
 function formulate_sos2!(
-    model::JuMP.Model,
+    formulation::PWLFormulation,
     λ::Vector{T},
     method::LogarithmicEmbedding,
-) where {T<:VarOrAff}
-    counter = model.ext[:PWL].counter
+) where {T<:_Scalar}
     n = length(λ)
     d = n - 1
     if 0 <= d <= 1
@@ -20,9 +19,17 @@ function formulate_sos2!(
     if k == 0
         return nothing
     end
-    y = JuMP.@variable(model, [1:k], Bin, base_name = "y_$counter")
+    y = _record!(
+        formulation,
+        JuMP.@variable(
+            formulation.model,
+            [1:k],
+            Bin,
+            base_name = _name(formulation, "z")
+        ),
+    )
     _sos2_encoding_constraints!(
-        model,
+        formulation,
         λ,
         y,
         _reflected_gray_codes(k),

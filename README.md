@@ -83,6 +83,22 @@ z = PiecewiseLinearOpt.piecewiselinear(
 @objective(model, Min, z)
 ```
 
+### General interface
+
+The convenience methods above return the output only. The general method takes
+a `PWLFunction` and a vector of inputs, and also returns a `PWLFormulation` with
+the variables and constraints that were added:
+
+```julia
+using JuMP, PiecewiseLinearOpt
+model = Model()
+@variable(model, x[1:2])
+pwl = BivariatePWLFunction(0:0.1:1, 0:0.1:1, (u, v) -> exp(u + v))
+y, formulation = piecewiselinear(model, x, pwl; name = "cost")
+formulation.variables  # the variables added, named cost_...
+delete(model, formulation)  # removes the function from the model again
+```
+
 ## Methods
 
 The following formualations are available in the package and is provided through the 

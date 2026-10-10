@@ -12,17 +12,25 @@ axis_method(method::NineStencil) = method.axis_method
 
 # TODO: Unit tests for biclique cover
 function formulate_triangle_selection!(
-    model::JuMP.Model,
-    λ::Matrix{JuMP.VariableRef},
+    formulation::PWLFormulation,
+    λ::Matrix{<:JuMP.AbstractVariableRef},
     triangle_direction::Matrix{Bool},
     method::NineStencil,
     _::GridTriangulation,
 )
+    model = formulation.model
     n_1, n_2 = size(λ)
     @assert size(triangle_direction) == (n_1 - 1, n_2 - 1)
-    counter = model.ext[:PWL].counter
 
-    w = JuMP.@variable(model, [1:3, 1:3], Bin, base_name = "w_$counter")
+    w = _record!(
+        formulation,
+        JuMP.@variable(
+            model,
+            [1:3, 1:3],
+            Bin,
+            base_name = _name(formulation, "w")
+        ),
+    )
     for o_1 in 1:3, o_2 in 1:3
         has_edge_across_stencil = Set{Tuple{Int,Int}}()
         for i in o_1:3:n_1, j in o_2:3:n_2
@@ -55,14 +63,21 @@ function formulate_triangle_selection!(
                 end
             end
         end
-        JuMP.@constraints(
-            model,
-            begin
+        _record!(
+            formulation,
+            JuMP.@constraint(
+                model,
                 sum(λ[i, j] for i in o_1:3:n_1, j in o_2:3:n_2) ≤
                 1 - w[o_1, o_2]
+            ),
+        )
+        _record!(
+            formulation,
+            JuMP.@constraint(
+                model,
                 sum(λ[i, j] for (i, j) in has_edge_across_stencil) ≤
                 w[o_1, o_2]
-            end
+            ),
         )
     end
     return nothing

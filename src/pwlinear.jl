@@ -4,9 +4,9 @@
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
 function formulate_pwl!(
-    model::JuMP.Model,
-    input_vars::NTuple{D,VarOrAff},
-    output_vars::NTuple{F,VarOrAff},
+    formulation::PWLFormulation,
+    input_vars::NTuple{D,_Scalar},
+    output_vars::NTuple{F,_Scalar},
     pwl::PWLFunction,
     method::Method,
     direction::DIRECTION,
@@ -18,156 +18,181 @@ end
 
 _default_method(::Val{1}) = Logarithmic()
 _default_method(::Val{2}) = SixStencil()
-# _default_method(::Val) = MultipleChoice()
 
 """
-    piecewiselinear(model, input_vars, pwl::PWLFunction; method, direction, output_vars)
+    piecewiselinear(
+        model,
+        input_vars,
+        pwl::PWLFunction;
+        method,
+        direction = Graph,
+        output_vars = nothing,
+        name = nothing,
+    )
 
-    piecewiselinear(model, input_var, x, f::Function; method, direction, output_var)
-    piecewiselinear(model, input_var, x, fd; method, direction, output_var)
+Adds the piecewise linear function `pwl` of `input_vars` to `model`, and
+returns the tuple `(output_vars, formulation)`.
 
-    piecewiselinear(model, input_var_x, input_var_y, x, y, f::Function; method, direction, output_var, pattern)
+## Arguments
 
+- `model`: the JuMP model.
+- `input_vars`: a vector or tuple with an input variable, expression or
+  constant for each input of `pwl`.
+- `pwl`: the piecewise linear function.
 
-Formulates a piecewise linear function in the given JuMP model.
+## Keyword arguments
 
-# Arguments
-- `model::JuMP.Model`: The JuMP model to which the piecewise linear function will be added.
-- `input_vars::NTuple{D,VarOrAff}`: A tuple of input variables or affine expressions.
-- `pwl::PWLFunction{D,F,SegmentPointRep{D,F}}`: The piecewise linear function to be added.
-- `method::Method`: The method to be used for formulating the piecewise linear function.
-   Defaults to `Logarithmic()` for 1D and `SixStencil()` for 2D.
-- `direction::DIRECTION`: The direction of the piecewise linear function. Defaults to `Graph`.
-- `output_vars::Union{Nothing,NTuple{F,VarOrAff}}`: A tuple of output variables or affine expressions.
-   If `nothing`, new variables will be created.
+- `method`: the formulation method, defaults to `Logarithmic()` for univariate
+  and `SixStencil()` for bivariate functions.
+- `direction`: whether the outputs equal (`Graph`), are at least (`Epigraph`)
+  or are at most (`Hypograph`) the function value.
+- `output_vars`: a vector or tuple with an output variable or expression for
+  each output of `pwl`. If `nothing`, new variables are created.
+- `name`: the prefix of the names of the variables created. If `nothing`, a
+  name of the form `pwl1`, `pwl2`, ... is used.
 
-# Returns
-- `output_vars::NTuple{F,VarOrAff}`: The output variables of the piecewise linear function.
+## Returns
 
-In addition to the general constructor, there are specialized constructors for univariate
-and bivariate problems.
+- `output_vars::Vector`: the outputs of the function.
+- `formulation::PWLFormulation`: the variables and constraints that were added.
 
-# Example
+There are also convenience methods for univariate and bivariate functions,
+which return the output only:
+
+    piecewiselinear(model, input_var, x, f::Function; kwargs...)
+    piecewiselinear(model, input_var, x, fx; kwargs...)
+    piecewiselinear(model, input_var_x, input_var_y, x, y, f::Function; pattern, kwargs...)
+
+## Example
+
 ```julia
-using JuMP
+using JuMP, PiecewiseLinearOpt
 model = Model()
-@variable(model, x >= 0)
-@variable(model, y >= 0)
+@variable(model, x[1:2])
 
 pwl = UnivariatePWLFunction(0:0.1:1, xi -> xi^2)
+y, formulation = piecewiselinear(model, x[1:1], pwl; name = "square")
 
-# General constructor
-output_vars = piecewiselinear(model, (x,), pwl)
-
-# Specialized constructor for univariate problems
-output_var = piecewiselinear(model, x, 0:0.1:1, xi -> xi^2)
-
-# Specialized constructor for bivariate problems
-output_var = piecewiselinear(model, x, y, 0:0.1:1, 0:0.1:1, (xi, yi) -> xi^2 + yi^2; pattern = :BestFit)
+z = piecewiselinear(model, x[1], 0:0.1:1, xi -> xi^2)
+w = piecewiselinear(model, x[1], x[2], 0:0.1:1, 0:0.1:1, (a, b) -> a * b)
 ```
 """
 function piecewiselinear(
-    model::JuMP.Model,
-    input_vars::NTuple{D,VarOrAff},
+    model::JuMP.GenericModel,
+    input_vars::Union{Tuple,AbstractVector},
     pwl::PWLFunction{D,F,SegmentPointRep{D,F}};
     method::Method = _default_method(Val(D)),
     direction::DIRECTION = Graph,
-    output_vars::Union{Nothing,NTuple{F,VarOrAff}} = nothing,
+    output_vars::Union{Nothing,Tuple,AbstractVector} = nothing,
+    name::Union{Nothing,AbstractString} = nothing,
 ) where {D,F}
-    initPWL!(model)
-    counter = model.ext[:PWL].counter
-    counter += 1
-    model.ext[:PWL].counter = counter
-
+    if length(input_vars) != D
+        error(
+            "Expected $D input variables for a R^$D -> R^$F piecewise linear function, got $(length(input_vars)).",
+        )
+    end
+    if output_vars !== nothing && length(output_vars) != F
+        error(
+            "Expected $F output variables for a R^$D -> R^$F piecewise linear function, got $(length(output_vars)).",
+        )
+    end
     if isempty(pwl.segments)
         error(
             "I don't know how to handle a piecewise linear function with no breakpoints.",
         )
     end
-
-    output_lb = ntuple(
-        i -> minimum(v[i] for seg in pwl.segments for v in seg.output_vals),
-        F,
-    )
-    output_ub = ntuple(
-        i -> maximum(v[i] for seg in pwl.segments for v in seg.output_vals),
-        F,
-    )
+    if name === nothing
+        name = _next_default_name(model)
+    end
+    formulation = PWLFormulation(model, String(name), method)
 
     if output_vars === nothing
-        output_vars = tuple(
+        output_lb = ntuple(
+            i -> minimum(v[i] for seg in pwl.segments for v in seg.output_vals),
+            F,
+        )
+        output_ub = ntuple(
+            i -> maximum(v[i] for seg in pwl.segments for v in seg.output_vals),
+            F,
+        )
+        output_vars = _record!(
+            formulation,
             JuMP.@variable(
                 model,
                 [i in 1:F],
                 lower_bound = output_lb[i],
                 upper_bound = output_ub[i],
-                base_name = "y_$counter"
-            )...,
+                base_name = _name(formulation, "y")
+            ),
         )
     end
 
-    formulate_pwl!(model, input_vars, output_vars, pwl, method, direction)
-    return output_vars
+    formulate_pwl!(
+        formulation,
+        Tuple(input_vars),
+        Tuple(output_vars),
+        pwl,
+        method,
+        direction,
+    )
+    return collect(output_vars), formulation
 end
 
 # Specialization for univariate problems
 function piecewiselinear(
-    model::JuMP.Model,
-    input_var::VarOrAff,
+    model::JuMP.GenericModel,
+    input_var::_Scalar,
     d,
     f::Function;
-    method::Method = _default_method(Val(1)),
-    direction::DIRECTION = Graph,
-    output_var::Union{Nothing,VarOrAff} = nothing,
+    output_var::Union{Nothing,_Scalar} = nothing,
+    kwargs...,
 )
     return piecewiselinear(
         model,
-        (input_var,),
-        UnivariatePWLFunction(d, f);
-        method = method,
-        direction = direction,
-        output_vars = isnothing(output_var) ? nothing : (output_var,),
-    )[1]
+        input_var,
+        d,
+        [f(xi) for xi in d];
+        output_var = output_var,
+        kwargs...,
+    )
 end
 
 function piecewiselinear(
-    model::JuMP.Model,
-    input_var::VarOrAff,
+    model::JuMP.GenericModel,
+    input_var::_Scalar,
     d,
     fd;
-    method::Method = _default_method(Val(1)),
-    direction::DIRECTION = Graph,
-    output_var::Union{Nothing,VarOrAff} = nothing,
+    output_var::Union{Nothing,_Scalar} = nothing,
+    kwargs...,
 )
-    return piecewiselinear(
+    y, _ = piecewiselinear(
         model,
         (input_var,),
         UnivariatePWLFunction(d, fd);
-        method = method,
-        direction = direction,
         output_vars = isnothing(output_var) ? nothing : (output_var,),
-    )[1]
+        kwargs...,
+    )
+    return only(y)
 end
 
 # Specialization for bivariate problems
 function piecewiselinear(
-    model::JuMP.Model,
-    input_var_x::VarOrAff,
-    input_var_y::VarOrAff,
+    model::JuMP.GenericModel,
+    input_var_x::_Scalar,
+    input_var_y::_Scalar,
     x,
     y,
     f::Function;
-    method::Method = _default_method(Val(2)),
-    direction::DIRECTION = Graph,
-    output_var::Union{Nothing,VarOrAff} = nothing,
+    output_var::Union{Nothing,_Scalar} = nothing,
     pattern = :K1,
+    kwargs...,
 )
-    return piecewiselinear(
+    z, _ = piecewiselinear(
         model,
         (input_var_x, input_var_y),
         BivariatePWLFunction(x, y, f; pattern = pattern);
-        method = method,
-        direction = direction,
         output_vars = isnothing(output_var) ? nothing : (output_var,),
-    )[1]
+        kwargs...,
+    )
+    return only(z)
 end

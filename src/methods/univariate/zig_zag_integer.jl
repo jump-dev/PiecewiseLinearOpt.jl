@@ -6,11 +6,10 @@
 struct ZigZagInteger <: Method end
 
 function formulate_sos2!(
-    model::JuMP.Model,
+    formulation::PWLFormulation,
     λ::Vector{T},
     method::ZigZagInteger,
-) where {T<:VarOrAff}
-    counter = model.ext[:PWL].counter
+) where {T<:_Scalar}
     n = length(λ)
     d = n - 1
     if 0 <= d <= 1
@@ -20,16 +19,19 @@ function formulate_sos2!(
     if k == 0
         return nothing
     end
-    y = JuMP.@variable(
-        model,
-        [i in 1:k],
-        Int,
-        lower_bound = 0,
-        upper_bound = 2^(k - i),
-        base_name = "y_$counter"
+    y = _record!(
+        formulation,
+        JuMP.@variable(
+            formulation.model,
+            [i in 1:k],
+            Int,
+            lower_bound = 0,
+            upper_bound = 2^(k - i),
+            base_name = _name(formulation, "z")
+        ),
     )
     _sos2_encoding_constraints!(
-        model,
+        formulation,
         λ,
         y,
         _integer_zigzag_codes(k),

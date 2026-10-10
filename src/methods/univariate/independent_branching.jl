@@ -46,24 +46,24 @@ struct IndependentBranching <: Method
 end
 
 function formulate_sos2!(
-    model::JuMP.Model,
+    formulation::PWLFormulation,
     λ::Vector{T},
     method::IndependentBranching,
-) where {T<:VarOrAff}
+) where {T<:_Scalar}
     S = [[i, i + 1] for i in 1:length(λ)-1]
-    _add_biclique_cover!(model, λ, _ordered_cdc_cover(S, method.scheme))
+    _add_biclique_cover!(formulation, λ, _ordered_cdc_cover(S, method.scheme))
     return nothing
 end
 
 function formulate_pwl!(
-    model::JuMP.Model,
-    input_vars::Tuple{VarOrAff},
-    output_vars::NTuple{F,VarOrAff},
+    formulation::PWLFormulation,
+    input_vars::Tuple{_Scalar},
+    output_vars::NTuple{F,_Scalar},
     pwl::PWLFunctionPointRep{1,F},
     method::IndependentBranching,
     direction::DIRECTION,
 ) where {F}
-    counter = model.ext[:PWL].counter
+    model = formulation.model
 
     # The multipliers are indexed by the distinct (input, output) points, so
     # a jump in the function gives two points at the same input value.
@@ -85,23 +85,29 @@ function formulate_pwl!(
     _check_generalized_1d_ordered(S)
 
     n = length(points)
-    λ = JuMP.@variable(
-        model,
-        [1:n],
-        lower_bound = 0,
-        upper_bound = 1,
-        base_name = "λ_$counter"
+    λ = _record!(
+        formulation,
+        JuMP.@variable(
+            model,
+            [1:n],
+            lower_bound = 0,
+            upper_bound = 1,
+            base_name = _name(formulation, "λ")
+        ),
     )
-    JuMP.@constraint(model, sum(λ) == 1)
-    JuMP.@constraint(
-        model,
-        input_vars[1] == sum(λ[v] * points[v][1][1] for v in 1:n)
+    _record!(formulation, JuMP.@constraint(model, sum(λ) == 1))
+    _record!(
+        formulation,
+        JuMP.@constraint(
+            model,
+            input_vars[1] == sum(λ[v] * points[v][1][1] for v in 1:n)
+        ),
     )
     for k in 1:F
         rhs = sum(λ[v] * points[v][2][k] for v in 1:n)
-        _constrain_output_var(model, output_vars[k], rhs, direction)
+        _constrain_output_var(formulation, output_vars[k], rhs, direction)
     end
-    _add_biclique_cover!(model, λ, _ordered_cdc_cover(S, method.scheme))
+    _add_biclique_cover!(formulation, λ, _ordered_cdc_cover(S, method.scheme))
     return nothing
 end
 

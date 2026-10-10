@@ -10,10 +10,13 @@ using JuMP
 import LinearAlgebra
 import Random
 
-export PWLFunction, UnivariatePWLFunction, BivariatePWLFunction, piecewiselinear
+export PWLFunction,
+    UnivariatePWLFunction, BivariatePWLFunction, PWLFormulation, piecewiselinear
 
 include("types.jl")
 
+# Counts the piecewise linear functions added to a model, to give their
+# variables and constraints distinct default names
 mutable struct PWLData
     counter::Int
     PWLData(counter::Int = 0) = new(counter)
@@ -27,15 +30,16 @@ function JuMP.copy_extension_data(
     return PWLData(data.counter)
 end
 
-function initPWL!(m::JuMP.Model)
-    if !haskey(m.ext, :PWL)
-        m.ext[:PWL] = PWLData()
-    end
-    return nothing
+function _next_default_name(model::JuMP.GenericModel)
+    data = get!(model.ext, :PWL, PWLData())::PWLData
+    data.counter += 1
+    return "pwl$(data.counter)"
 end
 
-const VarOrAff = Union{JuMP.VariableRef,JuMP.AffExpr}
+# Inputs and outputs may be variables, expressions or constants
+const _Scalar = Union{Real,JuMP.AbstractJuMPScalar}
 
+include("formulation.jl")
 include("methods/util.jl")
 
 export GeneralizedCelaya,

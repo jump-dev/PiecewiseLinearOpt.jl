@@ -4,17 +4,19 @@
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
 function _sos2_encoding_constraints!(
-    m::JuMP.Model,
+    formulation::PWLFormulation,
     λ::Vector{T},
-    y::Vector{JuMP.VariableRef},
+    y::Vector{<:JuMP.AbstractVariableRef},
     h::Vector{Vector{Float64}},
     B::Vector{Vector{Float64}},
-) where {T<:VarOrAff}
+) where {T<:_Scalar}
+    model = formulation.model
     n = length(λ) - 1
     for b in B
-        JuMP.@constraints(
-            m,
-            begin
+        _record!(
+            formulation,
+            JuMP.@constraint(
+                model,
                 LinearAlgebra.dot(b, h[1]) * λ[1] +
                 sum(
                     min(
@@ -23,6 +25,12 @@ function _sos2_encoding_constraints!(
                     ) * λ[v] for v in 2:n
                 ) +
                 LinearAlgebra.dot(b, h[n]) * λ[n+1] ≤ LinearAlgebra.dot(b, y)
+            ),
+        )
+        _record!(
+            formulation,
+            JuMP.@constraint(
+                model,
                 LinearAlgebra.dot(b, h[1]) * λ[1] +
                 sum(
                     max(
@@ -31,7 +39,7 @@ function _sos2_encoding_constraints!(
                     ) * λ[v] for v in 2:n
                 ) +
                 LinearAlgebra.dot(b, h[n]) * λ[n+1] ≥ LinearAlgebra.dot(b, y)
-            end
+            ),
         )
     end
     return nothing
@@ -117,11 +125,10 @@ function _symmetric_celaya_codes(k::Int)::Vector{Vector{Float64}}
 end
 
 function _celaya_sos2!(
-    model::JuMP.Model,
+    formulation::PWLFormulation,
     λ::Vector{T},
     codes::Function,
-) where {T<:VarOrAff}
-    counter = model.ext[:PWL].counter
+) where {T<:_Scalar}
     n = length(λ)
     d = n - 1
     if 0 <= d <= 1
@@ -134,15 +141,18 @@ function _celaya_sos2!(
     H = k == 1 ? _unit_vector_hyperplanes(k) : _compute_hyperplanes(C)
     lb = [minimum(c[i] for c in C) for i in 1:k]
     ub = [maximum(c[i] for c in C) for i in 1:k]
-    y = JuMP.@variable(
-        model,
-        [i in 1:k],
-        Int,
-        lower_bound = lb[i],
-        upper_bound = ub[i],
-        base_name = "y_$counter"
+    y = _record!(
+        formulation,
+        JuMP.@variable(
+            formulation.model,
+            [i in 1:k],
+            Int,
+            lower_bound = lb[i],
+            upper_bound = ub[i],
+            base_name = _name(formulation, "z")
+        ),
     )
-    _sos2_encoding_constraints!(model, λ, y, C, H)
+    _sos2_encoding_constraints!(formulation, λ, y, C, H)
     return nothing
 end
 
@@ -269,30 +279,32 @@ const SOS2Method = Union{
 }
 
 function formulate_pwl!(
-    model::JuMP.Model,
-    input_vars::Tuple{VarOrAff},
-    output_vars::NTuple{F,VarOrAff},
+    formulation::PWLFormulation,
+    input_vars::Tuple{_Scalar},
+    output_vars::NTuple{F,_Scalar},
     pwl::PWLFunctionPointRep{1,F},
     method::SOS2Method,
     direction::DIRECTION,
 ) where {F}
     grid = _continuous_gridpoints_or_die(pwl)
     λ = _create_convex_multiplier_vars(
-        model,
+        formulation,
         grid,
         input_vars,
         output_vars,
         direction,
     )
-    formulate_sos2!(model, λ, method)
+    formulate_sos2!(formulation, λ, method)
     return nothing
 end
 
+# Any univariate method gives an SOS2 formulation, by formulating the function
+# whose outputs are the unit vectors at the breakpoints.
 function formulate_sos2!(
-    model::JuMP.Model,
+    formulation::PWLFormulation,
     λ::Vector{T},
     method::Method,
-) where {T<:VarOrAff}
+) where {T<:_Scalar}
     n = length(λ)
     D = 1
     F = n
@@ -309,10 +321,18 @@ function formulate_sos2!(
             ),
         )
     end
-    dummy_input_var = JuMP.@variable(model, lower_bound = 0, upper_bound = 1)
+    dummy_input_var = _record!(
+        formulation,
+        JuMP.@variable(
+            formulation.model,
+            lower_bound = 0,
+            upper_bound = 1,
+            base_name = _name(formulation, "t")
+        ),
+    )
     dummy_pwl = PWLFunctionPointRep{1,F}(segments, Intervals())
     formulate_pwl!(
-        model,
+        formulation,
         (dummy_input_var,),
         tuple(λ...),
         dummy_pwl,

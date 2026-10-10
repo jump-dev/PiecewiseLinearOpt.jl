@@ -4,19 +4,21 @@
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
 function _constrain_output_var(
-    model::JuMP.Model,
-    output_var::VarOrAff,
-    func_val::VarOrAff,
+    formulation::PWLFormulation,
+    output_var::_Scalar,
+    func_val::_Scalar,
     direction::DIRECTION,
 )
+    model = formulation.model
     if direction == Graph
-        JuMP.@constraint(model, output_var == func_val)
+        c = JuMP.@constraint(model, output_var == func_val)
     elseif direction == Hypograph
-        JuMP.@constraint(model, output_var <= func_val)
+        c = JuMP.@constraint(model, output_var <= func_val)
     else
         @assert direction == Epigraph
-        JuMP.@constraint(model, output_var >= func_val)
+        c = JuMP.@constraint(model, output_var >= func_val)
     end
+    _record!(formulation, c)
     return
 end
 
@@ -124,35 +126,38 @@ function _canonicalize_triangulation(
 end
 
 function _create_convex_multiplier_vars(
-    model::JuMP.Model,
+    formulation::PWLFormulation,
     grid::Grid{D,F},
-    input_vars::NTuple{D,VarOrAff},
-    output_vars::NTuple{F,VarOrAff},
+    input_vars::NTuple{D,_Scalar},
+    output_vars::NTuple{F,_Scalar},
     direction::DIRECTION,
 ) where {D,F}
-    counter = model.ext[:PWL].counter
-
-    λ = similar(Array{JuMP.VariableRef}, axes(grid.input_vals))
-    for I in eachindex(λ)
+    model = formulation.model
+    λ = similar(Array{JuMP.variable_ref_type(model)}, axes(grid.input_vals))
+    for I in CartesianIndices(λ)
         λ[I] = JuMP.@variable(
             model,
             lower_bound = 0,
             upper_bound = 1,
-            base_name = "λ_$counter[$(join(Tuple(I), ","))]"
+            base_name = _name(formulation, "λ[$(join(Tuple(I), ","))]")
         )
     end
+    _record!(formulation, λ)
 
-    JuMP.@constraint(model, sum(λ) == 1)
+    _record!(formulation, JuMP.@constraint(model, sum(λ) == 1))
     for j in 1:D
-        JuMP.@constraint(
-            model,
-            sum(λ[I] * grid.input_vals[I][j] for I in eachindex(λ)) ==
-            input_vars[j]
+        _record!(
+            formulation,
+            JuMP.@constraint(
+                model,
+                sum(λ[I] * grid.input_vals[I][j] for I in eachindex(λ)) ==
+                input_vars[j]
+            ),
         )
     end
     for j in 1:F
         _constrain_output_var(
-            model,
+            formulation,
             output_vars[j],
             sum(λ[I] * grid.output_vals[I][j] for I in eachindex(λ)),
             direction,
@@ -169,23 +174,40 @@ _multiplier(λ::AbstractArray, k::Tuple) = λ[k...]
 #   sum(λ[L^j]) ≤ z_j,  sum(λ[R^j]) ≤ 1 - z_j,  z_j binary.
 # The levels index into λ, either linearly or by a tuple of indices.
 function _add_biclique_cover!(
-    model::JuMP.Model,
+    formulation::PWLFormulation,
     λ::AbstractArray,
     cover::Vector{<:Tuple{AbstractVector,AbstractVector}},
 )
     if isempty(cover)
         return nothing
     end
-    counter = model.ext[:PWL].counter
-    z = JuMP.@variable(model, [1:length(cover)], Bin, base_name = "z_$counter")
+    model = formulation.model
+    z = _record!(
+        formulation,
+        JuMP.@variable(
+            model,
+            [1:length(cover)],
+            Bin,
+            base_name = _name(formulation, "z")
+        ),
+    )
     for (j, (L, R)) in enumerate(cover)
         if !isempty(L)
-            JuMP.@constraint(model, sum(_multiplier(λ, k) for k in L) ≤ z[j])
+            _record!(
+                formulation,
+                JuMP.@constraint(
+                    model,
+                    sum(_multiplier(λ, k) for k in L) ≤ z[j]
+                ),
+            )
         end
         if !isempty(R)
-            JuMP.@constraint(
-                model,
-                sum(_multiplier(λ, k) for k in R) ≤ 1 - z[j]
+            _record!(
+                formulation,
+                JuMP.@constraint(
+                    model,
+                    sum(_multiplier(λ, k) for k in R) ≤ 1 - z[j]
+                ),
             )
         end
     end

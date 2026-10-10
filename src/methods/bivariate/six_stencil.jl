@@ -12,18 +12,26 @@ axis_method(method::SixStencil) = method.axis_method
 
 # TODO: Unit tests for biclique cover
 function formulate_triangle_selection!(
-    model::JuMP.Model,
-    λ::Matrix{JuMP.VariableRef},
+    formulation::PWLFormulation,
+    λ::Matrix{<:JuMP.AbstractVariableRef},
     triangle_direction::Matrix{Bool},
     method::SixStencil,
     _::GridTriangulation,
 )
+    model = formulation.model
     n_1, n_2 = size(λ)
     @assert size(triangle_direction) == (n_1 - 1, n_2 - 1)
-    counter = model.ext[:PWL].counter
 
     # diagonal lines running from SW to NE. Grouped with an offset of 3.
-    w_sw_ne = JuMP.@variable(model, [0:2], Bin, base_name = "w_sw_ne_$counter")
+    w_sw_ne = _record!(
+        formulation,
+        JuMP.@variable(
+            model,
+            [0:2],
+            Bin,
+            base_name = _name(formulation, "w_sw_ne")
+        ),
+    )
     for o in 0:2
         A_o = Set{Tuple{Int,Int}}()
         B_o = Set{Tuple{Int,Int}}()
@@ -68,16 +76,31 @@ function formulate_triangle_selection!(
                 end
             end
         end
-        JuMP.@constraints(
-            model,
-            begin
+        _record!(
+            formulation,
+            JuMP.@constraint(
+                model,
                 sum(λ[i, j] for (i, j) in A_o) ≤ w_sw_ne[o]
+            ),
+        )
+        _record!(
+            formulation,
+            JuMP.@constraint(
+                model,
                 sum(λ[i, j] for (i, j) in B_o) ≤ 1 - w_sw_ne[o]
-            end
+            ),
         )
     end
 
-    w_se_nw = JuMP.@variable(model, [0:2], Bin, base_name = "w_se_nw_$counter")
+    w_se_nw = _record!(
+        formulation,
+        JuMP.@variable(
+            model,
+            [0:2],
+            Bin,
+            base_name = _name(formulation, "w_se_nw")
+        ),
+    )
     for o in 0:2
         A_o = Set{Tuple{Int,Int}}()
         B_o = Set{Tuple{Int,Int}}()
@@ -119,12 +142,19 @@ function formulate_triangle_selection!(
                 end
             end
         end
-        JuMP.@constraints(
-            model,
-            begin
+        _record!(
+            formulation,
+            JuMP.@constraint(
+                model,
                 sum(λ[i, j] for (i, j) in A_o) ≤ w_se_nw[o]
+            ),
+        )
+        _record!(
+            formulation,
+            JuMP.@constraint(
+                model,
                 sum(λ[i, j] for (i, j) in B_o) ≤ 1 - w_se_nw[o]
-            end
+            ),
         )
     end
     return nothing

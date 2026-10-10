@@ -6,10 +6,10 @@
 struct GeneralizedCelaya <: Method end
 
 function formulate_sos2!(
-    model::JuMP.Model,
+    formulation::PWLFormulation,
     λ::Vector{T},
     method::GeneralizedCelaya,
-) where {T<:VarOrAff}
-    _celaya_sos2!(model, λ, _generalized_celaya_codes)
+) where {T<:_Scalar}
+    _celaya_sos2!(formulation, λ, _generalized_celaya_codes)
     return nothing
 end

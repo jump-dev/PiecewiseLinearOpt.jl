@@ -98,7 +98,7 @@ end
     s2 = PLO.SegmentPointRep{1,1}([(2.0,), (3.0,)], [(3.5,), (1.0,)])
     pwl = PLO.PWLFunction([s1, s2], PLO.Intervals())
 
-    y = piecewiselinear(model, (x,), pwl; method = method)
+    y, _ = piecewiselinear(model, (x,), pwl; method = method)
     @objective(model, Min, y[1])
 
     optimize!(model)
@@ -144,7 +144,7 @@ const methods_discontinuous = [
     s1 = PLO.SegmentPointRep{1,1}([(0.0,), (1.0,)], [(0.0,), (1.0,)])
     s2 = PLO.SegmentPointRep{1,1}([(1.0,), (2.0,)], [(3.0,), (2.0,)])
     pwl = PLO.PWLFunction([s1, s2], PLO.Intervals())
-    y = piecewiselinear(model, (x,), pwl; method = method)
+    y, _ = piecewiselinear(model, (x,), pwl; method = method)
     @objective(model, Max, y[1])
     optimize!(model)
     @test termination_status(model) == MOI.OPTIMAL
@@ -164,7 +164,7 @@ const methods_discontinuous = [
     pwl = PLO.PWLFunction(segments, PLO.Intervals())
     model = Model(optimizer)
     @variable(model, x)
-    y = piecewiselinear(model, (x,), pwl; method = method)[1]
+    (y,), _ = piecewiselinear(model, (x,), pwl; method = method)
     for ((a, b), (c, e)) in zip(xs, ys)
         fix(x, 0.3 * a + 0.7 * b)
         for sense in (MAX_SENSE, MIN_SENSE)
@@ -230,7 +230,7 @@ end
     )
     model = Model(optimizer)
     @variable(model, x[1:2])
-    y = piecewiselinear(model, (x[1], x[2]), pwl; method = MultipleChoice())
+    y, _ = piecewiselinear(model, (x[1], x[2]), pwl; method = MultipleChoice())
     @objective(model, Max, y[1])
     optimize!(model)
     @test termination_status(model) == MOI.OPTIMAL
@@ -252,7 +252,7 @@ end
 
     model = Model(optimizer)
     @variable(model, x)
-    y1 = piecewiselinear(model, (x,), pwl)
+    y1, _ = piecewiselinear(model, (x,), pwl)
     @constraint(model, x ≤ 0.75)
     @objective(model, Max, y1[1])
     optimize!(model)
@@ -289,7 +289,7 @@ end
     model = Model(optimizer)
     @variable(model, x)
     @variable(model, y)
-    z1 = piecewiselinear(model, (x, y), pwl)
+    z1, _ = piecewiselinear(model, (x, y), pwl)
     @constraint(model, x ≤ 0.75)
     @constraint(model, y ≤ 0.75)
     @objective(model, Max, z1[1])
@@ -343,7 +343,7 @@ const methods_2D_gen = [
         PLO.UnstructuredTriangulation(),
     )
 
-    y = piecewiselinear(model, (x[1], x[2]), pwl; method = method)
+    y, _ = piecewiselinear(model, (x[1], x[2]), pwl; method = method)
     @objective(model, Min, y[1])
 
     optimize!(model)
@@ -428,7 +428,7 @@ function test_triangle_selection(method, pattern, n)
     pwl = BivariatePWLFunction(d, d, f; pattern = pattern)
     model = Model(optimizer)
     @variable(model, x[1:2])
-    z = piecewiselinear(model, (x[1], x[2]), pwl; method = method)[1]
+    (z,), _ = piecewiselinear(model, (x[1], x[2]), pwl; method = method)
     for seg in pwl.segments
         fix(x[1], sum(v[1] for v in seg.input_vals) / 3)
         fix(x[2], sum(v[2] for v in seg.input_vals) / 3)
@@ -597,13 +597,13 @@ end
         ((PLO.Epigraph, MIN_SENSE), (PLO.Hypograph, MAX_SENSE))
         model = Model(optimizer)
         @variable(model, x[1:2])
-        z = piecewiselinear(
+        (z,), _ = piecewiselinear(
             model,
             (x[1], x[2]),
             pwl;
             method = method,
             direction = direction,
-        )[1]
+        )
         fix(x[1], sum(v[1] for v in seg.input_vals) / 3)
         fix(x[2], sum(v[2] for v in seg.input_vals) / 3)
         @objective(model, sense, z)
@@ -625,7 +625,7 @@ end
     pwl = PLO.PWLFunction(segments, PLO.Intervals())
     model = Model(optimizer)
     @variable(model, x)
-    y = piecewiselinear(model, (x,), pwl; method = method)
+    y, _ = piecewiselinear(model, (x,), pwl; method = method)
     @test length(y) == 2
     for x0 in (0.5, 1.25, 2.9)
         fix(x, x0)
@@ -661,7 +661,7 @@ end
     pwl = PLO.PWLFunction(segments, base.structure)
     model = Model(optimizer)
     @variable(model, x[1:2])
-    z = piecewiselinear(model, (x[1], x[2]), pwl; method = method)
+    z, _ = piecewiselinear(model, (x[1], x[2]), pwl; method = method)
     for seg in segments
         fix(x[1], sum(v[1] for v in seg.input_vals) / 3)
         fix(x[2], sum(v[2] for v in seg.input_vals) / 3)
@@ -696,7 +696,7 @@ end
     pwl = PLO.PWLFunction(segments, PLO.Unstructured{3}())
     model = Model(optimizer)
     @variable(model, x[1:3])
-    y = piecewiselinear(model, (x[1], x[2], x[3]), pwl; method = method)[1]
+    (y,), _ = piecewiselinear(model, (x[1], x[2], x[3]), pwl; method = method)
     for seg in segments
         for i in 1:3
             fix(x[i], sum(v[i] for v in seg.input_vals) / 4)
@@ -822,6 +822,136 @@ end
         return objective_value(model)
     end
     @test all(isapprox.(objectives, objectives[1]; atol = 1e-5))
+end
+
+# All constraints except bounds and integrality restrictions of variables
+function nonbound_constraints(model)
+    bounds = (
+        MOI.GreaterThan{Float64},
+        MOI.LessThan{Float64},
+        MOI.EqualTo{Float64},
+        MOI.ZeroOne,
+        MOI.Integer,
+    )
+    constraints = ConstraintRef[]
+    for (F, S) in list_of_constraint_types(model)
+        if !(F == VariableRef && S in bounds)
+            append!(constraints, all_constraints(model, F, S))
+        end
+    end
+    return constraints
+end
+
+# The formulation must record exactly what was added to a model that only
+# contained the inputs, and deleting it must remove all of it.
+function test_formulation(model, inputs, pwl, method)
+    y, formulation = piecewiselinear(model, inputs, pwl; method = method)
+    @test formulation isa PWLFormulation
+    @test formulation.method === method
+    @test all(yi -> yi in formulation.variables, y)
+    @test Set(formulation.variables) ==
+          setdiff(Set(all_variables(model)), inputs)
+    @test length(unique(formulation.variables)) == length(formulation.variables)
+    @test Set(formulation.constraints) == Set(nonbound_constraints(model))
+    @test all(
+        v -> startswith(name(v), formulation.name * "_"),
+        formulation.variables,
+    )
+    @test occursin(formulation.name, sprint(show, formulation))
+    delete(model, formulation)
+    @test Set(all_variables(model)) == Set(inputs)
+    @test isempty(nonbound_constraints(model))
+    return
+end
+
+@testset "Formulation: univariate $method" for method in methods_1D
+    pwl = UnivariatePWLFunction([0, 1, 2, 4, 5, 7], [0, 2, 1, 3, -1, 0])
+    model = Model()
+    @variable(model, x)
+    test_formulation(model, [x], pwl, method)
+end
+
+@testset "Formulation: discontinuous $method" for method in
+                                                  methods_discontinuous
+    s1 = PLO.SegmentPointRep{1,1}([(0.0,), (1.0,)], [(0.0,), (1.0,)])
+    s2 = PLO.SegmentPointRep{1,1}([(1.0,), (2.0,)], [(3.0,), (2.0,)])
+    s3 = PLO.SegmentPointRep{1,1}([(2.0,), (3.0,)], [(2.0,), (5.0,)])
+    model = Model()
+    @variable(model, x)
+    test_formulation(
+        model,
+        [x],
+        PLO.PWLFunction([s1, s2, s3], PLO.Intervals()),
+        method,
+    )
+end
+
+@testset "Formulation: bivariate $method" for (method, pattern) in [
+    [(m, :Upper) for m in methods_2D_selection]
+    [(SixStencil(m), :Upper) for m in methods_1D]
+    (OptimalIndependentBranching(optimizer), :Upper)
+    (K1(), :K1)
+    (UnionJack(), :UnionJack)
+]
+    pwl = BivariatePWLFunction(0:2, 0:2, (a, b) -> a^2 - b; pattern = pattern)
+    model = Model()
+    @variable(model, x[1:2])
+    test_formulation(model, x, pwl, method)
+end
+
+@testset "Formulation: trivariate $method" for method in [
+    ConvexCombination(),
+    DisaggregatedLogarithmic(),
+    MultipleChoice(),
+]
+    s = PLO.SegmentPointRep{3,1}(
+        [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)],
+        [(0.0,), (1.0,), (2.0,), (3.0,)],
+    )
+    model = Model()
+    @variable(model, x[1:3])
+    test_formulation(
+        model,
+        x,
+        PLO.PWLFunction([s], PLO.Unstructured{3}()),
+        method,
+    )
+end
+
+@testset "Formulation: names and inputs" begin
+    pwl = UnivariatePWLFunction([0, 1, 2], [0, 2, 1])
+    model = Model(optimizer)
+    @variable(model, x)
+    # Default names are distinct, and can be chosen
+    _, f1 = piecewiselinear(model, [x], pwl)
+    _, f2 = piecewiselinear(model, [x], pwl)
+    _, f3 = piecewiselinear(model, [x], pwl; name = "cost")
+    @test f1.name != f2.name
+    @test f3.name == "cost"
+    @test all(v -> startswith(name(v), "cost_"), f3.variables)
+    # Inputs and outputs may be vectors or tuples of variables, expressions
+    # and constants
+    @variable(model, z)
+    y, f = piecewiselinear(model, [2x - 1], pwl; output_vars = [z])
+    @test y == [z]
+    @test !(z in f.variables)
+    y, _ = piecewiselinear(model, (1.5,), pwl)
+    fix(x, 0.75)
+    @objective(model, Max, z + y[1])
+    optimize!(model)
+    @test termination_status(model) == MOI.OPTIMAL
+    @test value(z) ≈ 1.0 atol = 1e-5  # f(2 * 0.75 - 1)
+    @test value(y[1]) ≈ 1.5 atol = 1e-5  # f(1.5)
+    # The number of inputs and outputs must match the function
+    @test_throws ErrorException piecewiselinear(model, [x, x], pwl)
+    @test_throws ErrorException piecewiselinear(
+        model,
+        [x],
+        pwl;
+        output_vars = [z, z],
+    )
+    # Deleting from another model is an error
+    @test_throws ErrorException delete(Model(), f)
 end
 
 @testset "Affine inputs: $method" for method in

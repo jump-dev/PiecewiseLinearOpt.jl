@@ -9,21 +9,21 @@ struct OptimalIndependentBranching <: Method
 end
 
 function formulate_pwl!(
-    model::JuMP.Model,
-    input_vars::NTuple{2,VarOrAff},
-    output_vars::NTuple{F,VarOrAff},
+    formulation::PWLFormulation,
+    input_vars::NTuple{2,_Scalar},
+    output_vars::NTuple{F,_Scalar},
     pwl::PWLFunctionPointRep{2,F},
     method::OptimalIndependentBranching,
     direction::DIRECTION,
 ) where {F}
     λ, triangle_direction = _grid_convex_multipliers!(
-        model,
+        formulation,
         input_vars,
         output_vars,
         pwl,
         direction,
     )
     cover = _optimal_biclique_cover(method.sub_solver, triangle_direction, true)
-    _add_biclique_cover!(model, λ, cover)
+    _add_biclique_cover!(formulation, λ, cover)
     return nothing
 end

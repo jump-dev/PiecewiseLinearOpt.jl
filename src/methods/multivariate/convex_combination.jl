@@ -6,18 +6,25 @@
 struct ConvexCombination <: Method end
 
 function formulate_pwl!(
-    model::JuMP.Model,
-    input_vars::NTuple{D,VarOrAff},
-    output_vars::NTuple{F,VarOrAff},
+    formulation::PWLFormulation,
+    input_vars::NTuple{D,_Scalar},
+    output_vars::NTuple{F,_Scalar},
     pwl::PWLFunctionPointRep{D,F},
     method::ConvexCombination,
     direction::DIRECTION,
 ) where {D,F}
-    # TODO: assert PWL function is continuous
-    counter = model.ext[:PWL].counter
+    model = formulation.model
     segments = pwl.segments
-    z = JuMP.@variable(model, [segments], Bin, base_name = "z_$counter")
-    JuMP.@constraint(model, sum(z) == 1)
+    z = _record!(
+        formulation,
+        JuMP.@variable(
+            model,
+            [segments],
+            Bin,
+            base_name = _name(formulation, "z")
+        ),
+    )
+    _record!(formulation, JuMP.@constraint(model, sum(z) == 1))
 
     all_input_vals = Set{NTuple{D,Float64}}()
     output_val_map = Dict{NTuple{D,Float64},NTuple{F,Float64}}()
@@ -36,19 +43,26 @@ function formulate_pwl!(
             end
         end
     end
-    λ = JuMP.@variable(
-        model,
-        [all_input_vals],
-        lower_bound = 0,
-        upper_bound = 1,
-        base_name = "λ_$counter"
-    )
-    JuMP.@constraint(model, sum(λ) == 1)
-    for j in 1:D
-        JuMP.@constraint(
+    λ = _record!(
+        formulation,
+        JuMP.@variable(
             model,
-            input_vars[j] ==
-            sum(λ[input_val] * input_val[j] for input_val in all_input_vals)
+            [all_input_vals],
+            lower_bound = 0,
+            upper_bound = 1,
+            base_name = _name(formulation, "λ")
+        ),
+    )
+    _record!(formulation, JuMP.@constraint(model, sum(λ) == 1))
+    for j in 1:D
+        _record!(
+            formulation,
+            JuMP.@constraint(
+                model,
+                input_vars[j] == sum(
+                    λ[input_val] * input_val[j] for input_val in all_input_vals
+                )
+            ),
         )
     end
     for j in 1:F
@@ -56,31 +70,42 @@ function formulate_pwl!(
             λ[input_val] * output_val_map[input_val][j] for
             input_val in all_input_vals
         )
-        _constrain_output_var(model, output_vars[j], rhs, direction)
+        _constrain_output_var(formulation, output_vars[j], rhs, direction)
     end
     for input_val in all_input_vals
-        JuMP.@constraint(
-            model,
-            λ[input_val] ≤
-            sum(z[seg] for seg in segments if input_val in seg.input_vals)
+        _record!(
+            formulation,
+            JuMP.@constraint(
+                model,
+                λ[input_val] ≤
+                sum(z[seg] for seg in segments if input_val in seg.input_vals)
+            ),
         )
     end
     return nothing
 end
 
 function formulate_sos2!(
-    model::JuMP.Model,
+    formulation::PWLFormulation,
     λ::Vector{T},
     method::ConvexCombination,
-) where {T<:VarOrAff}
-    counter = model.ext[:PWL].counter
+) where {T<:_Scalar}
+    model = formulation.model
     n = length(λ)
-    z = JuMP.@variable(model, [1:n-1], Bin, base_name = "z_$counter")
-    JuMP.@constraint(model, sum(z) == 1)
-    JuMP.@constraint(model, λ[1] ≤ z[1])
+    z = _record!(
+        formulation,
+        JuMP.@variable(
+            model,
+            [1:n-1],
+            Bin,
+            base_name = _name(formulation, "z")
+        ),
+    )
+    _record!(formulation, JuMP.@constraint(model, sum(z) == 1))
+    _record!(formulation, JuMP.@constraint(model, λ[1] ≤ z[1]))
     for i in 2:n-1
-        JuMP.@constraint(model, λ[i] ≤ z[i-1] + z[i])
+        _record!(formulation, JuMP.@constraint(model, λ[i] ≤ z[i-1] + z[i]))
     end
-    JuMP.@constraint(model, λ[n] ≤ z[n-1])
+    _record!(formulation, JuMP.@constraint(model, λ[n] ≤ z[n-1]))
     return nothing
 end

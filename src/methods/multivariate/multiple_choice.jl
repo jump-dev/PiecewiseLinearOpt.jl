@@ -8,16 +8,16 @@ struct MultipleChoice <: Method end
 # Each segment gets its own copy of the input, so the function need not be
 # continuous.
 function formulate_pwl!(
-    model::JuMP.Model,
-    input_vars::NTuple{D,VarOrAff},
-    output_vars::NTuple{F,VarOrAff},
+    formulation::PWLFormulation,
+    input_vars::NTuple{D,_Scalar},
+    output_vars::NTuple{F,_Scalar},
     pwl::PWLFunctionPointRep{D,F},
     method::MultipleChoice,
     direction::DIRECTION,
 ) where {D,F}
     segments = [_hyperplane_rep(seg) for seg in pwl.segments]
     _formulate_multiple_choice!(
-        model,
+        formulation,
         input_vars,
         output_vars,
         segments,
@@ -27,30 +27,49 @@ function formulate_pwl!(
 end
 
 function _formulate_multiple_choice!(
-    model::JuMP.Model,
-    input_vars::NTuple{D,VarOrAff},
-    output_vars::NTuple{F,VarOrAff},
+    formulation::PWLFormulation,
+    input_vars::NTuple{D,_Scalar},
+    output_vars::NTuple{F,_Scalar},
     segments::Vector{SegmentHyperplaneRep{D,F}},
     direction::DIRECTION,
 ) where {D,F}
-    counter = model.ext[:PWL].counter
+    model = formulation.model
     n = length(segments)
 
-    x_hat = JuMP.@variable(model, [1:n, 1:D], base_name = "x_hat_$counter")
-    z = JuMP.@variable(model, [1:n], Bin, base_name = "z_$counter")
-    JuMP.@constraint(model, sum(z) == 1)
+    x_hat = _record!(
+        formulation,
+        JuMP.@variable(
+            model,
+            [1:n, 1:D],
+            base_name = _name(formulation, "x_hat")
+        ),
+    )
+    z = _record!(
+        formulation,
+        JuMP.@variable(model, [1:n], Bin, base_name = _name(formulation, "z")),
+    )
+    _record!(formulation, JuMP.@constraint(model, sum(z) == 1))
     for j in 1:D
-        JuMP.@constraint(model, sum(x_hat[:, j]) == input_vars[j])
+        _record!(
+            formulation,
+            JuMP.@constraint(model, sum(x_hat[:, j]) == input_vars[j]),
+        )
     end
     for (i, seg) in enumerate(segments), constraint in seg.constraints
-        JuMP.@constraint(model, _homogenize(constraint, x_hat[i, :], z[i]) ≥ 0)
+        _record!(
+            formulation,
+            JuMP.@constraint(
+                model,
+                _homogenize(constraint, x_hat[i, :], z[i]) ≥ 0
+            ),
+        )
     end
     for k in 1:F
         rhs = sum(
             _homogenize(seg.funcs[k], x_hat[i, :], z[i]) for
             (i, seg) in enumerate(segments)
         )
-        _constrain_output_var(model, output_vars[k], rhs, direction)
+        _constrain_output_var(formulation, output_vars[k], rhs, direction)
     end
     return nothing
 end
