@@ -8,7 +8,13 @@ using HiGHS
 using JuMP
 using Test
 
+import Aqua
+
 const PLO = PiecewiseLinearOpt
+
+@testset "Aqua" begin
+    Aqua.test_all(PiecewiseLinearOpt)
+end
 
 optimizer = optimizer_with_attributes(HiGHS.Optimizer, MOI.Silent() => true)
 
@@ -715,6 +721,12 @@ end
     )
     # Evaluation outside the domain
     @test_throws ErrorException pwl(4.0, 0.0)
+    # Evaluation is fast after the first call, which prepares the segments
+    big = BivariatePWLFunction(0:0.02:1, 0:0.02:1, f)
+    @test big(0.123, 0.456) ≈ big(0.123, 0.456)
+    @test (@elapsed for _ in 1:100
+        big(0.99, 0.99)
+    end) < 1.0
     # Matrix input in the convenience method
     model = Model(optimizer)
     @variable(model, x[1:2])
@@ -932,6 +944,11 @@ end
             @test value(y) ≈ y0 atol = 1e-5
         end
     end
+    # Functions of three or more variables have a default method
+    model = Model()
+    @variable(model, x[1:3])
+    _, formulation = piecewiselinear(model, x, pwl)
+    @test formulation.method == DisaggregatedLogarithmic()
 end
 
 @testset "Output variable" begin

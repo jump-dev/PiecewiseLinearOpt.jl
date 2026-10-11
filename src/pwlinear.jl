@@ -18,6 +18,7 @@ end
 
 _default_method(::Val{1}) = Logarithmic()
 _default_method(::Val{2}) = SixStencil()
+_default_method(::Val) = DisaggregatedLogarithmic()
 
 """
     piecewiselinear(
@@ -43,18 +44,19 @@ returns the tuple `(output_vars, formulation)`.
 ## Keyword arguments
 
 - `method`: the formulation method, defaults to `Logarithmic()` for univariate
-  and `SixStencil()` for bivariate functions.
+  functions, `SixStencil()` for bivariate functions and
+  `DisaggregatedLogarithmic()` for functions of more variables.
 - `direction`: whether the outputs equal (`Graph`), are at least (`Epigraph`)
   or are at most (`Hypograph`) the function value.
 - `output_vars`: a vector or tuple with an output variable or expression for
   each output of `pwl`. If `nothing`, new variables are created, bounded by
   the smallest and largest function value (only from below for `Epigraph` and
   only from above for `Hypograph`).
+- `name`: the prefix of the names of the variables created. If `nothing`, a
+  name of the form `pwl1`, `pwl2`, ... is used.
 
 If the function cannot be formulated, an error is thrown and the model is left
 unchanged.
-- `name`: the prefix of the names of the variables created. If `nothing`, a
-  name of the form `pwl1`, `pwl2`, ... is used.
 
 ## Returns
 

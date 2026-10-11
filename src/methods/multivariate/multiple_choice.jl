@@ -23,7 +23,7 @@ function formulate_pwl!(
     method::MultipleChoice,
     direction::DIRECTION,
 ) where {D,F}
-    segments = [_hyperplane_rep(seg) for seg in pwl.segments]
+    segments = [_hyperplane_rep(seg, Rational{BigInt}) for seg in pwl.segments]
     _formulate_multiple_choice!(
         formulation,
         input_vars,
@@ -89,29 +89,33 @@ function _homogenize(f::_AffineFunction{D}, x, z) where {D}
 end
 
 # Converts a simplex with vertices v_0, ..., v_D into the hyperplane
-# representation given by its barycentric coordinates μ_0, ..., μ_D ≥ 0.
+# representation given by its barycentric coordinates μ_0, ..., μ_D ≥ 0,
+# computing in the number type T.
 #
-# The computation is exact in rational arithmetic, as every Float64 is a
-# rational number, so it adds no round-off errors. As the inputs themselves
-# usually carry round-off errors, e.g. 0.1 or products like 0.1 * 0.3, the
-# exact result can still have tiny entries where zero is intended, so entries
-# below 1e-12 times the largest entry of each affine function are set to zero.
-function _hyperplane_rep(seg::SegmentPointRep{D,F}) where {D,F}
+# With T = Rational{BigInt} the computation is exact, as every Float64 is a
+# rational number, so it adds no round-off errors; this is used for the
+# coefficients of the MultipleChoice formulation. With T = Float64 it is fast,
+# which suits evaluation. As the inputs themselves usually carry round-off
+# errors, e.g. 0.1 or products like 0.1 * 0.3, the result can have tiny
+# entries where zero is intended, so entries below 1e-12 times the largest
+# entry of each affine function are set to zero.
+function _hyperplane_rep(seg::SegmentPointRep{D,F}, ::Type{T}) where {D,F,T}
     if length(seg.input_vals) != D + 1
         error(
-            "The MultipleChoice method requires every segment of a R^$D -> R^$F function to be a simplex with $(D + 1) points.",
+            "Every segment of a R^$D -> R^$F function must be a simplex with $(D + 1) points, but a segment has $(length(seg.input_vals)).",
         )
     end
-    exact(x) = Rational{BigInt}(x)
+    exact(x) = convert(T, x)
     v_0 = exact.(collect(seg.input_vals[1]))
-    M = Matrix{Rational{BigInt}}(undef, D, D)
+    M = Matrix{T}(undef, D, D)
     for i in 1:D
         M[:, i] = exact.(collect(seg.input_vals[i+1])) .- v_0
     end
-    if iszero(LinearAlgebra.det(M))
-        error(
-            "The MultipleChoice method does not support degenerate segments: $(seg.input_vals)",
-        )
+    degenerate =
+        T <: AbstractFloat ? LinearAlgebra.rank(M) < D :
+        iszero(LinearAlgebra.det(M))
+    if degenerate
+        error("Degenerate segment with the points $(seg.input_vals).")
     end
     M_inv = inv(M)
     function affine(coeffs, offset)

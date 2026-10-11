@@ -168,6 +168,20 @@ constructing functions from breakpoints and function values.
 struct PWLFunction{D,F,S<:SegmentStructure{D}}
     segments::Vector{SegmentPointRep{D,F}}
     structure::S
+    # The hyperplane representation of the segments, computed on first
+    # evaluation of the function
+    hyperplanes::Base.RefValue{Union{Nothing,Vector{_HyperplaneSegment{D,F}}}}
+
+    function PWLFunction(
+        segments::Vector{SegmentPointRep{D,F}},
+        structure::S,
+    ) where {D,F,S<:SegmentStructure{D}}
+        return new{D,F,S}(
+            segments,
+            structure,
+            Ref{Union{Nothing,Vector{_HyperplaneSegment{D,F}}}}(nothing),
+        )
+    end
 end
 
 function PWLFunction{D,F}(
@@ -358,8 +372,12 @@ Where the function is discontinuous, the value of the first segment containing
 `x` is returned.
 """
 function (pwl::PWLFunction{D,F})(x::Vararg{Real,D}) where {D,F}
-    for seg in pwl.segments
-        h = _hyperplane_rep(seg)
+    hyperplanes = pwl.hyperplanes[]
+    if hyperplanes === nothing
+        hyperplanes = [_hyperplane_rep(seg, Float64) for seg in pwl.segments]
+        pwl.hyperplanes[] = hyperplanes
+    end
+    for h in hyperplanes
         if all(c -> _evaluate(c, x) ≥ -1e-9, h.constraints)
             y = map(g -> _evaluate(g, x), h.funcs)
             return F == 1 ? y[1] : y

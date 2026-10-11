@@ -74,8 +74,9 @@ compute for small grids, up to about 4×4 points.
 [`ConvexCombination`](@ref), [`DisaggregatedLogarithmic`](@ref) and
 [`MultipleChoice`](@ref) formulate functions of any number of variables. The
 segments must be simplices for [`MultipleChoice`](@ref).
-[`DisaggregatedLogarithmic`](@ref) uses the fewest integer variables,
-`ceil(log2(d))` for `d` segments. Both support discontinuous functions.
+[`DisaggregatedLogarithmic`](@ref), the default, uses the fewest integer
+variables, `ceil(log2(d))` for `d` segments. Both support discontinuous
+functions.
 
 ## Example
 
