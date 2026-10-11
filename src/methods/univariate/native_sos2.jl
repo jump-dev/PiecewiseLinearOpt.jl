@@ -14,14 +14,14 @@ For solvers without support for SOS2 constraints, such as HiGHS, MathOptInterfac
 reformulates the constraint with binary variables. For solvers with support,
 e.g. Gurobi, it can also be a good axis method for the bivariate formulations.
 """
-struct NativeSOS2 <: Method end
+struct NativeSOS2 <: SOS2Method end
 
 function formulate_sos2!(
     formulation::PWLFormulation,
     λ::Vector{T},
     method::NativeSOS2,
 ) where {T<:_Scalar}
-    _record!(
+    record!(
         formulation,
         JuMP.@constraint(
             formulation.model,

@@ -137,4 +137,5 @@ const triangulations = [
     include("bivariate.jl")
     include("multivariate.jl")
     include("formulation.jl")
+    include("extending.jl")
 end

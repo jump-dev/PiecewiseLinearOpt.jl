@@ -12,7 +12,7 @@ linear functions (Huchette and Vielma, 2023).
 For `d` segments, it uses `ceil(log2(d))` bounded general integer variables and
 `2 * ceil(log2(d))` constraints in addition to the `d + 1` convex multipliers.
 """
-struct ZigZagInteger <: Method end
+struct ZigZagInteger <: SOS2Method end
 
 function formulate_sos2!(
     formulation::PWLFormulation,
@@ -28,7 +28,7 @@ function formulate_sos2!(
     if k == 0
         return nothing
     end
-    y = _record!(
+    y = record!(
         formulation,
         JuMP.@variable(
             formulation.model,
@@ -36,7 +36,7 @@ function formulate_sos2!(
             Int,
             lower_bound = 0,
             upper_bound = 2^(k - i),
-            base_name = _name(formulation, "z")
+            base_name = variable_name(formulation, "z")
         ),
     )
     _sos2_encoding_constraints!(

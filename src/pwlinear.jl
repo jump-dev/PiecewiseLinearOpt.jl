@@ -3,16 +3,19 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+# The fallback for any method and function it does not support. Its arguments
+# other than the method are untyped, so that any implementation for a specific
+# method is more specific than it.
 function formulate_pwl!(
-    formulation::PWLFormulation,
-    input_vars::NTuple{D,_Scalar},
-    output_vars::NTuple{F,_Scalar},
-    pwl::PWLFunction,
+    formulation,
+    input_vars,
+    output_vars,
+    pwl,
     method::Method,
-    direction::DIRECTION,
-) where {D,F}
+    direction,
+)
     return error(
-        "No support for a R^$D -> R^$F piecewise linear function using the $method method.",
+        "No support for a R^$(length(input_vars)) -> R^$(length(output_vars)) piecewise linear function using the $method method.",
     )
 end
 
@@ -141,12 +144,12 @@ function _create_output_vars(
     pwl::PWLFunction{D,F},
     direction::DIRECTION,
 ) where {D,F}
-    y = _record!(
+    y = record!(
         formulation,
         JuMP.@variable(
             formulation.model,
             [1:F],
-            base_name = _name(formulation, "y")
+            base_name = variable_name(formulation, "y")
         ),
     )
     for i in 1:F

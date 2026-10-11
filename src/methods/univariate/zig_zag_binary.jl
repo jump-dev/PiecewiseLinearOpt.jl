@@ -12,7 +12,7 @@ functions (Huchette and Vielma, 2023).
 For `d` segments, it uses `ceil(log2(d))` binary variables and
 `2 * ceil(log2(d))` constraints in addition to the `d + 1` convex multipliers.
 """
-struct ZigZagBinary <: Method end
+struct ZigZagBinary <: SOS2Method end
 
 function formulate_sos2!(
     formulation::PWLFormulation,
@@ -28,13 +28,13 @@ function formulate_sos2!(
     if k == 0
         return nothing
     end
-    y = _record!(
+    y = record!(
         formulation,
         JuMP.@variable(
             formulation.model,
             [1:k],
             Bin,
-            base_name = _name(formulation, "z")
+            base_name = variable_name(formulation, "z")
         ),
     )
     _sos2_encoding_constraints!(

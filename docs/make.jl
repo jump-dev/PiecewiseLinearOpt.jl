@@ -19,6 +19,7 @@ makedocs(;
         "Home" => "index.md",
         "Manual" => ["manual/functions.md", "manual/models.md"],
         "methods.md",
+        "extending.md",
         "migration.md",
         "references.md",
         "api.md",

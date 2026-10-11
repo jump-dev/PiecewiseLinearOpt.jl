@@ -67,9 +67,17 @@ function JuMP.delete(model::JuMP.GenericModel, formulation::PWLFormulation)
     return
 end
 
-# Every variable and constraint the methods create is registered in the
-# formulation by passing it through _record!.
-function _record!(
+"""
+    record!(formulation::PWLFormulation, x)
+
+Registers the variable, constraint, or array of them, `x` as part of
+`formulation`, and returns `x`. Every variable and constraint that a method
+adds to the model must be passed through this function, e.g.
+
+    z = record!(formulation, JuMP.@variable(model, [1:k], Bin))
+    record!(formulation, JuMP.@constraint(model, sum(z) == 1))
+"""
+function record!(
     formulation::PWLFormulation,
     x::Union{JuMP.AbstractVariableRef,JuMP.ConstraintRef},
 )
@@ -77,14 +85,14 @@ function _record!(
     return x
 end
 
-function _record!(formulation::PWLFormulation, x::AbstractArray)
+function record!(formulation::PWLFormulation, x::AbstractArray)
     for xi in x
         _push!(formulation, xi)
     end
     return x
 end
 
-function _record!(
+function record!(
     formulation::PWLFormulation,
     x::JuMP.Containers.SparseAxisArray,
 )
@@ -104,8 +112,15 @@ function _push!(formulation::PWLFormulation, c::JuMP.ConstraintRef)
     return
 end
 
-# The base name of a variable created by the formulation
-_name(formulation::PWLFormulation, name::String) = "$(formulation.name)_$name"
+"""
+    variable_name(formulation::PWLFormulation, name::String)
+
+The base name for variables of `formulation` called `name`, e.g. `"pwl1_z"`,
+to pass as `base_name` to `JuMP.@variable`.
+"""
+function variable_name(formulation::PWLFormulation, name::String)
+    return "$(formulation.name)_$name"
+end
 
 # A formulation for a part of the model, e.g. one axis of a bivariate function,
 # whose variables have names with the additional prefix `name`. It records into
@@ -113,7 +128,7 @@ _name(formulation::PWLFormulation, name::String) = "$(formulation.name)_$name"
 function _subformulation(formulation::PWLFormulation, name::String)
     return PWLFormulation(
         formulation.model,
-        _name(formulation, name),
+        variable_name(formulation, name),
         formulation.method,
         formulation.variables,
         formulation.constraints,

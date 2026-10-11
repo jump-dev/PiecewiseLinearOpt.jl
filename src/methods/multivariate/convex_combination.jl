@@ -26,16 +26,16 @@ function formulate_pwl!(
 ) where {D,F}
     model = formulation.model
     segments = pwl.segments
-    z = _record!(
+    z = record!(
         formulation,
         JuMP.@variable(
             model,
             [segments],
             Bin,
-            base_name = _name(formulation, "z")
+            base_name = variable_name(formulation, "z")
         ),
     )
-    _record!(formulation, JuMP.@constraint(model, sum(z) == 1))
+    record!(formulation, JuMP.@constraint(model, sum(z) == 1))
 
     all_input_vals = Set{NTuple{D,Float64}}()
     output_val_map = Dict{NTuple{D,Float64},NTuple{F,Float64}}()
@@ -54,19 +54,19 @@ function formulate_pwl!(
             end
         end
     end
-    λ = _record!(
+    λ = record!(
         formulation,
         JuMP.@variable(
             model,
             [all_input_vals],
             lower_bound = 0,
             upper_bound = 1,
-            base_name = _name(formulation, "λ")
+            base_name = variable_name(formulation, "λ")
         ),
     )
-    _record!(formulation, JuMP.@constraint(model, sum(λ) == 1))
+    record!(formulation, JuMP.@constraint(model, sum(λ) == 1))
     for j in 1:D
-        _record!(
+        record!(
             formulation,
             JuMP.@constraint(
                 model,
@@ -81,10 +81,10 @@ function formulate_pwl!(
             λ[input_val] * output_val_map[input_val][j] for
             input_val in all_input_vals
         )
-        _constrain_output_var(formulation, output_vars[j], rhs, direction)
+        constrain_output!(formulation, output_vars[j], rhs, direction)
     end
     for input_val in all_input_vals
-        _record!(
+        record!(
             formulation,
             JuMP.@constraint(
                 model,
@@ -103,20 +103,20 @@ function formulate_sos2!(
 ) where {T<:_Scalar}
     model = formulation.model
     n = length(λ)
-    z = _record!(
+    z = record!(
         formulation,
         JuMP.@variable(
             model,
             [1:n-1],
             Bin,
-            base_name = _name(formulation, "z")
+            base_name = variable_name(formulation, "z")
         ),
     )
-    _record!(formulation, JuMP.@constraint(model, sum(z) == 1))
-    _record!(formulation, JuMP.@constraint(model, λ[1] ≤ z[1]))
+    record!(formulation, JuMP.@constraint(model, sum(z) == 1))
+    record!(formulation, JuMP.@constraint(model, λ[1] ≤ z[1]))
     for i in 2:n-1
-        _record!(formulation, JuMP.@constraint(model, λ[i] ≤ z[i-1] + z[i]))
+        record!(formulation, JuMP.@constraint(model, λ[i] ≤ z[i-1] + z[i]))
     end
-    _record!(formulation, JuMP.@constraint(model, λ[n] ≤ z[n-1]))
+    record!(formulation, JuMP.@constraint(model, λ[n] ≤ z[n-1]))
     return nothing
 end

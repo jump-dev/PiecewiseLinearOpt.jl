@@ -3,7 +3,13 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
-function _constrain_output_var(
+"""
+    constrain_output!(formulation::PWLFormulation, y, value, direction::DIRECTION)
+
+Adds the constraint that the output `y` equals, is at least or is at most the
+expression `value` of the function value, as given by `direction`.
+"""
+function constrain_output!(
     formulation::PWLFormulation,
     output_var::_Scalar,
     func_val::_Scalar,
@@ -18,7 +24,7 @@ function _constrain_output_var(
         @assert direction == Epigraph
         c = JuMP.@constraint(model, output_var >= func_val)
     end
-    _record!(formulation, c)
+    record!(formulation, c)
     return
 end
 
@@ -153,14 +159,15 @@ function _create_convex_multiplier_vars(
             model,
             lower_bound = 0,
             upper_bound = 1,
-            base_name = _name(formulation, "λ[$(join(Tuple(I), ","))]")
+            base_name =
+                variable_name(formulation, "λ[$(join(Tuple(I), ","))]")
         )
     end
-    _record!(formulation, λ)
+    record!(formulation, λ)
 
-    _record!(formulation, JuMP.@constraint(model, sum(λ) == 1))
+    record!(formulation, JuMP.@constraint(model, sum(λ) == 1))
     for j in 1:D
-        _record!(
+        record!(
             formulation,
             JuMP.@constraint(
                 model,
@@ -170,7 +177,7 @@ function _create_convex_multiplier_vars(
         )
     end
     for j in 1:F
-        _constrain_output_var(
+        constrain_output!(
             formulation,
             output_vars[j],
             sum(λ[I] * grid.output_vals[I][j] for I in eachindex(λ)),
@@ -183,11 +190,22 @@ end
 _multiplier(λ::AbstractArray, k::Int) = λ[k]
 _multiplier(λ::AbstractArray, k::Tuple) = λ[k...]
 
-# Adds the independent branching formulation given by the levels (L^j, R^j)
-# of a biclique cover of the conflict graph (Huchette and Vielma, 2019):
-#   sum(λ[L^j]) ≤ z_j,  sum(λ[R^j]) ≤ 1 - z_j,  z_j binary.
-# The levels index into λ, either linearly or by a tuple of indices.
-function _add_biclique_cover!(
+"""
+    add_biclique_cover!(formulation::PWLFormulation, λ::AbstractArray, cover)
+
+Adds the independent branching formulation given by a biclique cover.
+
+For each level `(L, R)` in `cover`, it adds a binary variable `z` and the
+constraints `sum(λ[L]) ≤ z` and `sum(λ[R]) ≤ 1 - z`, so that the multipliers
+in `L` and those in `R` cannot be nonzero at the same time (Huchette and
+Vielma, 2019). The levels are pairs of vectors of indices into `λ`, either
+integers or tuples for a matrix.
+
+The formulation is valid for a disjunctive constraint on the support of `λ` if
+no level separates two multipliers that may be nonzero together, and every
+pair that may not is separated by some level.
+"""
+function add_biclique_cover!(
     formulation::PWLFormulation,
     λ::AbstractArray,
     cover::Vector{<:Tuple{AbstractVector,AbstractVector}},
@@ -196,18 +214,18 @@ function _add_biclique_cover!(
         return nothing
     end
     model = formulation.model
-    z = _record!(
+    z = record!(
         formulation,
         JuMP.@variable(
             model,
             [1:length(cover)],
             Bin,
-            base_name = _name(formulation, "z")
+            base_name = variable_name(formulation, "z")
         ),
     )
     for (j, (L, R)) in enumerate(cover)
         if !isempty(L)
-            _record!(
+            record!(
                 formulation,
                 JuMP.@constraint(
                     model,
@@ -216,7 +234,7 @@ function _add_biclique_cover!(
             )
         end
         if !isempty(R)
-            _record!(
+            record!(
                 formulation,
                 JuMP.@constraint(
                     model,

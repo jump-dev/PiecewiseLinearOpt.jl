@@ -12,12 +12,10 @@ triangulation (Huchette and Vielma, 2023).
 It combines an SOS2 constraint along each axis, formulated with `axis_method`,
 with 9 binary variables to select the triangle in the chosen cell.
 """
-struct NineStencil{M<:Method} <: Method
+struct NineStencil{M<:Method} <: TriangleSelectionMethod
     axis_method::M
 end
 NineStencil() = NineStencil(Logarithmic())
-
-axis_method(method::NineStencil) = method.axis_method
 
 function formulate_triangle_selection!(
     formulation::PWLFormulation,
@@ -29,13 +27,13 @@ function formulate_triangle_selection!(
     n_1, n_2 = size(λ)
     @assert size(triangle_direction) == (n_1 - 1, n_2 - 1)
 
-    w = _record!(
+    w = record!(
         formulation,
         JuMP.@variable(
             model,
             [1:3, 1:3],
             Bin,
-            base_name = _name(formulation, "w")
+            base_name = variable_name(formulation, "w")
         ),
     )
     for o_1 in 1:3, o_2 in 1:3
@@ -70,7 +68,7 @@ function formulate_triangle_selection!(
                 end
             end
         end
-        _record!(
+        record!(
             formulation,
             JuMP.@constraint(
                 model,
@@ -78,7 +76,7 @@ function formulate_triangle_selection!(
                 1 - w[o_1, o_2]
             ),
         )
-        _record!(
+        record!(
             formulation,
             JuMP.@constraint(
                 model,

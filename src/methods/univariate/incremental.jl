@@ -32,26 +32,26 @@ function formulate_pwl!(
     @assert length(xs) == length(ys) == d + 1
 
     # δ[i] is the fill of segment i, and z[i] = 1 if segment i is full
-    δ = _record!(
+    δ = record!(
         formulation,
         JuMP.@variable(
             model,
             [1:d],
             lower_bound = 0,
             upper_bound = 1,
-            base_name = _name(formulation, "δ")
+            base_name = variable_name(formulation, "δ")
         ),
     )
-    z = _record!(
+    z = record!(
         formulation,
         JuMP.@variable(
             model,
             [1:d-1],
             Bin,
-            base_name = _name(formulation, "z")
+            base_name = variable_name(formulation, "z")
         ),
     )
-    _record!(
+    record!(
         formulation,
         JuMP.@constraint(
             model,
@@ -61,11 +61,11 @@ function formulate_pwl!(
     )
     for j in 1:F
         rhs = ys[1][j] + sum(δ[i] * (ys[i+1][j] - ys[i][j]) for i in 1:d)
-        _constrain_output_var(formulation, output_vars[j], rhs, direction)
+        constrain_output!(formulation, output_vars[j], rhs, direction)
     end
     for i in 1:d-1
-        _record!(formulation, JuMP.@constraint(model, δ[i+1] ≤ z[i]))
-        _record!(formulation, JuMP.@constraint(model, z[i] ≤ δ[i]))
+        record!(formulation, JuMP.@constraint(model, δ[i+1] ≤ z[i]))
+        record!(formulation, JuMP.@constraint(model, z[i] ≤ δ[i]))
     end
     return
 end

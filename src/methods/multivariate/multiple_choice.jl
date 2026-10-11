@@ -44,27 +44,32 @@ function _formulate_multiple_choice!(
     model = formulation.model
     n = length(segments)
 
-    x_hat = _record!(
+    x_hat = record!(
         formulation,
         JuMP.@variable(
             model,
             [1:n, 1:D],
-            base_name = _name(formulation, "x_hat")
+            base_name = variable_name(formulation, "x_hat")
         ),
     )
-    z = _record!(
+    z = record!(
         formulation,
-        JuMP.@variable(model, [1:n], Bin, base_name = _name(formulation, "z")),
+        JuMP.@variable(
+            model,
+            [1:n],
+            Bin,
+            base_name = variable_name(formulation, "z")
+        ),
     )
-    _record!(formulation, JuMP.@constraint(model, sum(z) == 1))
+    record!(formulation, JuMP.@constraint(model, sum(z) == 1))
     for j in 1:D
-        _record!(
+        record!(
             formulation,
             JuMP.@constraint(model, sum(x_hat[:, j]) == input_vars[j]),
         )
     end
     for (i, seg) in enumerate(segments), constraint in seg.constraints
-        _record!(
+        record!(
             formulation,
             JuMP.@constraint(
                 model,
@@ -77,7 +82,7 @@ function _formulate_multiple_choice!(
             _homogenize(seg.funcs[k], x_hat[i, :], z[i]) for
             (i, seg) in enumerate(segments)
         )
-        _constrain_output_var(formulation, output_vars[k], rhs, direction)
+        constrain_output!(formulation, output_vars[k], rhs, direction)
     end
     return nothing
 end

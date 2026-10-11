@@ -3,8 +3,112 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+"""
+    PiecewiseLinearOpt.Method
+
+The abstract type of the formulation methods, which are passed to
+[`piecewiselinear`](@ref) with the `method` keyword.
+
+A new method is a subtype of `Method` that implements
+[`formulate_pwl!`](@ref). The subtypes [`SOS2Method`](@ref) and
+[`TriangleSelectionMethod`](@ref) only need to implement a part of the
+formulation. See the manual on extending the package for details.
+"""
 abstract type Method end
 
+"""
+    PiecewiseLinearOpt.SOS2Method <: Method
+
+The abstract type of methods that formulate the SOS2 constraint on a vector of
+convex multipliers, i.e. that at most two of them, and those adjacent, are
+nonzero. A subtype must implement [`formulate_sos2!`](@ref), and then
+formulates continuous univariate functions through the convex multipliers of
+the breakpoints. It can also be used as the axis method of a
+[`TriangleSelectionMethod`](@ref).
+"""
+abstract type SOS2Method <: Method end
+
+"""
+    PiecewiseLinearOpt.TriangleSelectionMethod <: Method
+
+The abstract type of methods for continuous bivariate functions on a grid
+triangulation.
+
+These methods select a cell of the grid with an SOS2 constraint along each
+axis, formulated with [`axis_method`](@ref), and then a triangle in the cell
+with [`formulate_triangle_selection!`](@ref). A subtype must implement the
+latter, and `axis_method` unless it has a field `axis_method`.
+"""
+abstract type TriangleSelectionMethod <: Method end
+
+"""
+    formulate_pwl!(
+        formulation::PWLFormulation,
+        x::NTuple{D},
+        y::NTuple{F},
+        pwl::PWLFunction{D,F},
+        method::Method,
+        direction::DIRECTION,
+    )
+
+Adds variables and constraints to `formulation.model` so that the outputs `y`
+relate to the function `pwl` of the inputs `x` as given by `direction`.
+
+Implement this for a new [`Method`](@ref), for the dimensions `D` and `F` it
+supports. The inputs and outputs are variables, affine expressions or
+constants. Every variable and constraint created must be passed through
+[`record!`](@ref), so that the formulation can be deleted again, and the
+variables should be named with [`variable_name`](@ref). Use
+[`constrain_output!`](@ref) to relate an output to its function value in the
+given direction. Throw an error if `pwl` is not supported, e.g. because it is
+discontinuous; the model is then restored.
+"""
+function formulate_pwl! end
+
+"""
+    formulate_sos2!(formulation::PWLFormulation, λ::Vector, method::Method)
+
+Adds variables and constraints to `formulation.model` so that at most two of
+the convex multipliers `λ`, and those adjacent, are nonzero. The multipliers
+are variables or affine expressions, and already sum to one.
+
+Implement this for a new [`SOS2Method`](@ref). Every other method has a
+default implementation, which formulates a piecewise linear function whose
+outputs are the multipliers.
+"""
+function formulate_sos2! end
+
+"""
+    formulate_triangle_selection!(
+        formulation::PWLFormulation,
+        λ::Matrix,
+        nw_se::Matrix{Bool},
+        method::TriangleSelectionMethod,
+    )
+
+Adds variables and constraints to `formulation.model` that select a triangle
+in a cell of the grid.
+
+The convex multipliers `λ` of the grid points are nonzero on at most the four
+corners of one cell, ensured by the SOS2 constraints along the axes, and must
+be restricted to one of the two triangles of that cell. Cell `(i, j)` has the
+corners `λ[i, j]`,
+`λ[i + 1, j]`, `λ[i, j + 1]` and `λ[i + 1, j + 1]`, and is split along the
+diagonal from `λ[i, j + 1]` to `λ[i + 1, j]` if `nw_se[i, j]` is true, and
+along the other diagonal otherwise.
+
+Implement this for a new [`TriangleSelectionMethod`](@ref). Throw an error if
+the triangulation is not supported.
+"""
+function formulate_triangle_selection! end
+
+"""
+    axis_method(method::TriangleSelectionMethod)
+
+The method that formulates the SOS2 constraints along the axes of the grid.
+Defaults to the field `axis_method` of `method`.
+"""
+axis_method(method::TriangleSelectionMethod) = method.axis_method
 # Print methods as they are constructed, e.g. SixStencil(LogarithmicEmbedding())
 # instead of SixStencil{LogarithmicEmbedding}(LogarithmicEmbedding()).
 function Base.show(io::IO, method::Method)

@@ -55,6 +55,7 @@ value(x), value(y), value(z)
 - [Adding functions to a model](@ref) describes [`piecewiselinear`](@ref) and
   the formulations it returns.
 - [Formulation methods](@ref) gives an overview of the available methods.
+- [Extending the package](@ref) describes how to add a method.
 - [Migrating from version 0.4](@ref) lists the changes from previous versions.
 
 ## Getting help

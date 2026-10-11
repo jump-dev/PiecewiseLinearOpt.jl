@@ -13,12 +13,10 @@ functions.
 It combines an SOS2 constraint along each axis, formulated with `axis_method`,
 with 6 binary variables to select the triangle in the chosen cell.
 """
-struct SixStencil{M<:Method} <: Method
+struct SixStencil{M<:Method} <: TriangleSelectionMethod
     axis_method::M
 end
 SixStencil() = SixStencil(Logarithmic())
-
-axis_method(method::SixStencil) = method.axis_method
 
 function formulate_triangle_selection!(
     formulation::PWLFormulation,
@@ -31,13 +29,13 @@ function formulate_triangle_selection!(
     @assert size(triangle_direction) == (n_1 - 1, n_2 - 1)
 
     # diagonal lines running from SW to NE. Grouped with an offset of 3.
-    w_sw_ne = _record!(
+    w_sw_ne = record!(
         formulation,
         JuMP.@variable(
             model,
             [0:2],
             Bin,
-            base_name = _name(formulation, "w_sw_ne")
+            base_name = variable_name(formulation, "w_sw_ne")
         ),
     )
     for o in 0:2
@@ -84,14 +82,14 @@ function formulate_triangle_selection!(
                 end
             end
         end
-        _record!(
+        record!(
             formulation,
             JuMP.@constraint(
                 model,
                 sum(λ[i, j] for (i, j) in A_o) ≤ w_sw_ne[o]
             ),
         )
-        _record!(
+        record!(
             formulation,
             JuMP.@constraint(
                 model,
@@ -100,13 +98,13 @@ function formulate_triangle_selection!(
         )
     end
 
-    w_se_nw = _record!(
+    w_se_nw = record!(
         formulation,
         JuMP.@variable(
             model,
             [0:2],
             Bin,
-            base_name = _name(formulation, "w_se_nw")
+            base_name = variable_name(formulation, "w_se_nw")
         ),
     )
     for o in 0:2
@@ -150,14 +148,14 @@ function formulate_triangle_selection!(
                 end
             end
         end
-        _record!(
+        record!(
             formulation,
             JuMP.@constraint(
                 model,
                 sum(λ[i, j] for (i, j) in A_o) ≤ w_se_nw[o]
             ),
         )
-        _record!(
+        record!(
             formulation,
             JuMP.@constraint(
                 model,

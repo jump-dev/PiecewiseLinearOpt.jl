@@ -13,12 +13,10 @@ corner, e.g. [`K1Triangulation`](@ref).
 It combines an SOS2 constraint along each axis, formulated with `axis_method`,
 with 2 binary variables to select the triangle in the chosen cell.
 """
-struct K1{M<:Method} <: Method
+struct K1{M<:Method} <: TriangleSelectionMethod
     axis_method::M
 end
 K1() = K1(Logarithmic())
-
-axis_method(method::K1) = method.axis_method
 
 function formulate_triangle_selection!(
     formulation::PWLFormulation,
@@ -37,9 +35,14 @@ function formulate_triangle_selection!(
         )
     end
 
-    w = _record!(
+    w = record!(
         formulation,
-        JuMP.@variable(model, [1:2], Bin, base_name = _name(formulation, "w")),
+        JuMP.@variable(
+            model,
+            [1:2],
+            Bin,
+            base_name = variable_name(formulation, "w")
+        ),
     )
     # Points on the diagonals i + j = const of the same parity, alternating
     # between the two sides of each level
@@ -55,10 +58,10 @@ function formulate_triangle_selection!(
             (i + j) in offset+2:4:(n_1+n_2)
         ]
         if !isempty(A)
-            _record!(formulation, JuMP.@constraint(model, sum(A) ≤ w[k]))
+            record!(formulation, JuMP.@constraint(model, sum(A) ≤ w[k]))
         end
         if !isempty(B)
-            _record!(formulation, JuMP.@constraint(model, sum(B) ≤ 1 - w[k]))
+            record!(formulation, JuMP.@constraint(model, sum(B) ≤ 1 - w[k]))
         end
     end
     return nothing

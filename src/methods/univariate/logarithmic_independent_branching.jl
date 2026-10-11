@@ -14,7 +14,7 @@ For `d` segments, it uses `ceil(log2(d))` binary variables and
 `2 * ceil(log2(d))` constraints in addition to the `d + 1` convex multipliers.
 See also [`IndependentBranching`](@ref).
 """
-struct LogarithmicIndependentBranching <: Method end
+struct LogarithmicIndependentBranching <: SOS2Method end
 
 function formulate_sos2!(
     formulation::PWLFormulation,
@@ -31,23 +31,28 @@ function formulate_sos2!(
     if k == 0
         return nothing
     end
-    z = _record!(
+    z = record!(
         formulation,
-        JuMP.@variable(model, [1:k], Bin, base_name = _name(formulation, "z")),
+        JuMP.@variable(
+            model,
+            [1:k],
+            Bin,
+            base_name = variable_name(formulation, "z")
+        ),
     )
     _H = _reflected_gray_codes(k)
     H = Dict(i => _H[i] for i in 1:d)
     H[0] = H[1]
     H[d+1] = H[d]
     for j in 1:k
-        _record!(
+        record!(
             formulation,
             JuMP.@constraint(
                 model,
                 sum(λ[i] for i in 1:n if H[i-1][j] == H[i][j] == 1) ≤ z[j]
             ),
         )
-        _record!(
+        record!(
             formulation,
             JuMP.@constraint(
                 model,

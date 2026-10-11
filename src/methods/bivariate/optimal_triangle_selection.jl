@@ -27,7 +27,7 @@ take much longer for irregular ones. If no solution is found within
 binary variables is typically only slightly smaller, `SixStencil` is usually
 the better choice for large or irregular grids.
 """
-struct OptimalTriangleSelection{S,M<:Method} <: Method
+struct OptimalTriangleSelection{S,M<:Method} <: TriangleSelectionMethod
     sub_solver::S
     axis_method::M
     time_limit::Float64
@@ -44,8 +44,6 @@ function OptimalTriangleSelection(
         Float64(time_limit),
     )
 end
-
-axis_method(method::OptimalTriangleSelection) = method.axis_method
 
 function formulate_triangle_selection!(
     formulation::PWLFormulation,
@@ -70,6 +68,6 @@ function formulate_triangle_selection!(
             SixStencil(method.axis_method),
         )
     end
-    _add_biclique_cover!(formulation, λ, cover)
+    add_biclique_cover!(formulation, λ, cover)
     return nothing
 end

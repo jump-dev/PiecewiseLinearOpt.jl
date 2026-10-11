@@ -56,6 +56,6 @@ function formulate_pwl!(
             "OptimalIndependentBranching found no formulation for the $(n_1)×$(n_2) grid within the time limit of $(method.time_limit) seconds. It is only practical for small grids; use e.g. SixStencil() or OptimalTriangleSelection(sub_solver) instead.",
         )
     end
-    _add_biclique_cover!(formulation, λ, cover)
+    add_biclique_cover!(formulation, λ, cover)
     return nothing
 end

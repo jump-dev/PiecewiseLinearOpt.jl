@@ -13,7 +13,7 @@ function _sos2_encoding_constraints!(
     model = formulation.model
     n = length(λ) - 1
     for b in B
-        _record!(
+        record!(
             formulation,
             JuMP.@constraint(
                 model,
@@ -27,7 +27,7 @@ function _sos2_encoding_constraints!(
                 LinearAlgebra.dot(b, h[n]) * λ[n+1] ≤ LinearAlgebra.dot(b, y)
             ),
         )
-        _record!(
+        record!(
             formulation,
             JuMP.@constraint(
                 model,
@@ -111,16 +111,6 @@ function _unit_vector_hyperplanes(k::Int)::Vector{Vector{Float64}}
     return hps
 end
 
-# ConvexCombination could also be added to this list, but the multivariate
-# implementation works just fine.
-const SOS2Method = Union{
-    LogarithmicEmbedding,
-    LogarithmicIndependentBranching,
-    NativeSOS2,
-    ZigZagBinary,
-    ZigZagInteger,
-}
-
 function formulate_pwl!(
     formulation::PWLFormulation,
     input_vars::Tuple{_Scalar},
@@ -143,11 +133,9 @@ end
 
 # Any univariate method gives an SOS2 formulation, by formulating the function
 # whose outputs are the unit vectors at the breakpoints.
-function formulate_sos2!(
-    formulation::PWLFormulation,
-    λ::Vector{T},
-    method::Method,
-) where {T<:_Scalar}
+# The arguments other than the method are untyped, so that any implementation
+# for a specific method is more specific than this fallback.
+function formulate_sos2!(formulation, λ, method::Method)
     n = length(λ)
     D = 1
     F = n
@@ -164,13 +152,13 @@ function formulate_sos2!(
             ),
         )
     end
-    dummy_input_var = _record!(
+    dummy_input_var = record!(
         formulation,
         JuMP.@variable(
             formulation.model,
             lower_bound = 0,
             upper_bound = 1,
-            base_name = _name(formulation, "t")
+            base_name = variable_name(formulation, "t")
         ),
     )
     dummy_pwl = PWLFunction(segments, Intervals())

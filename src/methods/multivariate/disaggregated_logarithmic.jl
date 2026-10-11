@@ -28,20 +28,20 @@ function formulate_pwl!(
     segments = pwl.segments
     num_bps = Dict(seg => length(seg.input_vals) for seg in segments)
 
-    γ = _record!(
+    γ = record!(
         formulation,
         JuMP.@variable(
             model,
             [seg in segments, i in 1:num_bps[seg]],
             lower_bound = 0,
             upper_bound = 1,
-            base_name = _name(formulation, "γ")
+            base_name = variable_name(formulation, "γ")
         ),
     )
-    _record!(formulation, JuMP.@constraint(model, sum(γ) == 1))
+    record!(formulation, JuMP.@constraint(model, sum(γ) == 1))
 
     for j in 1:D
-        _record!(
+        record!(
             formulation,
             JuMP.@constraint(
                 model,
@@ -58,7 +58,7 @@ function formulate_pwl!(
             sum(γ[seg, i] * seg.output_vals[i][j] for i in 1:num_bps[seg])
             for seg in segments
         )
-        _constrain_output_var(formulation, output_vars[j], rhs, direction)
+        constrain_output!(formulation, output_vars[j], rhs, direction)
     end
 
     r = ceil(Int, log2(length(segments)))
@@ -67,12 +67,17 @@ function formulate_pwl!(
     end
     _H = _reflected_gray_codes(r)
     H = Dict(segments[i] => _H[i] for i in 1:length(segments))
-    z = _record!(
+    z = record!(
         formulation,
-        JuMP.@variable(model, [1:r], Bin, base_name = _name(formulation, "z")),
+        JuMP.@variable(
+            model,
+            [1:r],
+            Bin,
+            base_name = variable_name(formulation, "z")
+        ),
     )
     for j in 1:r
-        _record!(
+        record!(
             formulation,
             JuMP.@constraint(
                 model,

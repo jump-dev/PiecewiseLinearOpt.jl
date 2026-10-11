@@ -51,7 +51,7 @@ function formulate_sos2!(
     method::IndependentBranching,
 ) where {T<:_Scalar}
     S = [[i, i + 1] for i in 1:length(λ)-1]
-    _add_biclique_cover!(formulation, λ, _ordered_cdc_cover(S, method.scheme))
+    add_biclique_cover!(formulation, λ, _ordered_cdc_cover(S, method.scheme))
     return nothing
 end
 
@@ -85,18 +85,18 @@ function formulate_pwl!(
     _check_generalized_1d_ordered(S)
 
     n = length(points)
-    λ = _record!(
+    λ = record!(
         formulation,
         JuMP.@variable(
             model,
             [1:n],
             lower_bound = 0,
             upper_bound = 1,
-            base_name = _name(formulation, "λ")
+            base_name = variable_name(formulation, "λ")
         ),
     )
-    _record!(formulation, JuMP.@constraint(model, sum(λ) == 1))
-    _record!(
+    record!(formulation, JuMP.@constraint(model, sum(λ) == 1))
+    record!(
         formulation,
         JuMP.@constraint(
             model,
@@ -105,9 +105,9 @@ function formulate_pwl!(
     )
     for k in 1:F
         rhs = sum(λ[v] * points[v][2][k] for v in 1:n)
-        _constrain_output_var(formulation, output_vars[k], rhs, direction)
+        constrain_output!(formulation, output_vars[k], rhs, direction)
     end
-    _add_biclique_cover!(formulation, λ, _ordered_cdc_cover(S, method.scheme))
+    add_biclique_cover!(formulation, λ, _ordered_cdc_cover(S, method.scheme))
     return nothing
 end
 

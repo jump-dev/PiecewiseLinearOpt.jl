@@ -63,3 +63,21 @@ ConvexCombination
 DisaggregatedLogarithmic
 MultipleChoice
 ```
+
+## Extending
+
+See [Extending the package](@ref).
+
+```@docs
+PiecewiseLinearOpt.Method
+PiecewiseLinearOpt.SOS2Method
+PiecewiseLinearOpt.TriangleSelectionMethod
+PiecewiseLinearOpt.formulate_pwl!
+PiecewiseLinearOpt.formulate_sos2!
+PiecewiseLinearOpt.formulate_triangle_selection!
+PiecewiseLinearOpt.axis_method
+PiecewiseLinearOpt.record!
+PiecewiseLinearOpt.variable_name
+PiecewiseLinearOpt.constrain_output!
+PiecewiseLinearOpt.add_biclique_cover!
+```

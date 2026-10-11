@@ -3,15 +3,12 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
-const BivariateSOS2Method =
-    Union{K1,OptimalTriangleSelection,NineStencil,SixStencil,UnionJack}
-
 function formulate_pwl!(
     formulation::PWLFormulation,
     input_vars::NTuple{2,_Scalar},
     output_vars::NTuple{F,_Scalar},
     pwl::PWLFunction{2,F},
-    method::BivariateSOS2Method,
+    method::TriangleSelectionMethod,
     direction::DIRECTION,
 ) where {F}
     λ, triangle_direction = _grid_convex_multipliers!(

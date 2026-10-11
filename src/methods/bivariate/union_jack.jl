@@ -13,12 +13,10 @@ the diagonals alternate between neighboring cells, e.g.
 It combines an SOS2 constraint along each axis, formulated with `axis_method`,
 with 1 binary variable to select the triangle in the chosen cell.
 """
-struct UnionJack{M<:Method} <: Method
+struct UnionJack{M<:Method} <: TriangleSelectionMethod
     axis_method::M
 end
 UnionJack() = UnionJack(Logarithmic())
-
-axis_method(method::UnionJack) = method.axis_method
 
 function formulate_triangle_selection!(
     formulation::PWLFormulation,
@@ -46,22 +44,22 @@ function formulate_triangle_selection!(
     j_start = triangle_direction[1, 1] ? 1 : 2
 
     # diagonal lines running from SW to NE. Grouped with an offset of 3.
-    z = _record!(
+    z = record!(
         formulation,
         JuMP.@variable(
             model,
             binary = true,
-            base_name = _name(formulation, "w")
+            base_name = variable_name(formulation, "w")
         ),
     )
-    _record!(
+    record!(
         formulation,
         JuMP.@constraint(
             model,
             sum(λ[i, j] for i in 1:2:n_1, j in j_start:2:n_2) ≤ z
         ),
     )
-    _record!(
+    record!(
         formulation,
         JuMP.@constraint(
             model,
