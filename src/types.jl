@@ -10,9 +10,17 @@ abstract type Method end
 function Base.show(io::IO, method::Method)
     print(io, nameof(typeof(method)), "(")
     fields = (getfield(method, f) for f in fieldnames(typeof(method)))
-    join(io, (repr(x; context = io) for x in fields), ", ")
+    join(io, (_show_field(io, x) for x in fields), ", ")
     print(io, ")")
     return
+end
+
+_show_field(io::IO, x) = repr(x; context = io)
+
+# A sub-solver given with attributes is shown by its constructor only, as the
+# attributes make the output very long
+function _show_field(io::IO, x::JuMP.MOI.OptimizerWithAttributes)
+    return repr(x.optimizer_constructor; context = io)
 end
 
 """
