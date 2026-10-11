@@ -8,9 +8,9 @@
 
 The logarithmic disaggregated convex combination formulation.
 
-It works for continuous piecewise linear functions of any dimension (see
-Vielma, Ahmed and Nemhauser, 2010), with a convex multiplier for each vertex of
-each segment.
+It works for piecewise linear functions of any dimension (see Vielma, Ahmed and
+Nemhauser, 2010), with a convex multiplier for each vertex of each segment. As
+the segments do not share multipliers, the function may be discontinuous.
 
 For `d` segments, it uses `ceil(log2(d))` binary variables.
 """

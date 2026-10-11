@@ -22,13 +22,20 @@ function formulate_pwl!(
         direction,
     )
 
-    # formulations with SOS2 along each dimension
+    # SOS2 constraints along each axis select a cell
     n_1, n_2 = size(λ)
-    T_x = [sum(λ[i, j] for i in 1:n_1) for j in 1:n_2]
-    T_y = [sum(λ[i, j] for j in 1:n_2) for i in 1:n_1]
-
-    formulate_sos2!(formulation, T_x, axis_method(method))
-    formulate_sos2!(formulation, T_y, axis_method(method))
+    μ_1 = [sum(λ[i, j] for j in 1:n_2) for i in 1:n_1]
+    μ_2 = [sum(λ[i, j] for i in 1:n_1) for j in 1:n_2]
+    formulate_sos2!(
+        _subformulation(formulation, "axis1"),
+        μ_1,
+        axis_method(method),
+    )
+    formulate_sos2!(
+        _subformulation(formulation, "axis2"),
+        μ_2,
+        axis_method(method),
+    )
 
     formulate_triangle_selection!(formulation, λ, triangle_direction, method)
     return nothing
@@ -44,6 +51,7 @@ function _grid_convex_multipliers!(
     direction::DIRECTION,
 ) where {F}
     grid = _continuous_gridpoints_or_die(pwl)
+    triangle_direction = _triangle_directions(pwl, grid)
     λ = _create_convex_multiplier_vars(
         formulation,
         grid,
@@ -51,7 +59,7 @@ function _grid_convex_multipliers!(
         output_vars,
         direction,
     )
-    return λ, _triangle_directions(pwl, grid)
+    return λ, triangle_direction
 end
 
 # triangle_direction[i,j] = true means that triangle is of the form
@@ -65,17 +73,43 @@ end
 function _triangle_directions(pwl::PWLFunction{2}, grid::Grid{2})
     n_1, n_2 = size(grid.input_vals)
     triangle_direction = fill(false, (n_1 - 1, n_2 - 1))
+    # The first triangle found in each cell, and the number of triangles in it
+    first_triangle = Dict{Tuple{Int,Int},Set{Tuple{Int,Int}}}()
+    num_triangles = zeros(Int, n_1 - 1, n_2 - 1)
     for input_seg in _canonicalize_triangulation(pwl, grid)
         i_min, i_max = extrema(v[1] for v in input_seg)
         j_min, j_max = extrema(v[2] for v in input_seg)
-        if ((i_min, j_max) in input_seg) && ((i_max, j_min) in input_seg)
-            triangle_direction[i_min, j_min] = true
-        else
-            @assert (i_min, j_min) in input_seg
-            @assert (i_max, j_max) in input_seg
+        corners = Set(input_seg)
+        if i_max - i_min != 1 || j_max - j_min != 1 || length(corners) != 3
+            error(
+                "The grid formulations require every triangle to have three corners of a single cell of the grid, but a triangle has the grid points $input_seg.",
+            )
+        end
+        # Three corners of a cell contain exactly one of its diagonals
+        nw_se = (i_min, j_max) in corners && (i_max, j_min) in corners
+        cell = (i_min, j_min)
+        num_triangles[cell...] += 1
+        if num_triangles[cell...] == 1
+            first_triangle[cell] = corners
+            triangle_direction[cell...] = nw_se
+        elseif num_triangles[cell...] > 2 ||
+               triangle_direction[cell...] != nw_se ||
+               length(union(first_triangle[cell], corners)) != 4
+            _not_split_along_diagonal(cell)
+        end
+    end
+    for cell in CartesianIndices(num_triangles)
+        if num_triangles[cell] != 2
+            _not_split_along_diagonal(Tuple(cell))
         end
     end
     return triangle_direction
+end
+
+function _not_split_along_diagonal(cell::Tuple{Int,Int})
+    return error(
+        "The grid formulations require every cell to be split into two triangles along one of its diagonals, but cell $cell is not.",
+    )
 end
 
 # Returns the diagonal of cell (i, j) that is a triangle edge, and the one that
@@ -99,20 +133,29 @@ const _OPTIMAL_COVER_LOCK = ReentrantLock()
 # other pair of points is on opposite sides of at least one level. If
 # `separate_all` is false, only the pairs that are endpoints of a cell diagonal
 # need to be separated, as the rest is handled by SOS2 constraints on each axis.
+#
+# Returns `nothing` if no cover is found within `time_limit` seconds.
 function _optimal_biclique_cover(
     sub_solver,
     triangle_direction::Matrix{Bool},
     separate_all::Bool,
+    time_limit::Real,
 )
     key = (copy(triangle_direction), separate_all)
     return lock(_OPTIMAL_COVER_LOCK) do
-        return get!(_OPTIMAL_COVER_CACHE, key) do
-            return _compute_optimal_biclique_cover(
-                sub_solver,
-                triangle_direction,
-                separate_all,
-            )
+        if haskey(_OPTIMAL_COVER_CACHE, key)
+            return _OPTIMAL_COVER_CACHE[key]
         end
+        cover = _compute_optimal_biclique_cover(
+            sub_solver,
+            triangle_direction,
+            separate_all,
+            time_limit,
+        )
+        if cover !== nothing
+            _OPTIMAL_COVER_CACHE[key] = cover
+        end
+        return cover
     end
 end
 
@@ -120,7 +163,9 @@ function _compute_optimal_biclique_cover(
     sub_solver,
     triangle_direction::Matrix{Bool},
     separate_all::Bool,
+    time_limit::Real,
 )
+    deadline = time() + time_limit
     n_1, n_2 = size(triangle_direction) .+ 1
     J = vec([(i, j) for i in 1:n_1, j in 1:n_2])
 
@@ -176,10 +221,17 @@ function _compute_optimal_biclique_cover(
         for p in to_separate
             JuMP.@constraint(sub_model, sum(z[k, p] for k in 1:t) ≥ 1)
         end
+        remaining = deadline - time()
+        if remaining ≤ 0
+            return nothing
+        end
+        JuMP.set_time_limit_sec(sub_model, remaining)
         JuMP.optimize!(sub_model)
 
+        # Any feasible cover gives a valid formulation, and it has the smallest
+        # number of levels, as smaller numbers have been proven infeasible.
         status = JuMP.termination_status(sub_model)
-        if status == JuMP.OPTIMAL
+        if JuMP.primal_status(sub_model) == JuMP.FEASIBLE_POINT
             cover = [
                 (
                     [r for r in J if JuMP.value(x[k, r]) > 0.5],
@@ -189,6 +241,8 @@ function _compute_optimal_biclique_cover(
             return _sparsify_biclique_cover!(cover, to_separate)
         elseif status in (JuMP.INFEASIBLE, JuMP.INFEASIBLE_OR_UNBOUNDED)
             t += 1
+        elseif status == JuMP.TIME_LIMIT
+            return nothing
         else
             error("Unable to compute an optimal biclique cover: $status")
         end

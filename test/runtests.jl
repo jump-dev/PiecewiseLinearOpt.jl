@@ -10,15 +10,50 @@ using Test
 
 const PLO = PiecewiseLinearOpt
 
-# With the default tolerances, HiGHS occasionally reports a solve error because
-# rounding a binary within its integrality tolerance (1e-6) leaves a constraint
-# violated by more than the primal feasibility tolerance.
-optimizer = optimizer_with_attributes(
-    HiGHS.Optimizer,
-    MOI.Silent() => true,
-    "mip_feasibility_tolerance" => 1e-8,
-    "primal_feasibility_tolerance" => 1e-8,
-)
+optimizer = optimizer_with_attributes(HiGHS.Optimizer, MOI.Silent() => true)
+
+# HiGHS occasionally reports a solve error on these small models, when the
+# postsolved solution violates a constraint by exactly the MIP feasibility
+# tolerance, whatever its value. Solving again without presolve avoids it.
+# Presolve stays off for the model, as changing it back would discard the
+# solution.
+function solve!(model)
+    optimize!(model)
+    if termination_status(model) == MOI.OTHER_ERROR
+        set_attribute(model, "presolve", "off")
+        optimize!(model)
+    end
+    return
+end
+
+# All constraints except bounds and integrality restrictions of variables
+function nonbound_constraints(model)
+    bounds = (
+        MOI.GreaterThan{Float64},
+        MOI.LessThan{Float64},
+        MOI.EqualTo{Float64},
+        MOI.ZeroOne,
+        MOI.Integer,
+    )
+    constraints = ConstraintRef[]
+    for (F, S) in list_of_constraint_types(model)
+        if !(F == VariableRef && S in bounds)
+            append!(constraints, all_constraints(model, F, S))
+        end
+    end
+    return constraints
+end
+
+# Tests that piecewiselinear(model, args...; kwargs...) throws an error and
+# leaves the model unchanged
+function test_rejected(model, args...; kwargs...)
+    variables = all_variables(model)
+    constraints = nonbound_constraints(model)
+    @test_throws ErrorException piecewiselinear(model, args...; kwargs...)
+    @test all_variables(model) == variables
+    @test nonbound_constraints(model) == constraints
+    return
+end
 
 const methods_1D = [
     ConvexCombination(),
@@ -101,7 +136,7 @@ end
     y, _ = piecewiselinear(model, (x,), pwl; method = method)
     @objective(model, Min, y[1])
 
-    optimize!(model)
+    solve!(model)
     @test termination_status(model) == MOI.OPTIMAL
     @test value(x) ≈ 3.0 rtol = 1e-4
     @test value(y[1]) ≈ 1.0 rtol = 1e-4
@@ -123,7 +158,7 @@ end
             fix(x, x0)
             for sense in (MAX_SENSE, MIN_SENSE)
                 @objective(model, sense, y)
-                optimize!(model)
+                solve!(model)
                 @test termination_status(model) == MOI.OPTIMAL
                 @test value(y) ≈ y0 atol = 1e-5
             end
@@ -132,6 +167,7 @@ end
 end
 
 const methods_discontinuous = [
+    DisaggregatedLogarithmic(),
     IndependentBranching(:biclique),
     IndependentBranching(:balanced),
     IndependentBranching(:brgc),
@@ -146,7 +182,7 @@ const methods_discontinuous = [
     pwl = PLO.PWLFunction([s1, s2], PLO.Intervals())
     y, _ = piecewiselinear(model, (x,), pwl; method = method)
     @objective(model, Max, y[1])
-    optimize!(model)
+    solve!(model)
     @test termination_status(model) == MOI.OPTIMAL
     @test value(x) ≈ 1.0 atol = 1e-6
     @test value(y[1]) ≈ 3.0 atol = 1e-6
@@ -169,14 +205,14 @@ const methods_discontinuous = [
         fix(x, 0.3 * a + 0.7 * b)
         for sense in (MAX_SENSE, MIN_SENSE)
             @objective(model, sense, y)
-            optimize!(model)
+            solve!(model)
             @test termination_status(model) == MOI.OPTIMAL
             @test value(y) ≈ 0.3 * c + 0.7 * e atol = 1e-5
         end
     end
     # Points in the gaps of the domain are infeasible
     fix(x, 3.2)
-    optimize!(model)
+    solve!(model)
     @test termination_status(model) == MOI.INFEASIBLE
 end
 
@@ -204,12 +240,7 @@ end
     pwl = PLO.PWLFunction([s1, s2, s3], PLO.Intervals())
     model = Model()
     @variable(model, x)
-    @test_throws ErrorException piecewiselinear(
-        model,
-        (x,),
-        pwl;
-        method = IndependentBranching(scheme),
-    )
+    test_rejected(model, (x,), pwl; method = IndependentBranching(scheme))
     @test_throws ErrorException IndependentBranching(:unknown)
 end
 
@@ -229,7 +260,7 @@ end
     @variable(model, x[1:2])
     y, _ = piecewiselinear(model, (x[1], x[2]), pwl; method = MultipleChoice())
     @objective(model, Max, y[1])
-    optimize!(model)
+    solve!(model)
     @test termination_status(model) == MOI.OPTIMAL
     @test value(x[1]) ≈ 1.0 atol = 1e-6
     @test value(x[2]) ≈ 1.0 atol = 1e-6
@@ -237,7 +268,7 @@ end
     # On the shared edge the lower triangle (s2) gives the larger value
     @constraint(model, x[1] == 0.5)
     @constraint(model, x[2] == 0.5)
-    optimize!(model)
+    solve!(model)
     @test value(y[1]) ≈ 6.0 atol = 1e-6
 end
 
@@ -252,7 +283,7 @@ end
     y1, _ = piecewiselinear(model, (x,), pwl)
     @constraint(model, x ≤ 0.75)
     @objective(model, Max, y1[1])
-    optimize!(model)
+    solve!(model)
     @test termination_status(model) == MOI.OPTIMAL
     @test value(y1[1]) ≈ f(value(x)) rtol = 1e-4
     @test objective_value(model) ≈ 0.5625 rtol = 1e-4
@@ -262,7 +293,7 @@ end
     y2 = piecewiselinear(model, x, d, f)
     @constraint(model, x ≤ 0.75)
     @objective(model, Max, y2)
-    optimize!(model)
+    solve!(model)
     @test termination_status(model) == MOI.OPTIMAL
     @test value(y2) ≈ f(value(x)) rtol = 1e-4
     @test objective_value(model) ≈ 0.5625 rtol = 1e-4
@@ -272,7 +303,7 @@ end
     y3 = piecewiselinear(model, x, d, fd)
     @constraint(model, x ≤ 0.75)
     @objective(model, Max, y3)
-    optimize!(model)
+    solve!(model)
     @test termination_status(model) == MOI.OPTIMAL
     @test value(y3) ≈ f(value(x)) rtol = 1e-4
     @test objective_value(model) ≈ 0.5625 rtol = 1e-4
@@ -290,7 +321,7 @@ end
     @constraint(model, x ≤ 0.75)
     @constraint(model, y ≤ 0.75)
     @objective(model, Max, z1[1])
-    optimize!(model)
+    solve!(model)
     @test termination_status(model) == MOI.OPTIMAL
     @test value(x) ≈ 0.75 rtol = 1e-4
     @test value(y) ≈ 0.75 rtol = 1e-4
@@ -303,7 +334,7 @@ end
     @constraint(model, x ≤ 0.75)
     @constraint(model, y ≤ 0.75)
     @objective(model, Max, z2)
-    optimize!(model)
+    solve!(model)
     @test termination_status(model) == MOI.OPTIMAL
     @test value(x) ≈ 0.75 rtol = 1e-4
     @test value(y) ≈ 0.75 rtol = 1e-4
@@ -340,7 +371,7 @@ const methods_2D_gen = [
     y, _ = piecewiselinear(model, (x[1], x[2]), pwl; method = method)
     @objective(model, Min, y[1])
 
-    optimize!(model)
+    solve!(model)
 
     @test termination_status(model) == MOI.OPTIMAL
     @test value(x[1]) ≈ 0.0 rtol = 1e-4
@@ -356,14 +387,14 @@ end
     zs = sin.(xs)
     y = piecewiselinear(model, x, xs, zs; method = method)
     @objective(model, Max, y)
-    optimize!(model)
+    solve!(model)
     @test termination_status(model) == MOI.OPTIMAL
     @test value(x) ≈ 1.75474 rtol = 1e-4
     @test value(y) ≈ 0.98313 rtol = 1e-4
     @test objective_value(model) ≈ 0.98313 rtol = 1e-4
     @test objective_value(model) ≈ value(y) rtol = 1e-4
     @constraint(model, x ≤ 1.5y)
-    optimize!(model)
+    solve!(model)
     @test termination_status(model) == MOI.OPTIMAL
     @test value(x) ≈ 1.36495 rtol = 1e-4
     @test value(y) ≈ 0.90997 rtol = 1e-4
@@ -405,7 +436,7 @@ const method_triangulation = [
         triangulation = triangulation,
     )
     @objective(model, Min, z)
-    optimize!(model)
+    solve!(model)
     @test termination_status(model) == MOI.OPTIMAL
     @test value(x[1]) ≈ 0.285714 rtol = 1e-4
     @test value(x[2]) ≈ 0.571429 rtol = 1e-4
@@ -414,7 +445,7 @@ const method_triangulation = [
     @test objective_value(model) ≈ value(z) rtol = 1e-3
 
     @constraint(model, x[1] ≥ 0.6)
-    optimize!(model)
+    solve!(model)
 
     @test termination_status(model) == MOI.OPTIMAL
     @test value(x[1]) ≈ 0.6 rtol = 1e-4
@@ -440,7 +471,7 @@ function test_triangle_selection(method, triangulation, n)
         z0 = sum(v[1] for v in seg.output_vals) / 3
         for sense in (MAX_SENSE, MIN_SENSE)
             @objective(model, sense, z)
-            optimize!(model)
+            solve!(model)
             @test termination_status(model) == MOI.OPTIMAL
             @test value(z) ≈ z0 atol = 1e-5
         end
@@ -499,12 +530,7 @@ end
         )
         model = Model()
         @variable(model, x[1:2])
-        @test_throws ErrorException piecewiselinear(
-            model,
-            (x[1], x[2]),
-            pwl;
-            method = method,
-        )
+        test_rejected(model, (x[1], x[2]), pwl; method = method)
     end
     # For a * b, the lower triangulation splits every cell like K1
     pwl = BivariatePWLFunction(
@@ -517,6 +543,130 @@ end
     @variable(model, x[1:2])
     _, formulation = piecewiselinear(model, x, pwl; method = K1())
     @test formulation.method == K1()
+end
+
+@testset "Grid geometry checks: $method" for method in [
+    SixStencil(),
+    OptimalTriangleSelection(optimizer),
+    OptimalIndependentBranching(optimizer),
+]
+    f = (a, b) -> a * b
+    function grid_function(triangles)
+        segments = [
+            SegmentPointRep{2,1}(t, [(f(v...),) for v in t]) for t in triangles
+        ]
+        return PWLFunction(segments, UnstructuredTriangulation())
+    end
+    # A valid triangulation of a 3×2 grid, with triangles spanning two cells
+    spanning = grid_function([
+        [(0.0, 0.0), (1.0, 0.0), (2.0, 1.0)],
+        [(1.0, 0.0), (2.0, 0.0), (2.0, 1.0)],
+        [(0.0, 0.0), (0.0, 1.0), (1.0, 1.0)],
+        [(0.0, 0.0), (1.0, 1.0), (2.0, 1.0)],
+    ])
+    # The first cell is split along both diagonals
+    crossing = grid_function([
+        [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0)],
+        [(0.0, 0.0), (0.0, 1.0), (1.0, 0.0)],
+        [(1.0, 0.0), (2.0, 0.0), (2.0, 1.0)],
+        [(1.0, 0.0), (1.0, 1.0), (2.0, 1.0)],
+    ])
+    # The first cell has three triangles and the second only one
+    unbalanced = grid_function([
+        [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0)],
+        [(0.0, 0.0), (0.0, 1.0), (1.0, 1.0)],
+        [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0)],
+        [(1.0, 0.0), (2.0, 0.0), (2.0, 1.0)],
+    ])
+    for pwl in (spanning, crossing, unbalanced)
+        model = Model()
+        @variable(model, x[1:2])
+        test_rejected(model, x, pwl; method = method)
+    end
+    # The general methods formulate the spanning triangulation correctly
+    for general in (ConvexCombination(), MultipleChoice())
+        model = Model(optimizer)
+        @variable(model, x[1:2])
+        (z,), _ = piecewiselinear(model, x, spanning; method = general)
+        fix(x[1], 1.0)
+        fix(x[2], 0.5)
+        for sense in (MAX_SENSE, MIN_SENSE)
+            @objective(model, sense, z)
+            solve!(model)
+            @test value(z) ≈ spanning(1.0, 0.5) atol = 1e-5
+        end
+    end
+end
+
+@testset "MultipleChoice coefficients" begin
+    # Breakpoints like 0.1 are not exact in floating point, which must not
+    # leave round-off errors in coefficients that should be zero
+    for pwl in (
+        UnivariatePWLFunction(0:0.1:1, t -> t^2),
+        BivariatePWLFunction(
+            0:0.1:0.5,
+            0:0.3:0.9,
+            (a, b) -> a * b;
+            triangulation = UnionJackTriangulation(),
+        ),
+    )
+        model = Model()
+        @variable(model, x[1:length(pwl.segments[1].input_vals)-1])
+        _, formulation =
+            piecewiselinear(model, x, pwl; method = MultipleChoice())
+        coefficients = Float64[]
+        for c in formulation.constraints
+            object = constraint_object(c)
+            append!(coefficients, values(object.func.terms))
+            push!(coefficients, MOI.constant(object.set))
+        end
+        @test !isempty(coefficients)
+        @test all(a -> iszero(a) || abs(a) > 1e-9, coefficients)
+    end
+end
+
+@testset "Optimal covers: time limit" begin
+    # A triangulation that no other test uses, so that its cover is not cached
+    pwl = BivariatePWLFunction(
+        0:5,
+        0:5,
+        (a, b) -> a * b;
+        triangulation = RandomTriangulation(12345),
+    )
+    # OptimalTriangleSelection falls back to SixStencil
+    model = Model(optimizer)
+    @variable(model, x[1:2])
+    method = OptimalTriangleSelection(optimizer; time_limit = 0)
+    (z,), formulation =
+        @test_logs (:warn,) piecewiselinear(model, x, pwl; method = method)
+    @test count(v -> occursin("w_sw_ne", name(v)), formulation.variables) == 3
+    fix(x[1], 2.25)
+    fix(x[2], 3.5)
+    @objective(model, Max, z)
+    solve!(model)
+    @test value(z) ≈ pwl(2.25, 3.5) atol = 1e-5
+    # OptimalIndependentBranching throws an error
+    model = Model()
+    @variable(model, x[1:2])
+    test_rejected(
+        model,
+        x,
+        pwl;
+        method = OptimalIndependentBranching(optimizer; time_limit = 0),
+    )
+end
+
+@testset "Incremental size" begin
+    for d in 1:5
+        model = Model()
+        @variable(model, x)
+        pwl = UnivariatePWLFunction(0:d, t -> t^2)
+        _, formulation =
+            piecewiselinear(model, [x], pwl; method = Incremental())
+        # d fill variables, d - 1 binary variables and the output
+        @test count(is_binary, formulation.variables) == d - 1
+        @test length(formulation.variables) == 2d
+    end
 end
 
 @testset "Triangulations" begin
@@ -574,7 +724,7 @@ end
     fix(x[1], 1.5)
     fix(x[2], 0.5)
     @objective(model, Max, w)
-    optimize!(model)
+    solve!(model)
     @test value(w) ≈ pwl(1.5, 0.5) atol = 1e-5
 end
 
@@ -600,12 +750,7 @@ end
     pwl = PLO.PWLFunction([s], PLO.UnstructuredTriangulation())
     model = Model()
     @variable(model, x[1:2])
-    @test_throws ErrorException piecewiselinear(
-        model,
-        (x[1], x[2]),
-        pwl;
-        method = MultipleChoice(),
-    )
+    test_rejected(model, (x[1], x[2]), pwl; method = MultipleChoice())
 end
 
 @testset "Affine inputs: $method" for method in methods_1D
@@ -619,7 +764,7 @@ end
         fix(x, x0)
         for sense in (MAX_SENSE, MIN_SENSE)
             @objective(model, sense, y)
-            optimize!(model)
+            solve!(model)
             @test termination_status(model) == MOI.OPTIMAL
             @test value(y) ≈ y0 atol = 1e-5
         end
@@ -629,9 +774,9 @@ end
 @testset "Direction: $method" for method in methods_1D
     xs = [0.0, 1.0, 2.0, 3.0]
     zs = [0.0, 2.0, 1.0, 3.0]
-    for (direction, sense, other_bound) in (
-        (PLO.Epigraph, MIN_SENSE, maximum(zs)),
-        (PLO.Hypograph, MAX_SENSE, minimum(zs)),
+    for (direction, sense, beyond) in (
+        (PLO.Epigraph, MIN_SENSE, maximum(zs) + 10),
+        (PLO.Hypograph, MAX_SENSE, minimum(zs) - 10),
     )
         model = Model(optimizer)
         @variable(model, x)
@@ -645,14 +790,20 @@ end
         )
         fix(x, 1.5)
         @objective(model, sense, y)
-        optimize!(model)
+        solve!(model)
         @test termination_status(model) == MOI.OPTIMAL
         @test value(y) ≈ 1.5 atol = 1e-5
-        # In the other direction, y is only limited by its bounds
+        # In the other direction, y is unbounded, also beyond the range of
+        # the function
         @objective(model, sense == MIN_SENSE ? MAX_SENSE : MIN_SENSE, y)
-        optimize!(model)
+        solve!(model)
+        @test termination_status(model) in
+              (MOI.DUAL_INFEASIBLE, MOI.INFEASIBLE_OR_UNBOUNDED)
+        @constraint(model, y == beyond)
+        @objective(model, sense, y)
+        solve!(model)
         @test termination_status(model) == MOI.OPTIMAL
-        @test value(y) ≈ other_bound atol = 1e-5
+        @test value(y) ≈ beyond atol = 1e-5
     end
 end
 
@@ -681,7 +832,7 @@ end
         fix(x[1], sum(v[1] for v in seg.input_vals) / 3)
         fix(x[2], sum(v[2] for v in seg.input_vals) / 3)
         @objective(model, sense, z)
-        optimize!(model)
+        solve!(model)
         @test termination_status(model) == MOI.OPTIMAL
         @test value(z) ≈ z0 atol = 1e-5
     end
@@ -707,7 +858,7 @@ end
         t = x0 - xs[i]
         for k in 1:2, sense in (MAX_SENSE, MIN_SENSE)
             @objective(model, sense, y[k])
-            optimize!(model)
+            solve!(model)
             @test termination_status(model) == MOI.OPTIMAL
             @test value(y[k]) ≈ (1 - t) * fs[k][i] + t * fs[k][i+1] atol = 1e-5
         end
@@ -741,7 +892,7 @@ end
         fix(x[2], sum(v[2] for v in seg.input_vals) / 3)
         for k in 1:2, sense in (MAX_SENSE, MIN_SENSE)
             @objective(model, sense, z[k])
-            optimize!(model)
+            solve!(model)
             @test termination_status(model) == MOI.OPTIMAL
             @test value(z[k]) ≈ sum(v[k] for v in seg.output_vals) / 3 atol =
                 1e-5
@@ -778,7 +929,7 @@ end
         y0 = sum(v[1] for v in seg.output_vals) / 4
         for sense in (MAX_SENSE, MIN_SENSE)
             @objective(model, sense, y)
-            optimize!(model)
+            solve!(model)
             @test termination_status(model) == MOI.OPTIMAL
             @test value(y) ≈ y0 atol = 1e-5
         end
@@ -793,7 +944,7 @@ end
     @test ret === y
     fix(x, 1.5)
     @objective(model, Max, y)
-    optimize!(model)
+    solve!(model)
     @test termination_status(model) == MOI.OPTIMAL
     @test value(y) ≈ 1.5 atol = 1e-5
 end
@@ -803,47 +954,27 @@ end
     @variable(model, x[1:3])
     # No segments
     pwl = PLO.PWLFunction(PLO.SegmentPointRep{1,1}[], PLO.Intervals())
-    @test_throws ErrorException piecewiselinear(model, (x[1],), pwl)
+    test_rejected(model, (x[1],), pwl)
     # Discontinuous functions require MultipleChoice
     s1 = PLO.SegmentPointRep{1,1}([(0.0,), (1.0,)], [(0.0,), (1.0,)])
     s2 = PLO.SegmentPointRep{1,1}([(1.0,), (2.0,)], [(3.0,), (2.0,)])
     pwl = PLO.PWLFunction([s1, s2], PLO.Intervals())
     for method in (ConvexCombination(), Logarithmic(), Incremental())
-        @test_throws ErrorException piecewiselinear(
-            model,
-            (x[1],),
-            pwl;
-            method = method,
-        )
+        test_rejected(model, (x[1],), pwl; method = method)
     end
     # Grid based methods require a connected domain
     s2 = PLO.SegmentPointRep{1,1}([(2.0,), (3.0,)], [(3.0,), (2.0,)])
     pwl = PLO.PWLFunction([s1, s2], PLO.Intervals())
-    @test_throws ErrorException piecewiselinear(
-        model,
-        (x[1],),
-        pwl;
-        method = Logarithmic(),
-    )
+    test_rejected(model, (x[1],), pwl; method = Logarithmic())
     # Unsupported combinations of dimension and method
     pwl = BivariatePWLFunction(0:1, 0:1, (a, b) -> a + b)
-    @test_throws ErrorException piecewiselinear(
-        model,
-        (x[1], x[2]),
-        pwl;
-        method = Incremental(),
-    )
+    test_rejected(model, (x[1], x[2]), pwl; method = Incremental())
     s = PLO.SegmentPointRep{3,1}(
         [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)],
         [(0.0,), (1.0,), (2.0,), (3.0,)],
     )
     pwl = PLO.PWLFunction([s], PLO.Unstructured{3}())
-    @test_throws ErrorException piecewiselinear(
-        model,
-        (x[1], x[2], x[3]),
-        pwl;
-        method = SixStencil(),
-    )
+    test_rejected(model, (x[1], x[2], x[3]), pwl; method = SixStencil())
 end
 
 # Several functions in one model: all methods must agree on the optimum
@@ -863,7 +994,7 @@ end
                 piecewiselinear(model, x[i, j], xs, cost[i]; method = method) for i in 1:2, j in 1:3
             )
         )
-        optimize!(model)
+        solve!(model)
         @test termination_status(model) == MOI.OPTIMAL
         return objective_value(model)
     end
@@ -891,29 +1022,11 @@ end
                 piecewiselinear(model, a[i], b[i], d, d, f; method = method) for i in 1:2
             )
         )
-        optimize!(model)
+        solve!(model)
         @test termination_status(model) == MOI.OPTIMAL
         return objective_value(model)
     end
     @test all(isapprox.(objectives, objectives[1]; atol = 1e-5))
-end
-
-# All constraints except bounds and integrality restrictions of variables
-function nonbound_constraints(model)
-    bounds = (
-        MOI.GreaterThan{Float64},
-        MOI.LessThan{Float64},
-        MOI.EqualTo{Float64},
-        MOI.ZeroOne,
-        MOI.Integer,
-    )
-    constraints = ConstraintRef[]
-    for (F, S) in list_of_constraint_types(model)
-        if !(F == VariableRef && S in bounds)
-            append!(constraints, all_constraints(model, F, S))
-        end
-    end
-    return constraints
 end
 
 # The formulation must record exactly what was added to a model that only
@@ -931,6 +1044,7 @@ function test_formulation(model, inputs, pwl, method)
         v -> startswith(name(v), formulation.name * "_"),
         formulation.variables,
     )
+    @test allunique(name.(formulation.variables))
     @test occursin(formulation.name, sprint(show, formulation))
     delete(model, formulation)
     @test Set(all_variables(model)) == Set(inputs)
@@ -1017,18 +1131,13 @@ end
     y, _ = piecewiselinear(model, (1.5,), pwl)
     fix(x, 0.75)
     @objective(model, Max, z + y[1])
-    optimize!(model)
+    solve!(model)
     @test termination_status(model) == MOI.OPTIMAL
     @test value(z) ≈ 1.0 atol = 1e-5  # f(2 * 0.75 - 1)
     @test value(y[1]) ≈ 1.5 atol = 1e-5  # f(1.5)
     # The number of inputs and outputs must match the function
-    @test_throws ErrorException piecewiselinear(model, [x, x], pwl)
-    @test_throws ErrorException piecewiselinear(
-        model,
-        [x],
-        pwl;
-        output_vars = [z, z],
-    )
+    test_rejected(model, [x, x], pwl)
+    test_rejected(model, [x], pwl; output_vars = [z, z])
     # Deleting from another model is an error
     @test_throws ErrorException delete(Model(), f)
 end
@@ -1044,7 +1153,7 @@ end
     fix(x[2], 0.0)
     for sense in (MAX_SENSE, MIN_SENSE)
         @objective(model, sense, z)
-        optimize!(model)
+        solve!(model)
         @test termination_status(model) == MOI.OPTIMAL
         @test value(z) ≈ f(1, 1) atol = 1e-5
     end

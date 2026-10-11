@@ -90,50 +90,50 @@ end
 
 # Converts a simplex with vertices v_0, ..., v_D into the hyperplane
 # representation given by its barycentric coordinates μ_0, ..., μ_D ≥ 0.
+#
+# The computation is exact in rational arithmetic, as every Float64 is a
+# rational number, so it adds no round-off errors. As the inputs themselves
+# usually carry round-off errors, e.g. 0.1 or products like 0.1 * 0.3, the
+# exact result can still have tiny entries where zero is intended, so entries
+# below 1e-12 times the largest entry of each affine function are set to zero.
 function _hyperplane_rep(seg::SegmentPointRep{D,F}) where {D,F}
     if length(seg.input_vals) != D + 1
         error(
             "The MultipleChoice method requires every segment of a R^$D -> R^$F function to be a simplex with $(D + 1) points.",
         )
     end
-    v_0 = collect(seg.input_vals[1])
-    M = Matrix{Float64}(undef, D, D)
+    exact(x) = Rational{BigInt}(x)
+    v_0 = exact.(collect(seg.input_vals[1]))
+    M = Matrix{Rational{BigInt}}(undef, D, D)
     for i in 1:D
-        M[:, i] = collect(seg.input_vals[i+1]) .- v_0
+        M[:, i] = exact.(collect(seg.input_vals[i+1])) .- v_0
     end
-    if LinearAlgebra.rank(M) < D
+    if iszero(LinearAlgebra.det(M))
         error(
             "The MultipleChoice method does not support degenerate segments: $(seg.input_vals)",
         )
     end
     M_inv = inv(M)
+    function affine(coeffs, offset)
+        a = Float64[coeffs; offset]
+        tol = 1e-12 * maximum(abs, a)
+        a[abs.(a).<tol] .= 0.0
+        return _AffineFunction{D}(ntuple(j -> a[j], D), a[D+1])
+    end
 
     # μ_i(x) = M_inv[i, :] ⋅ (x - v_0) for i = 1, ..., D
-    constraints = [
-        _AffineFunction{D}(
-            ntuple(j -> M_inv[i, j], D),
-            -LinearAlgebra.dot(M_inv[i, :], v_0),
-        ) for i in 1:D
-    ]
+    constraints =
+        [affine(M_inv[i, :], -LinearAlgebra.dot(M_inv[i, :], v_0)) for i in 1:D]
     # μ_0(x) = 1 - sum of the others
     c = vec(sum(M_inv; dims = 1))
-    push!(
-        constraints,
-        _AffineFunction{D}(
-            ntuple(j -> -c[j], D),
-            1 + LinearAlgebra.dot(c, v_0),
-        ),
-    )
+    push!(constraints, affine(-c, 1 + LinearAlgebra.dot(c, v_0)))
 
     # f_k(x) = y_0 + sum((y_i - y_0) * μ_i(x) for i in 1:D)
     funcs = ntuple(F) do k
-        y_0 = seg.output_vals[1][k]
-        Δ = [seg.output_vals[i+1][k] - y_0 for i in 1:D]
+        y_0 = exact(seg.output_vals[1][k])
+        Δ = [exact(seg.output_vals[i+1][k]) - y_0 for i in 1:D]
         g = transpose(M_inv) * Δ
-        return _AffineFunction{D}(
-            ntuple(j -> g[j], D),
-            y_0 - LinearAlgebra.dot(g, v_0),
-        )
+        return affine(g, y_0 - LinearAlgebra.dot(g, v_0))
     end
     return _HyperplaneSegment{D,F}(constraints, funcs)
 end

@@ -8,8 +8,11 @@
 
 Formulates univariate continuous piecewise linear functions with the convex
 multipliers in a special ordered set of type 2 (`MOI.SOS2`), leaving the
-branching to the solver. It adds no integer variables, but requires a solver
-that supports SOS2 constraints.
+branching to the solver. It adds no integer variables.
+
+For solvers without support for SOS2 constraints, such as HiGHS, MathOptInterface
+reformulates the constraint with binary variables. For solvers with support,
+e.g. Gurobi, it can also be a good axis method for the bivariate formulations.
 """
 struct NativeSOS2 <: Method end
 

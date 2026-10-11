@@ -7,10 +7,14 @@
     GeneralizedCelaya()
 
 The generalized Celaya formulation of univariate continuous piecewise linear
-functions (Huchette and Vielma, 2023).
+functions, an embedding formulation (see Vielma, 2018) with a general integer
+encoding.
 
 For `d` segments, it uses `ceil(log2(d))` general integer variables with values
 in `{-1, 0, 1}`, in addition to the `d + 1` convex multipliers.
+
+This formulation is experimental and has no published reference. Building it
+is expensive for many segments, and it has not performed well in benchmarks.
 """
 struct GeneralizedCelaya <: Method end
 

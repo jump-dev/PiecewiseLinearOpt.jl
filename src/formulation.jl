@@ -106,3 +106,16 @@ end
 
 # The base name of a variable created by the formulation
 _name(formulation::PWLFormulation, name::String) = "$(formulation.name)_$name"
+
+# A formulation for a part of the model, e.g. one axis of a bivariate function,
+# whose variables have names with the additional prefix `name`. It records into
+# the same lists as `formulation`.
+function _subformulation(formulation::PWLFormulation, name::String)
+    return PWLFormulation(
+        formulation.model,
+        _name(formulation, name),
+        formulation.method,
+        formulation.variables,
+        formulation.constraints,
+    )
+end

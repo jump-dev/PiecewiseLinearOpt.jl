@@ -47,7 +47,12 @@ returns the tuple `(output_vars, formulation)`.
 - `direction`: whether the outputs equal (`Graph`), are at least (`Epigraph`)
   or are at most (`Hypograph`) the function value.
 - `output_vars`: a vector or tuple with an output variable or expression for
-  each output of `pwl`. If `nothing`, new variables are created.
+  each output of `pwl`. If `nothing`, new variables are created, bounded by
+  the smallest and largest function value (only from below for `Epigraph` and
+  only from above for `Hypograph`).
+
+If the function cannot be formulated, an error is thrown and the model is left
+unchanged.
 - `name`: the prefix of the names of the variables created. If `nothing`, a
   name of the form `pwl1`, `pwl2`, ... is used.
 
@@ -107,36 +112,56 @@ function piecewiselinear(
     end
     formulation = PWLFormulation(model, String(name), method)
 
-    if output_vars === nothing
-        output_lb = ntuple(
-            i -> minimum(v[i] for seg in pwl.segments for v in seg.output_vals),
-            F,
-        )
-        output_ub = ntuple(
-            i -> maximum(v[i] for seg in pwl.segments for v in seg.output_vals),
-            F,
-        )
-        output_vars = _record!(
+    try
+        if output_vars === nothing
+            output_vars = _create_output_vars(formulation, pwl, direction)
+        end
+        formulate_pwl!(
             formulation,
-            JuMP.@variable(
-                model,
-                [i in 1:F],
-                lower_bound = output_lb[i],
-                upper_bound = output_ub[i],
-                base_name = _name(formulation, "y")
-            ),
+            Tuple(input_vars),
+            Tuple(output_vars),
+            pwl,
+            method,
+            direction,
         )
+    catch
+        # Leave the model as it was
+        JuMP.delete(model, formulation)
+        rethrow()
     end
-
-    formulate_pwl!(
-        formulation,
-        Tuple(input_vars),
-        Tuple(output_vars),
-        pwl,
-        method,
-        direction,
-    )
     return collect(output_vars), formulation
+end
+
+# The outputs are bounded by the function values, from the sides that the
+# direction implies.
+function _create_output_vars(
+    formulation::PWLFormulation,
+    pwl::PWLFunction{D,F},
+    direction::DIRECTION,
+) where {D,F}
+    y = _record!(
+        formulation,
+        JuMP.@variable(
+            formulation.model,
+            [1:F],
+            base_name = _name(formulation, "y")
+        ),
+    )
+    for i in 1:F
+        if direction != Hypograph
+            JuMP.set_lower_bound(
+                y[i],
+                minimum(v[i] for seg in pwl.segments for v in seg.output_vals),
+            )
+        end
+        if direction != Epigraph
+            JuMP.set_upper_bound(
+                y[i],
+                maximum(v[i] for seg in pwl.segments for v in seg.output_vals),
+            )
+        end
+    end
+    return y
 end
 
 # Specialization for univariate problems
