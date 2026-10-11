@@ -22,8 +22,7 @@ Version 0.5 is a rewrite with a new interface. The main changes are:
 | `:LogarithmicIB`, `:LogIB` | [`LogarithmicIndependentBranching()`](@ref LogarithmicIndependentBranching) |
 | `:ZigZag`, `:ZZB` | [`ZigZagBinary()`](@ref ZigZagBinary) |
 | `:ZigZagInteger`, `:ZZI` | [`ZigZagInteger()`](@ref ZigZagInteger) |
-| `:GeneralizedCelaya` | [`GeneralizedCelaya()`](@ref GeneralizedCelaya) |
-| `:SymmetricCelaya` | [`SymmetricCelaya()`](@ref SymmetricCelaya) |
+| `:GeneralizedCelaya`, `:SymmetricCelaya` | removed, use e.g. [`ZigZagInteger()`](@ref ZigZagInteger) for a general integer formulation |
 | `:SOS2` | [`NativeSOS2()`](@ref NativeSOS2) |
 | `:CC` | [`ConvexCombination()`](@ref ConvexCombination) |
 | `:MC` | [`MultipleChoice()`](@ref MultipleChoice) |

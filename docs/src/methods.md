@@ -29,14 +29,10 @@ The default is [`Logarithmic`](@ref LogarithmicEmbedding).
 | [`ConvexCombination`](@ref) | `d` binary | no |
 | [`MultipleChoice`](@ref) | `d` binary | yes |
 | [`NativeSOS2`](@ref) | none, branching by the solver | no |
-| [`GeneralizedCelaya`](@ref) (experimental) | `ceil(log2(d))` general integer | no |
-| [`SymmetricCelaya`](@ref) (experimental) | `ceil(log2(d))` general integer | no |
 
 [`NativeSOS2`](@ref) leaves the branching to solvers that support SOS2
 constraints, e.g. Gurobi; for other solvers, such as HiGHS, MathOptInterface
-reformulates the constraint with binary variables. The Celaya formulations
-have no published reference, are expensive to build for many segments and
-have not performed well in benchmarks.
+reformulates the constraint with binary variables.
 
 ## Bivariate functions
 

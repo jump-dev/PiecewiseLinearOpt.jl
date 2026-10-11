@@ -124,7 +124,6 @@ Supported multivariate formulations:
 * `MultipleChoice()`: Requires each segment to be a simplex (e.g. a triangulation in 2D); supports discontinuous functions
 
 Supported univariate formulations:
-* `GeneralizedCelaya()`
 * `Incremental()`
 * `IndependentBranching(scheme)`: Logarithmically sized ideal formulations from
   [Lyu, Hicks and Huchette (2023)](https://arxiv.org/abs/2304.14542), with
@@ -133,7 +132,6 @@ Supported univariate formulations:
 * `Logarithmic()`
 * `LogarithmicIndependentBranching()`
 * `NativeSOS2()`
-* `SymmetricCelaya()`
 * `ZigZagBinary()`
 * `ZigZagInteger()`
 

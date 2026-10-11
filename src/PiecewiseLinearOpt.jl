@@ -53,22 +53,18 @@ const _Scalar = Union{Real,JuMP.AbstractJuMPScalar}
 include("formulation.jl")
 include("methods/util.jl")
 
-export GeneralizedCelaya,
-    Incremental,
+export Incremental,
     IndependentBranching,
     LogarithmicEmbedding,
     LogarithmicIndependentBranching,
     NativeSOS2,
-    SymmetricCelaya,
     ZigZagBinary,
     ZigZagInteger
-include("methods/univariate/generalized_celaya.jl")
 include("methods/univariate/incremental.jl")
 include("methods/univariate/independent_branching.jl")
 include("methods/univariate/logarithmic_embedding.jl")
 include("methods/univariate/logarithmic_independent_branching.jl")
 include("methods/univariate/native_sos2.jl")
-include("methods/univariate/symmetric_celaya.jl")
 include("methods/univariate/zig_zag_binary.jl")
 include("methods/univariate/zig_zag_integer.jl")
 # ConvexCombination has an SOS2 formulation, so defer this until after the

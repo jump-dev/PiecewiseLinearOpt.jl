@@ -23,9 +23,7 @@
 - J. P. Vielma. Embedding formulations and complexity for unions of polyhedra.
   _Management Science_ 64(10):4721–4734, 2018.
   [arXiv:1506.01417](https://arxiv.org/abs/1506.01417).
-  The logarithmic embedding formulation [`LogarithmicEmbedding`](@ref), and
-  the embedding approach behind [`GeneralizedCelaya`](@ref) and
-  [`SymmetricCelaya`](@ref), which have no published reference.
+  The logarithmic embedding formulation [`LogarithmicEmbedding`](@ref).
 - J. P. Vielma, S. Ahmed and G. Nemhauser. Mixed-integer models for
   nonseparable piecewise-linear optimization: Unifying framework and
   extensions. _Operations Research_ 58(2):303–315, 2010.

@@ -41,8 +41,6 @@ LogarithmicIndependentBranching
 IndependentBranching
 ZigZagBinary
 ZigZagInteger
-GeneralizedCelaya
-SymmetricCelaya
 Incremental
 NativeSOS2
 ```

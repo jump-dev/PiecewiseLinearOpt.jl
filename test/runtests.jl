@@ -58,7 +58,6 @@ end
 const methods_1D = [
     ConvexCombination(),
     DisaggregatedLogarithmic(),
-    GeneralizedCelaya(),
     Incremental(),
     IndependentBranching(:biclique),
     IndependentBranching(:balanced),
@@ -67,7 +66,6 @@ const methods_1D = [
     LogarithmicIndependentBranching(),
     MultipleChoice(),
     NativeSOS2(),
-    SymmetricCelaya(),
     ZigZagBinary(),
     ZigZagInteger(),
 ]
