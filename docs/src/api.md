@@ -5,7 +5,10 @@
 ```@docs
 piecewiselinear
 PWLFormulation
-PiecewiseLinearOpt.DIRECTION
+PiecewiseLinearOpt.Direction
+PiecewiseLinearOpt.Graph
+Epigraph
+Hypograph
 ```
 
 ## Functions

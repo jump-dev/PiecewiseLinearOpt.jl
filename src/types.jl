@@ -48,7 +48,7 @@ abstract type TriangleSelectionMethod <: Method end
         y::NTuple{F},
         pwl::PWLFunction{D,F},
         method::Method,
-        direction::DIRECTION,
+        direction::Direction,
     )
 
 Adds variables and constraints to `formulation.model` so that the outputs `y`
@@ -128,16 +128,40 @@ function _show_field(io::IO, x::JuMP.MOI.OptimizerWithAttributes)
 end
 
 """
-    DIRECTION
+    PiecewiseLinearOpt.Direction
 
-How the outputs `y` of [`piecewiselinear`](@ref) relate to the function value
-`f(x)`:
-
-- `PiecewiseLinearOpt.Graph`: `y == f(x)`
-- `PiecewiseLinearOpt.Epigraph`: `y >= f(x)`
-- `PiecewiseLinearOpt.Hypograph`: `y <= f(x)`
+The abstract type of the `direction` keyword of [`piecewiselinear`](@ref),
+which gives how the outputs `y` relate to the function value `f(x)`:
+[`PiecewiseLinearOpt.Graph`](@ref) (the default), [`Epigraph`](@ref) or
+[`Hypograph`](@ref).
 """
-@enum DIRECTION Graph Epigraph Hypograph
+abstract type Direction end
+
+"""
+    PiecewiseLinearOpt.Graph()
+
+The direction where the outputs equal the function value, `y == f(x)`. This
+is the default, so it is not exported.
+"""
+struct Graph <: Direction end
+
+"""
+    Epigraph()
+
+The direction where the outputs are at least the function value, `y >= f(x)`,
+which suffices when the function is minimized. The new output variables are
+then only bounded from below.
+"""
+struct Epigraph <: Direction end
+
+"""
+    Hypograph()
+
+The direction where the outputs are at most the function value, `y <= f(x)`,
+which suffices when the function is maximized. The new output variables are
+then only bounded from above.
+"""
+struct Hypograph <: Direction end
 
 """
     SegmentPointRep{D,F}(input_vals, output_vals)

@@ -4,7 +4,7 @@
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
 """
-    constrain_output!(formulation::PWLFormulation, y, value, direction::DIRECTION)
+    constrain_output!(formulation::PWLFormulation, y, value, direction::Direction)
 
 Adds the constraint that the output `y` equals, is at least or is at most the
 expression `value` of the function value, as given by `direction`.
@@ -13,19 +13,25 @@ function constrain_output!(
     formulation::PWLFormulation,
     output_var::_Scalar,
     func_val::_Scalar,
-    direction::DIRECTION,
+    direction::Direction,
 )
-    model = formulation.model
-    if direction == Graph
-        c = JuMP.@constraint(model, output_var == func_val)
-    elseif direction == Hypograph
-        c = JuMP.@constraint(model, output_var <= func_val)
-    else
-        @assert direction == Epigraph
-        c = JuMP.@constraint(model, output_var >= func_val)
-    end
-    record!(formulation, c)
+    record!(
+        formulation,
+        _output_constraint(formulation.model, output_var, func_val, direction),
+    )
     return
+end
+
+function _output_constraint(model, y, value, ::Graph)
+    return JuMP.@constraint(model, y == value)
+end
+
+function _output_constraint(model, y, value, ::Epigraph)
+    return JuMP.@constraint(model, y >= value)
+end
+
+function _output_constraint(model, y, value, ::Hypograph)
+    return JuMP.@constraint(model, y <= value)
 end
 
 struct Grid{D,F}
@@ -150,7 +156,7 @@ function _create_convex_multiplier_vars(
     grid::Grid{D,F},
     input_vars::NTuple{D,_Scalar},
     output_vars::NTuple{F,_Scalar},
-    direction::DIRECTION,
+    direction::Direction,
 ) where {D,F}
     model = formulation.model
     λ = similar(Array{JuMP.variable_ref_type(model)}, axes(grid.input_vals))

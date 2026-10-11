@@ -9,7 +9,7 @@ function formulate_pwl!(
     output_vars::NTuple{F,_Scalar},
     pwl::PWLFunction{2,F},
     method::TriangleSelectionMethod,
-    direction::DIRECTION,
+    direction::Direction,
 ) where {F}
     λ, triangle_direction = _grid_convex_multipliers!(
         formulation,
@@ -45,7 +45,7 @@ function _grid_convex_multipliers!(
     input_vars::NTuple{2,_Scalar},
     output_vars::NTuple{F,_Scalar},
     pwl::PWLFunction{2,F},
-    direction::DIRECTION,
+    direction::Direction,
 ) where {F}
     grid = _continuous_gridpoints_or_die(pwl)
     triangle_direction = _triangle_directions(pwl, grid)

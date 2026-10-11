@@ -22,7 +22,7 @@ function formulate_pwl!(
     output_vars::NTuple{F,_Scalar},
     pwl::PWLFunction{D,F},
     method::ConvexCombination,
-    direction::DIRECTION,
+    direction::Direction,
 ) where {D,F}
     model = formulation.model
     segments = pwl.segments

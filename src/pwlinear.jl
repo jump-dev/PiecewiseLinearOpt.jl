@@ -29,7 +29,7 @@ _default_method(::Val) = DisaggregatedLogarithmic()
         input_vars,
         pwl::PWLFunction;
         method,
-        direction = Graph,
+        direction = Graph(),
         output_vars = nothing,
         name = nothing,
     )
@@ -49,12 +49,12 @@ returns the tuple `(output_vars, formulation)`.
 - `method`: the formulation method, defaults to `Logarithmic()` for univariate
   functions, `SixStencil()` for bivariate functions and
   `DisaggregatedLogarithmic()` for functions of more variables.
-- `direction`: whether the outputs equal (`Graph`), are at least (`Epigraph`)
-  or are at most (`Hypograph`) the function value.
+- `direction`: whether the outputs equal (`PiecewiseLinearOpt.Graph()`), are
+  at least (`Epigraph()`) or are at most (`Hypograph()`) the function value.
 - `output_vars`: a vector or tuple with an output variable or expression for
   each output of `pwl`. If `nothing`, new variables are created, bounded by
-  the smallest and largest function value (only from below for `Epigraph` and
-  only from above for `Hypograph`).
+  the smallest and largest function value (only from below for `Epigraph()`
+  and only from above for `Hypograph()`).
 - `name`: the prefix of the names of the variables created. If `nothing`, a
   name of the form `pwl1`, `pwl2`, ... is used.
 
@@ -93,7 +93,7 @@ function piecewiselinear(
     input_vars::Union{Tuple,AbstractVector},
     pwl::PWLFunction{D,F};
     method::Method = _default_method(Val(D)),
-    direction::DIRECTION = Graph,
+    direction::Direction = Graph(),
     output_vars::Union{Nothing,Tuple,AbstractVector} = nothing,
     name::Union{Nothing,AbstractString} = nothing,
 ) where {D,F}
@@ -142,7 +142,7 @@ end
 function _create_output_vars(
     formulation::PWLFormulation,
     pwl::PWLFunction{D,F},
-    direction::DIRECTION,
+    direction::Direction,
 ) where {D,F}
     y = record!(
         formulation,
@@ -153,13 +153,13 @@ function _create_output_vars(
         ),
     )
     for i in 1:F
-        if direction != Hypograph
+        if !(direction isa Hypograph)
             JuMP.set_lower_bound(
                 y[i],
                 minimum(v[i] for seg in pwl.segments for v in seg.output_vals),
             )
         end
-        if direction != Epigraph
+        if !(direction isa Epigraph)
             JuMP.set_upper_bound(
                 y[i],
                 maximum(v[i] for seg in pwl.segments for v in seg.output_vals),

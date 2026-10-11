@@ -117,7 +117,7 @@ function formulate_pwl!(
     output_vars::NTuple{F,_Scalar},
     pwl::PWLFunction{1,F},
     method::SOS2Method,
-    direction::DIRECTION,
+    direction::Direction,
 ) where {F}
     grid = _continuous_gridpoints_or_die(pwl)
     λ = _create_convex_multiplier_vars(
@@ -168,7 +168,7 @@ function formulate_sos2!(formulation, λ, method::Method)
         tuple(λ...),
         dummy_pwl,
         method,
-        Graph,
+        Graph(),
     )
     return nothing
 end

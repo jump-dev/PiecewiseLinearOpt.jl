@@ -60,9 +60,9 @@ largest function values. Existing variables or expressions can be given with
 methods.
 
 The `direction` keyword relaxes the equality between output and function
-value, see [`PiecewiseLinearOpt.DIRECTION`](@ref), and the new output variables
-are then only bounded from the side of the function. For example, with
-`PiecewiseLinearOpt.Epigraph` the output is only bounded from below, which is
+value, see [`PiecewiseLinearOpt.Direction`](@ref), and the new output
+variables are then only bounded from the side of the function. For example,
+with [`Epigraph`](@ref) the output is only bounded from below, which is
 enough when minimizing:
 
 ```@example direction
@@ -75,7 +75,7 @@ y = piecewiselinear(
     x,
     [0, 1, 2, 3],
     [2, 0, 1, 0];
-    direction = PiecewiseLinearOpt.Epigraph,
+    direction = Epigraph(),
 )
 @objective(model, Min, y + x / 10)
 optimize!(model)

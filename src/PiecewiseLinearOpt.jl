@@ -15,6 +15,9 @@ export PWLFunction,
 
 export SegmentPointRep, SegmentStructure, Intervals, Unstructured
 
+# Graph is the default direction, and would collide with Graphs.jl
+export Epigraph, Hypograph
+
 export GridTriangulation,
     BestFitTriangulation,
     K1Triangulation,

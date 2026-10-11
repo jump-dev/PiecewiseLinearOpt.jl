@@ -61,7 +61,7 @@ function formulate_pwl!(
     output_vars::NTuple{F,_Scalar},
     pwl::PWLFunction{1,F},
     method::IndependentBranching,
-    direction::DIRECTION,
+    direction::Direction,
 ) where {F}
     model = formulation.model
 

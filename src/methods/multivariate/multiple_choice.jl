@@ -21,7 +21,7 @@ function formulate_pwl!(
     output_vars::NTuple{F,_Scalar},
     pwl::PWLFunction{D,F},
     method::MultipleChoice,
-    direction::DIRECTION,
+    direction::Direction,
 ) where {D,F}
     segments = [_hyperplane_rep(seg, Rational{BigInt}) for seg in pwl.segments]
     _formulate_multiple_choice!(
@@ -39,7 +39,7 @@ function _formulate_multiple_choice!(
     input_vars::NTuple{D,_Scalar},
     output_vars::NTuple{F,_Scalar},
     segments::Vector{_HyperplaneSegment{D,F}},
-    direction::DIRECTION,
+    direction::Direction,
 ) where {D,F}
     model = formulation.model
     n = length(segments)

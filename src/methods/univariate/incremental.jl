@@ -22,7 +22,7 @@ function formulate_pwl!(
     output_vars::NTuple{F,_Scalar},
     pwl::PWLFunction{1,F},
     method::Incremental,
-    direction::DIRECTION,
+    direction::Direction,
 ) where {F}
     model = formulation.model
     grid = _continuous_gridpoints_or_die(pwl)

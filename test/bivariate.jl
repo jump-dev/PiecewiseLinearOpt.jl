@@ -295,7 +295,7 @@ end
     seg = pwl.segments[3]
     z0 = sum(v[1] for v in seg.output_vals) / 3
     for (direction, sense) in
-        ((PLO.Epigraph, MIN_SENSE), (PLO.Hypograph, MAX_SENSE))
+        ((Epigraph(), MIN_SENSE), (Hypograph(), MAX_SENSE))
         model = Model(optimizer)
         @variable(model, x[1:2])
         (z,), _ = piecewiselinear(

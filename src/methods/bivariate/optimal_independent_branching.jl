@@ -35,7 +35,7 @@ function formulate_pwl!(
     output_vars::NTuple{F,_Scalar},
     pwl::PWLFunction{2,F},
     method::OptimalIndependentBranching,
-    direction::DIRECTION,
+    direction::Direction,
 ) where {F}
     λ, triangle_direction = _grid_convex_multipliers!(
         formulation,

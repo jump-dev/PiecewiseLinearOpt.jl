@@ -183,8 +183,8 @@ end
     xs = [0.0, 1.0, 2.0, 3.0]
     zs = [0.0, 2.0, 1.0, 3.0]
     for (direction, sense, beyond) in (
-        (PLO.Epigraph, MIN_SENSE, maximum(zs) + 10),
-        (PLO.Hypograph, MAX_SENSE, minimum(zs) - 10),
+        (Epigraph(), MIN_SENSE, maximum(zs) + 10),
+        (Hypograph(), MAX_SENSE, minimum(zs) - 10),
     )
         model = Model(optimizer)
         @variable(model, x)

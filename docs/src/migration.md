@@ -13,6 +13,8 @@ Version 0.5 is a rewrite with a new interface. The main changes are:
   now [`K1Triangulation`](@ref) instead of best fit.
 - Functions may have several outputs, more than two inputs and, for some
   methods, discontinuities.
+- The `direction` keyword takes `Epigraph()` or `Hypograph()` for a function
+  that is only bounded from one side, instead of modeling its graph.
 
 ## Methods
 
