@@ -45,7 +45,8 @@ struct SegmentPointRep{D,F}
         if length(input_vals) != length(output_vals)
             error("Must specify the same number of input and output values.")
         end
-        # TODO: Run verifier to ensure this is actually a PWL function
+        # What each method requires of the segments, e.g. that they are
+        # simplices or aligned with a grid, is checked when formulating.
         return new{D,F}(input_vals, output_vals)
     end
 end

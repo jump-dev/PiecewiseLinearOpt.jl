@@ -964,6 +964,18 @@ end
     s2 = PLO.SegmentPointRep{1,1}([(2.0,), (3.0,)], [(3.0,), (2.0,)])
     pwl = PLO.PWLFunction([s1, s2], PLO.Intervals())
     test_rejected(model, (x[1],), pwl; method = Logarithmic())
+    # Grid based methods require segments between neighboring breakpoints,
+    # also when the number of segments is right
+    overlapping = PLO.PWLFunction(
+        [
+            PLO.SegmentPointRep{1,1}([(0.0,), (2.0,)], [(0.0,), (2.0,)]),
+            PLO.SegmentPointRep{1,1}([(1.0,), (2.0,)], [(1.0,), (2.0,)]),
+        ],
+        PLO.Intervals(),
+    )
+    for method in (Logarithmic(), Incremental(), ZigZagBinary(), NativeSOS2())
+        test_rejected(model, (x[1],), overlapping; method = method)
+    end
     # Unsupported combinations of dimension and method
     pwl = BivariatePWLFunction(0:1, 0:1, (a, b) -> a + b)
     test_rejected(model, (x[1], x[2]), pwl; method = Incremental())

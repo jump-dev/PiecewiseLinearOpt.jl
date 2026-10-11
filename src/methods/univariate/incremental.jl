@@ -3,7 +3,8 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
-# TODO: Implement bivariate version of the incremental formulation
+# TODO: Implement a bivariate version of the incremental formulation, see
+# https://github.com/jump-dev/PiecewiseLinearOpt.jl/issues/23
 """
     Incremental()
 

@@ -76,25 +76,41 @@ function _continuous_gridpoints_or_die(pwl::PWLFunction{D,F}) where {D,F}
         error("Decomposition is not aligned along a grid.")
     end
 
-    # Step 4: Verify that the domain is equal to the convex hull of the gridpoints
-    # TODO: Implement this.
+    # Step 4: Verify that the segments cover the grid. Only univariate and
+    # bivariate functions are formulated on grids.
     if D == 1
-        if length(pwl.segments) != length(x_grid) - 1
+        # Every pair of neighboring breakpoints must form exactly one segment
+        index = Dict(x[1] => i for (i, x) in enumerate(x_grid))
+        covered = fill(false, length(x_grid) - 1)
+        for segment in pwl.segments
+            if length(segment.input_vals) != 2
+                error(
+                    "Every segment of a univariate piecewise linear function must have two points.",
+                )
+            end
+            i, j = minmax((index[v[1]] for v in segment.input_vals)...)
+            if j != i + 1 || covered[i]
+                error(
+                    "The segments of a univariate piecewise linear function must join neighboring breakpoints without overlapping, but a segment has the points $(segment.input_vals).",
+                )
+            end
+            covered[i] = true
+        end
+        if !all(covered)
             error(
                 "Univariate piecewise linear function does not have a connected domain.",
             )
         end
-    elseif D == 2
+    else
+        @assert D == 2
+        # Each cell is checked to be split into two triangles by
+        # _triangle_directions
         if length(pwl.segments) !=
            2 * (size(x_grid, 1) - 1) * (size(x_grid, 2) - 1)
             error(
                 "Bivariate piecewise linear function domain is not rectangular.",
             )
         end
-    else
-        @warn(
-            "Cannot currently verify that multivariate piecewise linear functions have domains equal to entire grid of breakpoints.",
-        )
     end
 
     return Grid(x_grid, y_grid)
@@ -222,7 +238,6 @@ function _check_triangle(segment::SegmentPointRep{D}) where {D}
 end
 
 function _check_triangulation(pwl::PWLFunction)
-    # TODO: Add check that segments lie in a single subrectangle
     for segment in pwl.segments
         _check_triangle(segment)
     end

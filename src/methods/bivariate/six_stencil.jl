@@ -20,7 +20,6 @@ SixStencil() = SixStencil(Logarithmic())
 
 axis_method(method::SixStencil) = method.axis_method
 
-# TODO: Unit tests for biclique cover
 function formulate_triangle_selection!(
     formulation::PWLFormulation,
     λ::Matrix{<:JuMP.AbstractVariableRef},

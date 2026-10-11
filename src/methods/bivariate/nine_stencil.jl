@@ -19,7 +19,6 @@ NineStencil() = NineStencil(Logarithmic())
 
 axis_method(method::NineStencil) = method.axis_method
 
-# TODO: Unit tests for biclique cover
 function formulate_triangle_selection!(
     formulation::PWLFormulation,
     λ::Matrix{<:JuMP.AbstractVariableRef},
