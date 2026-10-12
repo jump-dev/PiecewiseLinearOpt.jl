@@ -141,7 +141,8 @@ set_silent(model)
 square(t) = t^2 / 4
 # x + y is in [0, 6] and x - y in [-2, 4]
 u = piecewiselinear(model, x + y, 0:0.25:6, square; direction = Hypograph())
-v = piecewiselinear(model, x - y, -2:0.25:4, square; direction = Epigraph())
+# The square is convex, so its epigraph needs no binary variables
+v = piecewiselinear(model, x - y, -2:0.25:4, square; method = ConvexPieces(), direction = Epigraph())
 @objective(model, Max, u - v)
 optimize!(model)
 value(x), value(y), objective_value(model)

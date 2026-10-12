@@ -1,5 +1,9 @@
 # References
 
+- E. Balas. Disjunctive programming: Properties of the convex hull of feasible
+  points. _Discrete Applied Mathematics_ 89(1–3):3–44, 1998.
+  [doi:10.1016/S0166-218X(98)00136-X](https://doi.org/10.1016/S0166-218X(98)00136-X).
+  The formulation of a union of polyhedra used by [`ConvexPieces`](@ref).
 - C. D'Ambrosio, A. Lodi and S. Martello. Piecewise linear approximation of
   functions of two variables in MILP models. _Operations Research Letters_
   38(1):39–46, 2010.

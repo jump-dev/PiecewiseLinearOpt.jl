@@ -61,13 +61,15 @@ const Scalar = Union{Real,JuMP.AbstractJuMPScalar}
 include("formulation.jl")
 include("methods/util.jl")
 
-export Incremental,
+export ConvexPieces,
+    Incremental,
     IndependentBranching,
     LogarithmicEmbedding,
     LogarithmicIndependentBranching,
     NativeSOS2,
     ZigZagBinary,
     ZigZagInteger
+include("methods/univariate/convex_pieces.jl")
 include("methods/univariate/incremental.jl")
 include("methods/univariate/independent_branching.jl")
 include("methods/univariate/logarithmic_embedding.jl")

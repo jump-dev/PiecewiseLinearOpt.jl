@@ -46,6 +46,7 @@ ZigZagBinary
 ZigZagInteger
 Incremental
 NativeSOS2
+ConvexPieces
 ```
 
 ## Bivariate methods

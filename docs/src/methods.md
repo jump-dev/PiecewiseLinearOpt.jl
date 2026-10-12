@@ -27,6 +27,12 @@ allocation with S-shaped utilities, and bivariate functions on grids.
   [`MultipleChoice`](@ref) was the fastest method with HiGHS, and second only
   to [`NativeSOS2`](@ref) with Xpress, despite its `d` binary variables. It
   explores far fewer nodes than the logarithmic methods on such problems.
+- For functions with convex stretches in the [`Epigraph`](@ref) direction
+  (concave in the [`Hypograph`](@ref) direction), e.g. S-shaped utilities that
+  are maximized, [`ConvexPieces`](@ref) only needs binary variables for the
+  convex pieces rather than for the segments. It was 2 to 3 times faster than
+  [`MultipleChoice`](@ref) on S-shaped functions, and a function that is convex
+  in the direction needs no binary variables at all.
 - Bivariate functions: use a grid method. With HiGHS,
   [`GreedyTriangleSelection`](@ref) and [`OptimalTriangleSelection`](@ref) were
   the fastest on any triangulation, and [`K1`](@ref) and [`UnionJack`](@ref) on
@@ -61,6 +67,7 @@ The default is [`Logarithmic`](@ref LogarithmicEmbedding).
 | [`ConvexCombination`](@ref) | `d` binary | no |
 | [`MultipleChoice`](@ref) | `d` binary | yes |
 | [`NativeSOS2`](@ref) | none, branching by the solver | no |
+| [`ConvexPieces`](@ref) | one binary per convex piece, none for a convex function | yes |
 
 [`NativeSOS2`](@ref) leaves the branching to solvers that support SOS2
 constraints, e.g. Gurobi or Xpress; for other solvers, such as HiGHS,

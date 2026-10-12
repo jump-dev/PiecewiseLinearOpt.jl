@@ -83,6 +83,8 @@ const methods_1D = [
 ]
 
 const methods_discontinuous = [
+    ConvexPieces(:mc),
+    ConvexPieces(:log),
     DisaggregatedLogarithmic(),
     IndependentBranching(:biclique),
     IndependentBranching(:balanced),
