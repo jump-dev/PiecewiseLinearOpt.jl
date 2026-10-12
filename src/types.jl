@@ -182,6 +182,15 @@ struct SegmentPointRep{D,F}
         if length(input_vals) != length(output_vals)
             error("Must specify the same number of input and output values.")
         end
+        for (x, y) in zip(input_vals, output_vals)
+            if !all(isfinite, x)
+                error("The breakpoint $x is not finite.")
+            elseif !all(isfinite, y)
+                error(
+                    "The function value $(D == F == 1 ? only(y) : y) at the breakpoint $(D == 1 ? only(x) : x) is not finite. The breakpoints and function values become coefficients of the model, so they must be finite, e.g. not log(0).",
+                )
+            end
+        end
         # What each method requires of the segments, e.g. that they are
         # simplices or aligned with a grid, is checked when formulating.
         return new{D,F}(input_vals, output_vals)

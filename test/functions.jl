@@ -105,6 +105,21 @@ end
     model = Model()
     @variable(model, x[1:2])
     test_rejected(model, (x[1], x[2]), pwl; method = MultipleChoice())
+    # Breakpoints and function values must be finite
+    @test_throws r"function value -Inf at the breakpoint 0.0 is not finite" UnivariatePWLFunction(
+        0:2,
+        log,
+    )
+    @test_throws ErrorException UnivariatePWLFunction([0, 1, Inf], [0, 1, 2])
+    @test_throws ErrorException UnivariatePWLFunction([0, 1, 2], [0, NaN, 2])
+    @test_throws ErrorException BivariatePWLFunction(0:1, 0:1, (a, b) -> a / b)
+    @test_throws ErrorException PLO.SegmentPointRep{1,2}(
+        [(0.0,), (1.0,)],
+        [(0.0, 1.0), (1.0, Inf)],
+    )
+    model = Model()
+    @variable(model, x)
+    test_rejected(model, x, 0:2, log)
 end
 
 @testset "MultipleChoice coefficients" begin
