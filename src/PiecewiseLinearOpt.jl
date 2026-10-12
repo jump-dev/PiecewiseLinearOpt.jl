@@ -83,12 +83,14 @@ include("methods/univariate/sos2_formulation_base.jl")
 const Logarithmic = LogarithmicEmbedding
 export Logarithmic
 
-export K1,
+export GreedyTriangleSelection,
+    K1,
     NineStencil,
     OptimalIndependentBranching,
     OptimalTriangleSelection,
     SixStencil,
     UnionJack
+include("methods/bivariate/greedy_triangle_selection.jl")
 include("methods/bivariate/k1.jl")
 include("methods/bivariate/nine_stencil.jl")
 include("methods/bivariate/optimal_independent_branching.jl")

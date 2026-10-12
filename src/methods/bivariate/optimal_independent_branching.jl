@@ -17,8 +17,12 @@ That number is found by solving a mixed-integer program with `sub_solver`,
 e.g. `HiGHS.Optimizer`, and the result is cached for each triangulation.
 Computing it is only practical for small grids, up to about 4×4 points with a
 regular triangulation, and an error is thrown if no solution is found within
-`time_limit` seconds. For larger grids, use e.g. [`SixStencil`](@ref) or
-[`OptimalTriangleSelection`](@ref).
+`time_limit` seconds. This failure is also cached, so it is only tried again
+with a longer time limit. For larger grids, use e.g.
+[`GreedyTriangleSelection`](@ref) or [`OptimalTriangleSelection`](@ref).
+
+See [`OptimalTriangleSelection`](@ref) on the number of threads when the
+sub-solver is HiGHS.
 """
 struct OptimalIndependentBranching{S} <: Method
     sub_solver::S
@@ -44,7 +48,7 @@ function formulate_pwl!(
         pwl,
         direction,
     )
-    cover = _optimal_biclique_cover(
+    cover, _, _ = _optimal_biclique_cover(
         method.sub_solver,
         triangle_direction,
         true,

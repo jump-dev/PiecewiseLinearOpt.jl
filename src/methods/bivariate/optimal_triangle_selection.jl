@@ -20,12 +20,20 @@ chosen cell, typically 2 to 4. That number is found by solving a mixed-integer
 program with `sub_solver`, e.g. `HiGHS.Optimizer`, and the result is cached
 for each triangulation.
 
-This takes about a second for an 8×8 grid with a regular triangulation, but can
-take much longer for irregular ones. If no solution is found within
-`time_limit` seconds, a warning is given and the triangle is selected as in
-[`SixStencil`](@ref) instead, with 6 binary variables. As the optimal number of
-binary variables is typically only slightly smaller, `SixStencil` is usually
-the better choice for large or irregular grids.
+The program only searches for fewer binary variables than the greedy selection
+of [`GreedyTriangleSelection`](@ref) uses, which is often optimal. Proving this
+takes about a second for regular triangulations of grids up to 8×8, but can
+take much longer for irregular ones. If it is not done within `time_limit`
+seconds, a warning is given and the greedy selection is used. This result is
+also cached, so the time limit is only spent again with a longer time limit.
+`GreedyTriangleSelection` is therefore usually the better choice for large or
+irregular grids.
+
+HiGHS sets up its threads at the first solve in a Julia session. If HiGHS is
+both the sub-solver and the solver of a main model with a single thread, also
+give the sub-solver a single thread, i.e.
+`optimizer_with_attributes(HiGHS.Optimizer, "threads" => 1)`, or the main
+model fails to solve.
 """
 struct OptimalTriangleSelection{S,M<:Method} <: TriangleSelectionMethod
     sub_solver::S
@@ -51,21 +59,17 @@ function formulate_triangle_selection!(
     triangle_direction::Matrix{Bool},
     method::OptimalTriangleSelection,
 )
-    cover = _optimal_biclique_cover(
+    greedy = _greedy_biclique_cover(triangle_direction, 200)
+    cover, optimal, computed = _optimal_biclique_cover(
         method.sub_solver,
         triangle_direction,
         false,
-        method.time_limit,
+        method.time_limit;
+        upper_bound = greedy,
     )
-    if cover === nothing
+    if !optimal && computed
         @warn(
-            "OptimalTriangleSelection found no triangle selection within the time limit of $(method.time_limit) seconds, using SixStencil instead.",
-        )
-        return formulate_triangle_selection!(
-            formulation,
-            λ,
-            triangle_direction,
-            SixStencil(method.axis_method),
+            "OptimalTriangleSelection could not find the optimal triangle selection within the time limit of $(method.time_limit) seconds, using a greedy one with $(length(cover)) binary variables instead.",
         )
     end
     add_biclique_cover!(formulation, λ, cover)

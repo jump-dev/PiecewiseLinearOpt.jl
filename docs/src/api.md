@@ -53,6 +53,7 @@ NativeSOS2
 ```@docs
 SixStencil
 NineStencil
+GreedyTriangleSelection
 OptimalTriangleSelection
 K1
 UnionJack

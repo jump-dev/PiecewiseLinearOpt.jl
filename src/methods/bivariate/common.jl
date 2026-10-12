@@ -130,10 +130,20 @@ end
 const _BicliqueCover =
     Vector{Tuple{Vector{Tuple{Int,Int}},Vector{Tuple{Int,Int}}}}
 
-# The optimal covers only depend on the triangulation, and are expensive to
-# compute, so they are shared between models.
-const _OPTIMAL_COVER_CACHE = Dict{Tuple{Matrix{Bool},Bool},_BicliqueCover}()
-const _OPTIMAL_COVER_LOCK = ReentrantLock()
+# The result of computing an optimal cover: the cover found, or `nothing`,
+# whether it is proven optimal, and the time limit it was computed with.
+struct _CachedCover
+    cover::Union{Nothing,_BicliqueCover}
+    optimal::Bool
+    time_limit::Float64
+end
+
+# The covers only depend on the triangulation, and are expensive to compute, so
+# they are shared between models. Covers that are not proven optimal within the
+# time limit are also cached, so that the time limit is only spent once.
+const _OPTIMAL_COVER_CACHE = Dict{Tuple{Matrix{Bool},Bool},_CachedCover}()
+const _GREEDY_COVER_CACHE = Dict{Tuple{Matrix{Bool},Int},_BicliqueCover}()
+const _COVER_LOCK = ReentrantLock()
 
 # Finds the smallest number of levels (A_k, B_k) such that two grid points
 # that share a triangle are never on opposite sides of a level, while every
@@ -141,36 +151,55 @@ const _OPTIMAL_COVER_LOCK = ReentrantLock()
 # `separate_all` is false, only the pairs that are endpoints of a cell diagonal
 # need to be separated, as the rest is handled by SOS2 constraints on each axis.
 #
-# Returns `nothing` if no cover is found within `time_limit` seconds.
+# A valid cover `upper_bound` limits the search to fewer levels than it has, and
+# is returned if none is found. Returns the cover, `nothing` if no cover is found
+# within `time_limit` seconds, whether it is optimal, and whether it was
+# computed, i.e. not taken from the cache. A cover that is not optimal is only
+# computed again with a longer time limit.
 function _optimal_biclique_cover(
     sub_solver,
     triangle_direction::Matrix{Bool},
     separate_all::Bool,
-    time_limit::Real,
+    time_limit::Real;
+    upper_bound::Union{Nothing,_BicliqueCover} = nothing,
 )
     key = (copy(triangle_direction), separate_all)
-    return lock(_OPTIMAL_COVER_LOCK) do
-        if haskey(_OPTIMAL_COVER_CACHE, key)
-            return _OPTIMAL_COVER_CACHE[key]
+    return lock(_COVER_LOCK) do
+        cached = get(_OPTIMAL_COVER_CACHE, key, nothing)
+        if cached !== nothing &&
+           (cached.optimal || time_limit <= cached.time_limit)
+            return cached.cover, cached.optimal, false
         end
-        cover = _compute_optimal_biclique_cover(
+        max_levels =
+            upper_bound === nothing ? typemax(Int) : length(upper_bound) - 1
+        result = _compute_optimal_biclique_cover(
             sub_solver,
             triangle_direction,
             separate_all,
             time_limit,
+            max_levels,
         )
-        if cover !== nothing
-            _OPTIMAL_COVER_CACHE[key] = cover
+        if result === :time_limit
+            cover, optimal = upper_bound, false
+        elseif result === :max_levels
+            cover, optimal = upper_bound, true
+        else
+            cover, optimal = result, true
         end
-        return cover
+        _OPTIMAL_COVER_CACHE[key] =
+            _CachedCover(cover, optimal, Float64(time_limit))
+        return cover, optimal, true
     end
 end
 
+# Returns the cover, `:time_limit` if none is found within the time limit, or
+# `:max_levels` if there is none with at most `max_levels` levels.
 function _compute_optimal_biclique_cover(
     sub_solver,
     triangle_direction::Matrix{Bool},
     separate_all::Bool,
     time_limit::Real,
+    max_levels::Int,
 )
     deadline = time() + time_limit
     n_1, n_2 = size(triangle_direction) .+ 1
@@ -199,6 +228,9 @@ function _compute_optimal_biclique_cover(
 
     t = separate_all ? max(1, ceil(Int, log2(2 * (n_1 - 1) * (n_2 - 1)))) : 1
     while true
+        if t > max_levels
+            return :max_levels
+        end
         sub_model = JuMP.Model(sub_solver)
         JuMP.set_silent(sub_model)
         JuMP.@variable(sub_model, x[1:t, J], Bin)
@@ -230,7 +262,7 @@ function _compute_optimal_biclique_cover(
         end
         remaining = deadline - time()
         if remaining ≤ 0
-            return nothing
+            return :time_limit
         end
         JuMP.set_time_limit_sec(sub_model, remaining)
         JuMP.optimize!(sub_model)
@@ -249,7 +281,7 @@ function _compute_optimal_biclique_cover(
         elseif status in (JuMP.INFEASIBLE, JuMP.INFEASIBLE_OR_UNBOUNDED)
             t += 1
         elseif status == JuMP.TIME_LIMIT
-            return nothing
+            return :time_limit
         else
             error("Unable to compute an optimal biclique cover: $status")
         end
@@ -287,4 +319,94 @@ function _sparsify_biclique_cover!(
         end
     end
     return cover
+end
+
+# A cover with the levels needed by a triangle selection, i.e. with
+# `separate_all = false` above, found greedily: the endpoints of the diagonal
+# that is not a triangle edge of each cell are put on opposite sides of the
+# first level where they fit. The best of the row-major order and `tries`
+# random orders of the cells is returned.
+function _greedy_biclique_cover(triangle_direction::Matrix{Bool}, tries::Int)
+    key = (copy(triangle_direction), tries)
+    return lock(_COVER_LOCK) do
+        return get!(_GREEDY_COVER_CACHE, key) do
+            return _compute_greedy_biclique_cover(triangle_direction, tries)
+        end
+    end
+end
+
+function _compute_greedy_biclique_cover(
+    triangle_direction::Matrix{Bool},
+    tries::Int,
+)
+    n_1, n_2 = size(triangle_direction) .+ 1
+    points = CartesianIndices((n_1, n_2))
+    index = LinearIndices(points)
+    # Two points that are joined by a grid edge or a triangle diagonal must
+    # never be on opposite sides of a level
+    neighbors = [Int[] for _ in points]
+    function link!(p, q)
+        push!(neighbors[index[p...]], index[q...])
+        push!(neighbors[index[q...]], index[p...])
+        return
+    end
+    for i in 1:n_1, j in 1:n_2
+        if i < n_1
+            link!((i, j), (i + 1, j))
+        end
+        if j < n_2
+            link!((i, j), (i, j + 1))
+        end
+    end
+    # The endpoints of the other diagonal must be separated by some level
+    pairs = Tuple{Int,Int}[]
+    for i in 1:n_1-1, j in 1:n_2-1
+        edge, (r, s) = cell_diagonals(triangle_direction, i, j)
+        link!(edge...)
+        push!(pairs, (index[r...], index[s...]))
+    end
+    rng = Random.Xoshiro(1)
+    best = _greedy_levels(pairs, collect(eachindex(pairs)), neighbors)
+    for _ in 1:tries
+        order = Random.shuffle(rng, collect(eachindex(pairs)))
+        levels = _greedy_levels(pairs, order, neighbors)
+        if length(levels) < length(best)
+            best = levels
+        end
+    end
+    return _BicliqueCover([
+        (
+            [Tuple(points[k]) for k in eachindex(side) if side[k] == 1],
+            [Tuple(points[k]) for k in eachindex(side) if side[k] == 2],
+        ) for side in best
+    ])
+end
+
+# Puts the endpoints of each pair, in the given order, on opposite sides 1 and 2
+# of the current level, if neither is then on the same side as a neighbor of the
+# other. The pairs that do not fit are put in the next level.
+function _greedy_levels(
+    pairs::Vector{Tuple{Int,Int}},
+    order::Vector{Int},
+    neighbors::Array{Vector{Int}},
+)
+    levels = Vector{Int8}[]
+    while !isempty(order)
+        side = zeros(Int8, length(neighbors))
+        fits(p, k) = side[p] != 3 - k && all(q -> side[q] != 3 - k, neighbors[p])
+        rest = Int[]
+        for c in order
+            r, s = pairs[c]
+            if fits(r, 1) && fits(s, 2)
+                side[r], side[s] = 1, 2
+            elseif fits(r, 2) && fits(s, 1)
+                side[r], side[s] = 2, 1
+            else
+                push!(rest, c)
+            end
+        end
+        push!(levels, side)
+        order = rest
+    end
+    return levels
 end

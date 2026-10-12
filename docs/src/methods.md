@@ -48,6 +48,7 @@ triangle in the cell:
 |:-------|:-------------------|:--------------|
 | [`SixStencil`](@ref) | 6 binary | any |
 | [`NineStencil`](@ref) | 9 binary | any |
+| [`GreedyTriangleSelection`](@ref) | few, typically 2 to 5, found by a heuristic | any |
 | [`OptimalTriangleSelection`](@ref) | smallest number, typically 2 to 4, computed with a solver | any |
 | [`K1`](@ref) | 2 binary | [`K1Triangulation`](@ref) |
 | [`UnionJack`](@ref) | 1 binary | [`UnionJackTriangulation`](@ref) |
@@ -57,13 +58,13 @@ uses `ceil(log2(n₁ - 1)) + ceil(log2(n₂ - 1))` binary variables. For solvers
 with support for SOS2 constraints, [`NativeSOS2`](@ref) is also a good axis
 method.
 
-Computing the optimal triangle selection of
-[`OptimalTriangleSelection`](@ref) takes about a second for regular
-triangulations of grids up to 8×8, but can take much longer for irregular
-triangulations, e.g. [`BestFitTriangulation`](@ref) or
-[`RandomTriangulation`](@ref), while saving only a few binary variables
-compared with [`SixStencil`](@ref). If it takes longer than its time limit, it
-falls back to [`SixStencil`](@ref).
+[`GreedyTriangleSelection`](@ref) finds its triangle selection in
+milliseconds, and typically with the optimal number of binary variables.
+Proving that number optimal with [`OptimalTriangleSelection`](@ref) takes
+about a second for regular triangulations of grids up to 8×8, but can take
+much longer for irregular triangulations, e.g. [`BestFitTriangulation`](@ref)
+or [`RandomTriangulation`](@ref). If it takes longer than its time limit, the
+greedy selection is used.
 
 [`OptimalIndependentBranching`](@ref) instead selects a triangle directly with
 the smallest possible number of binary variables, which is only practical to
@@ -90,6 +91,7 @@ for method in (
     SixStencil(),
     NineStencil(),
     K1(),
+    GreedyTriangleSelection(),
     OptimalTriangleSelection(HiGHS.Optimizer),
     SixStencil(IndependentBranching()),
     ConvexCombination(),
