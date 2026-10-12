@@ -1,5 +1,11 @@
 # References
 
+- C. D'Ambrosio, A. Lodi and S. Martello. Piecewise linear approximation of
+  functions of two variables in MILP models. _Operations Research Letters_
+  38(1):39–46, 2010.
+  [doi:10.1016/j.orl.2009.09.005](https://doi.org/10.1016/j.orl.2009.09.005).
+  Compares bivariate formulations with the
+  [separable reformulation](@ref "Separable reformulation of products").
 - J. Huchette and J. P. Vielma. Nonconvex piecewise linear functions: Advanced
   formulations and simple modeling tools. _Operations Research_, 2023.
   [doi:10.1287/opre.2019.1973](https://doi.org/10.1287/opre.2019.1973),

@@ -3,13 +3,45 @@
 The `method` keyword of [`piecewiselinear`](@ref) chooses how a function is
 formulated with auxiliary variables and constraints. All methods give a
 correct model; they differ in size and in how fast a solver finds the optimum.
-Which method is fastest depends on the problem and the solver. The
-logarithmically sized methods often scale best to functions with many
-segments, see [Huchette and Vielma (2023)](https://arxiv.org/abs/1708.00050)
-for a computational comparison, while [`MultipleChoice`](@ref) and
-[`Incremental`](@ref) can be faster for functions with few segments, and
-[`MultipleChoice`](@ref) for discontinuous functions. It is worth trying a few
-methods on representative instances.
+Which method is fastest depends on the problem and the solver, so it is worth
+trying a few methods on representative instances. See
+[Huchette and Vielma (2023)](https://arxiv.org/abs/1708.00050) for a
+computational comparison.
+
+## Choosing a method
+
+The following advice is based on computational tests with HiGHS and Xpress on
+transportation problems with concave and discontinuous costs, resource
+allocation with S-shaped utilities, and bivariate functions on grids.
+
+- Univariate functions: the default [`Logarithmic`](@ref LogarithmicEmbedding)
+  is a sound choice. The other logarithmic methods
+  ([`LogarithmicIndependentBranching`](@ref), [`IndependentBranching`](@ref),
+  [`ZigZagBinary`](@ref), [`ZigZagInteger`](@ref) and
+  [`DisaggregatedLogarithmic`](@ref)) perform similarly, each within about 30%
+  of the others.
+- With a solver that supports SOS2 constraints, e.g. Gurobi or Xpress, try
+  [`NativeSOS2`](@ref) first. It was the fastest method with Xpress, often by
+  a large margin.
+- For minimizing concave costs and for discontinuous functions,
+  [`MultipleChoice`](@ref) was the fastest method with HiGHS, and second only
+  to [`NativeSOS2`](@ref) with Xpress, despite its `d` binary variables. It
+  explores far fewer nodes than the logarithmic methods on such problems.
+- Bivariate functions: use a grid method. With HiGHS,
+  [`GreedyTriangleSelection`](@ref) and [`OptimalTriangleSelection`](@ref) were
+  the fastest on any triangulation, and [`K1`](@ref) and [`UnionJack`](@ref) on
+  their own triangulations. With a solver that supports SOS2 constraints, the
+  grid methods are close to each other, and [`NativeSOS2`](@ref) as the axis
+  method, e.g. `SixStencil(NativeSOS2())`, was about three times faster than
+  the default axis method.
+- Avoid [`ConvexCombination`](@ref) and [`Incremental`](@ref), which were never
+  competitive, and [`ConvexCombination`](@ref), [`MultipleChoice`](@ref) and
+  [`DisaggregatedLogarithmic`](@ref) for bivariate functions, except on very
+  small grids.
+- Use the [`Epigraph`](@ref) or [`Hypograph`](@ref) direction when it is valid,
+  see [Outputs and directions](@ref). This is typically 10% faster, and up to
+  30% for [`MultipleChoice`](@ref), [`Logarithmic`](@ref LogarithmicEmbedding)
+  and [`DisaggregatedLogarithmic`](@ref).
 
 Below, `d` is the number of segments of a univariate function.
 
@@ -31,8 +63,9 @@ The default is [`Logarithmic`](@ref LogarithmicEmbedding).
 | [`NativeSOS2`](@ref) | none, branching by the solver | no |
 
 [`NativeSOS2`](@ref) leaves the branching to solvers that support SOS2
-constraints, e.g. Gurobi; for other solvers, such as HiGHS, MathOptInterface
-reformulates the constraint with binary variables.
+constraints, e.g. Gurobi or Xpress; for other solvers, such as HiGHS,
+MathOptInterface reformulates the constraint with binary variables, which is
+much slower than the other methods.
 
 ## Bivariate functions
 
@@ -64,7 +97,11 @@ Proving that number optimal with [`OptimalTriangleSelection`](@ref) takes
 about a second for regular triangulations of grids up to 8×8, but can take
 much longer for irregular triangulations, e.g. [`BestFitTriangulation`](@ref)
 or [`RandomTriangulation`](@ref). If it takes longer than its time limit, the
-greedy selection is used.
+greedy selection is used. When both the sub-solver and the solver of the model
+are HiGHS, and the model is solved with a single thread, give the sub-solver a
+single thread too, i.e.
+`OptimalTriangleSelection(optimizer_with_attributes(HiGHS.Optimizer, "threads" => 1))`,
+as the solve otherwise fails.
 
 [`OptimalIndependentBranching`](@ref) instead selects a triangle directly with
 the smallest possible number of binary variables, which is only practical to
