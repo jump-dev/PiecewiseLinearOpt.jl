@@ -7,6 +7,9 @@ using Documenter
 using DocumenterCodeBlocks
 using PiecewiseLinearOpt
 
+include("triangulation_figure.jl")
+triangulation_figure(joinpath(@__DIR__, "src", "assets", "triangulations.svg"))
+
 makedocs(;
     sitename = "PiecewiseLinearOpt.jl",
     authors = "Joey Huchette and contributors",

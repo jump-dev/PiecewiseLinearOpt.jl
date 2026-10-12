@@ -37,8 +37,18 @@ pwl(0.5, 0.5), pwl_z(0.5, 0.5)
 ```
 
 Each cell of the grid is split into two triangles along one of its diagonals,
-as given by the `triangulation` keyword. The choice affects the function
-inside the cells:
+as given by the `triangulation` keyword. The figure shows the triangulations of
+``f(x, y) = \sin(3x) \cos(3y)`` on a ``5 \times 5`` grid, with ``x`` to the
+right and ``y`` upwards, and each triangle shaded by the mean function value at
+its corners, from dark (low) to light (high):
+
+![The grid triangulations of a function on a 5 × 5 grid](../assets/triangulations.svg)
+
+[`K1Triangulation`](@ref) and [`UnionJackTriangulation`](@ref) have a fixed
+pattern, independent of the function. [`UpperTriangulation`](@ref),
+[`LowerTriangulation`](@ref) and [`BestFitTriangulation`](@ref) choose the
+diagonal of each cell from the function, and [`RandomTriangulation`](@ref) at
+random. The choice affects the function inside the cells:
 
 ```@example bivariate
 [
