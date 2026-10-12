@@ -22,6 +22,13 @@ pwl = UnivariatePWLFunction(0:0.5:2π, sin)
 pwl(1.25), sin(1.25)
 ```
 
+The function is linear between neighboring breakpoints, and is only defined
+between the first and the last breakpoint. The figure shows the first function
+above, and a coarser approximation of `sin` with breakpoints `0:1.0:2π`, which
+ends at 6, together with `sin` itself (dashed):
+
+![Two univariate piecewise linear functions with their breakpoints](../assets/univariate.svg)
+
 ## Bivariate functions
 
 A bivariate function is given by breakpoints along each axis, which form a

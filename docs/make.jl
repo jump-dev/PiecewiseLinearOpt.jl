@@ -7,7 +7,8 @@ using Documenter
 using DocumenterCodeBlocks
 using PiecewiseLinearOpt
 
-include("triangulation_figure.jl")
+include("figures.jl")
+univariate_figure(joinpath(@__DIR__, "src", "assets", "univariate.svg"))
 triangulation_figure(joinpath(@__DIR__, "src", "assets", "triangulations.svg"))
 
 makedocs(;

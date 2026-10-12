@@ -4,6 +4,7 @@
 Manifest.toml
 docs/build/
 docs/src/assets/triangulations.svg
+docs/src/assets/univariate.svg
 *.DS_Store
 .DS_Store
 .vscode/settings.json
