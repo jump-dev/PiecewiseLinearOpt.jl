@@ -11,8 +11,8 @@ expression `value` of the function value, as given by `direction`.
 """
 function constrain_output!(
     formulation::PWLFormulation,
-    output_var::_Scalar,
-    func_val::_Scalar,
+    output_var::Scalar,
+    func_val::Scalar,
     direction::Direction,
 )
     record!(
@@ -154,8 +154,8 @@ end
 function _create_convex_multiplier_vars(
     formulation::PWLFormulation,
     grid::Grid{D,F},
-    input_vars::NTuple{D,_Scalar},
-    output_vars::NTuple{F,_Scalar},
+    input_vars::NTuple{D,Scalar},
+    output_vars::NTuple{F,Scalar},
     direction::Direction,
 ) where {D,F}
     model = formulation.model

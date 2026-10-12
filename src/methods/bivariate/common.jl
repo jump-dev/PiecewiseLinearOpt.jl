@@ -5,8 +5,8 @@
 
 function formulate_pwl!(
     formulation::PWLFormulation,
-    input_vars::NTuple{2,_Scalar},
-    output_vars::NTuple{F,_Scalar},
+    input_vars::NTuple{2,Scalar},
+    output_vars::NTuple{F,Scalar},
     pwl::PWLFunction{2,F},
     method::TriangleSelectionMethod,
     direction::Direction,
@@ -42,8 +42,8 @@ end
 # returns them together with the direction of the diagonal in each cell.
 function _grid_convex_multipliers!(
     formulation::PWLFormulation,
-    input_vars::NTuple{2,_Scalar},
-    output_vars::NTuple{F,_Scalar},
+    input_vars::NTuple{2,Scalar},
+    output_vars::NTuple{F,Scalar},
     pwl::PWLFunction{2,F},
     direction::Direction,
 ) where {F}
@@ -109,9 +109,19 @@ function _not_split_along_diagonal(cell::Tuple{Int,Int})
     )
 end
 
-# Returns the diagonal of cell (i, j) that is a triangle edge, and the one that
-# is not.
-function _cell_diagonals(triangle_direction::Matrix{Bool}, i::Int, j::Int)
+"""
+    cell_diagonals(nw_se::Matrix{Bool}, i::Int, j::Int)
+
+Returns the diagonals of cell `(i, j)` of a grid triangulation as
+`(edge, non_edge)`, where `edge` is the diagonal that splits the cell into its
+two triangles and `non_edge` is the other. Each is a pair of grid indices,
+e.g. `((i, j + 1), (i + 1, j))`, into the matrix of multipliers passed to
+[`formulate_triangle_selection!`](@ref) together with `nw_se`.
+
+A triangle selection must prevent the two ends of `non_edge` from being
+nonzero together.
+"""
+function cell_diagonals(triangle_direction::Matrix{Bool}, i::Int, j::Int)
     sw, se, nw, ne = (i, j), (i + 1, j), (i, j + 1), (i + 1, j + 1)
     return triangle_direction[i, j] ? ((nw, se), (sw, ne)) :
            ((sw, ne), (nw, se))
@@ -178,7 +188,7 @@ function _compute_optimal_biclique_cover(
     end
     to_separate = NTuple{2,Tuple{Int,Int}}[]
     for i in 1:n_1-1, j in 1:n_2-1
-        edge, non_edge = _cell_diagonals(triangle_direction, i, j)
+        edge, non_edge = cell_diagonals(triangle_direction, i, j)
         push!(edges, ordered(edge))
         push!(to_separate, ordered(non_edge))
     end

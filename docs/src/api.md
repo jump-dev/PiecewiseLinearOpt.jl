@@ -83,4 +83,9 @@ PiecewiseLinearOpt.record!
 PiecewiseLinearOpt.variable_name
 PiecewiseLinearOpt.constrain_output!
 PiecewiseLinearOpt.add_biclique_cover!
+PiecewiseLinearOpt.cell_diagonals
+PiecewiseLinearOpt.Scalar
+PiecewiseLinearOpt.segments
+PiecewiseLinearOpt.input_values
+PiecewiseLinearOpt.output_values
 ```

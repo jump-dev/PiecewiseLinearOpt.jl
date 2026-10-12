@@ -56,7 +56,8 @@ relate to the function `pwl` of the inputs `x` as given by `direction`.
 
 Implement this for a new [`Method`](@ref), for the dimensions `D` and `F` it
 supports. The inputs and outputs are variables, affine expressions or
-constants. Every variable and constraint created must be passed through
+constants, see [`Scalar`](@ref). The segments of `pwl` are given by
+[`segments`](@ref). Every variable and constraint created must be passed through
 [`record!`](@ref), so that the formulation can be deleted again, and the
 variables should be named with [`variable_name`](@ref). Use
 [`constrain_output!`](@ref) to relate an output to its function value in the
@@ -95,7 +96,7 @@ be restricted to one of the two triangles of that cell. Cell `(i, j)` has the
 corners `λ[i, j]`,
 `λ[i + 1, j]`, `λ[i, j + 1]` and `λ[i + 1, j + 1]`, and is split along the
 diagonal from `λ[i, j + 1]` to `λ[i + 1, j]` if `nw_se[i, j]` is true, and
-along the other diagonal otherwise.
+along the other diagonal otherwise; see [`cell_diagonals`](@ref).
 
 Implement this for a new [`TriangleSelectionMethod`](@ref). Throw an error if
 the triangulation is not supported.
@@ -326,6 +327,29 @@ function PWLFunction{D,F}(
 ) where {D,F}
     return PWLFunction(segments, structure)
 end
+
+"""
+    segments(pwl::PWLFunction{D,F})
+
+The segments of `pwl`, a vector of [`SegmentPointRep{D,F}`](@ref). Read their
+points with [`input_values`](@ref) and [`output_values`](@ref).
+"""
+segments(pwl::PWLFunction) = pwl.segments
+
+"""
+    input_values(segment::SegmentPointRep{D,F})
+
+The points of `segment`, a vector of `NTuple{D,Float64}`.
+"""
+input_values(segment::SegmentPointRep) = segment.input_vals
+
+"""
+    output_values(segment::SegmentPointRep{D,F})
+
+The function values at the points of `segment`, a vector of
+`NTuple{F,Float64}`.
+"""
+output_values(segment::SegmentPointRep) = segment.output_vals
 
 const UnivariatePWLFunction = PWLFunction{1,1}
 const BivariatePWLFunction = PWLFunction{2,1}

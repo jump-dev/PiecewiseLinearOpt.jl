@@ -44,7 +44,7 @@ Version 0.5 is a rewrite with a new interface. The main changes are:
 | `pattern = :Upper` | `triangulation = UpperTriangulation()` |
 | `pattern = :Lower` | `triangulation = LowerTriangulation()` |
 | `pattern = :Random` | `triangulation = RandomTriangulation(seed)` |
-| fields `pwl.x`, `pwl.z`, `pwl.T` | `pwl.segments`, and evaluation with `pwl(x...)` |
+| fields `pwl.x`, `pwl.z`, `pwl.T` | `PiecewiseLinearOpt.segments(pwl)`, and evaluation with `pwl(x...)` |
 
 ## Adding functions
 

@@ -172,10 +172,10 @@ end
 # Specialization for univariate problems
 function piecewiselinear(
     model::JuMP.GenericModel,
-    input_var::_Scalar,
+    input_var::Scalar,
     d,
     f::Function;
-    output_var::Union{Nothing,_Scalar} = nothing,
+    output_var::Union{Nothing,Scalar} = nothing,
     kwargs...,
 )
     return piecewiselinear(
@@ -190,10 +190,10 @@ end
 
 function piecewiselinear(
     model::JuMP.GenericModel,
-    input_var::_Scalar,
+    input_var::Scalar,
     d,
     fd;
-    output_var::Union{Nothing,_Scalar} = nothing,
+    output_var::Union{Nothing,Scalar} = nothing,
     kwargs...,
 )
     y, _ = piecewiselinear(
@@ -209,12 +209,12 @@ end
 # Specialization for bivariate problems
 function piecewiselinear(
     model::JuMP.GenericModel,
-    input_var_x::_Scalar,
-    input_var_y::_Scalar,
+    input_var_x::Scalar,
+    input_var_y::Scalar,
     x,
     y,
     f::Union{Function,AbstractMatrix};
-    output_var::Union{Nothing,_Scalar} = nothing,
+    output_var::Union{Nothing,Scalar} = nothing,
     triangulation::GridTriangulation = K1Triangulation(),
     kwargs...,
 )

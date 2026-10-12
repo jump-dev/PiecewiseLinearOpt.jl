@@ -49,7 +49,7 @@ function formulate_sos2!(
     formulation::PWLFormulation,
     λ::Vector{T},
     method::IndependentBranching,
-) where {T<:_Scalar}
+) where {T<:Scalar}
     S = [[i, i + 1] for i in 1:length(λ)-1]
     add_biclique_cover!(formulation, λ, _ordered_cdc_cover(S, method.scheme))
     return nothing
@@ -57,8 +57,8 @@ end
 
 function formulate_pwl!(
     formulation::PWLFormulation,
-    input_vars::Tuple{_Scalar},
-    output_vars::NTuple{F,_Scalar},
+    input_vars::Tuple{Scalar},
+    output_vars::NTuple{F,Scalar},
     pwl::PWLFunction{1,F},
     method::IndependentBranching,
     direction::Direction,

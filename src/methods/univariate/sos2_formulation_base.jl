@@ -9,7 +9,7 @@ function _sos2_encoding_constraints!(
     y::Vector{<:JuMP.AbstractVariableRef},
     h::Vector{Vector{Float64}},
     B::Vector{Vector{Float64}},
-) where {T<:_Scalar}
+) where {T<:Scalar}
     model = formulation.model
     n = length(λ) - 1
     for b in B
@@ -113,8 +113,8 @@ end
 
 function formulate_pwl!(
     formulation::PWLFormulation,
-    input_vars::Tuple{_Scalar},
-    output_vars::NTuple{F,_Scalar},
+    input_vars::Tuple{Scalar},
+    output_vars::NTuple{F,Scalar},
     pwl::PWLFunction{1,F},
     method::SOS2Method,
     direction::Direction,

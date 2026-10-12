@@ -18,8 +18,8 @@ struct Incremental <: Method end
 
 function formulate_pwl!(
     formulation::PWLFormulation,
-    input_vars::Tuple{_Scalar},
-    output_vars::NTuple{F,_Scalar},
+    input_vars::Tuple{Scalar},
+    output_vars::NTuple{F,Scalar},
     pwl::PWLFunction{1,F},
     method::Incremental,
     direction::Direction,

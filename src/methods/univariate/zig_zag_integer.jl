@@ -18,7 +18,7 @@ function formulate_sos2!(
     formulation::PWLFormulation,
     λ::Vector{T},
     method::ZigZagInteger,
-) where {T<:_Scalar}
+) where {T<:Scalar}
     n = length(λ)
     d = n - 1
     if 0 <= d <= 1

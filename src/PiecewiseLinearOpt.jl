@@ -50,8 +50,13 @@ function _next_default_name(model::JuMP.GenericModel)
     return "pwl$(data.counter)"
 end
 
-# Inputs and outputs may be variables, expressions or constants
-const _Scalar = Union{Real,JuMP.AbstractJuMPScalar}
+"""
+    PiecewiseLinearOpt.Scalar
+
+The type of the inputs and outputs of a function in a formulation: variables,
+expressions or constants.
+"""
+const Scalar = Union{Real,JuMP.AbstractJuMPScalar}
 
 include("formulation.jl")
 include("methods/util.jl")
@@ -98,5 +103,33 @@ include("methods/multivariate/disaggregated_logarithmic.jl")
 include("methods/multivariate/multiple_choice.jl")
 
 include("pwlinear.jl")
+
+# The extension interface is public but not exported
+@static if VERSION >= v"1.11.0-DEV.469"
+    eval(
+        Meta.parse(
+            """
+            public Method,
+                SOS2Method,
+                TriangleSelectionMethod,
+                Direction,
+                Graph,
+                Scalar,
+                formulate_pwl!,
+                formulate_sos2!,
+                formulate_triangle_selection!,
+                axis_method,
+                record!,
+                variable_name,
+                constrain_output!,
+                add_biclique_cover!,
+                cell_diagonals,
+                segments,
+                input_values,
+                output_values
+            """,
+        ),
+    )
+end
 
 end # module

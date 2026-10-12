@@ -20,7 +20,7 @@ function formulate_sos2!(
     formulation::PWLFormulation,
     λ::Vector{T},
     method::LogarithmicIndependentBranching,
-) where {T<:_Scalar}
+) where {T<:Scalar}
     model = formulation.model
     n = length(λ)
     d = n - 1

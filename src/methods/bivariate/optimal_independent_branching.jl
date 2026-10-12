@@ -31,8 +31,8 @@ end
 
 function formulate_pwl!(
     formulation::PWLFormulation,
-    input_vars::NTuple{2,_Scalar},
-    output_vars::NTuple{F,_Scalar},
+    input_vars::NTuple{2,Scalar},
+    output_vars::NTuple{F,Scalar},
     pwl::PWLFunction{2,F},
     method::OptimalIndependentBranching,
     direction::Direction,

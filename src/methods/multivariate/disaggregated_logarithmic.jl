@@ -18,8 +18,8 @@ struct DisaggregatedLogarithmic <: Method end
 
 function formulate_pwl!(
     formulation::PWLFormulation,
-    input_vars::NTuple{D,_Scalar},
-    output_vars::NTuple{F,_Scalar},
+    input_vars::NTuple{D,Scalar},
+    output_vars::NTuple{F,Scalar},
     pwl::PWLFunction{D,F},
     method::DisaggregatedLogarithmic,
     direction::Direction,

@@ -20,7 +20,7 @@ function formulate_sos2!(
     formulation::PWLFormulation,
     λ::Vector{T},
     method::NativeSOS2,
-) where {T<:_Scalar}
+) where {T<:Scalar}
     record!(
         formulation,
         JuMP.@constraint(
