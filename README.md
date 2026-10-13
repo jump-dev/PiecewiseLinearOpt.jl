@@ -15,6 +15,11 @@ The package accompanies the paper
 by Joey Huchette and Juan Pablo Vielma, and implements the formulations from
 it together with other formulations from the literature.
 
+Version 0.5 is a rewrite of the code introduced with the paper, with a new
+interface. The original code can be found in the
+[v0.4.2 release](https://github.com/jump-dev/PiecewiseLinearOpt.jl/tree/v0.4.2),
+the last of version 0.4.
+
 ## Installation
 
 ```julia
