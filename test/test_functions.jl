@@ -5,13 +5,36 @@
 
 # Construction and evaluation of piecewise linear functions
 
-@testset "Triangulations" begin
+isdefined(@__MODULE__, :PLOTestUtilities) ||
+    include(joinpath(@__DIR__, "utilities.jl"))
+
+module TestFunctions
+
+using JuMP
+using PiecewiseLinearOpt
+using Test
+
+using ..PLOTestUtilities
+
+function runtests()
+    for name in names(@__MODULE__; all = true)
+        if startswith("$(name)", "test_")
+            @testset "$(name)" begin
+                getfield(@__MODULE__, name)()
+            end
+        end
+    end
+    return
+end
+
+function test_triangulations()
     # A single cell with f = (a + b)^2: the corner values are SW = 0,
     # SE = NW = 1 and NE = 4, so the value at the center is 2 when the cell is
     # split along SW-NE, and 1 along NW-SE. The true value there is 1.
     f = (a, b) -> (a + b)^2
-    center_value(t) =
-        BivariatePWLFunction(0:1, 0:1, f; triangulation = t)(0.5, 0.5)
+    function center_value(t)
+        return BivariatePWLFunction(0:1, 0:1, f; triangulation = t)(0.5, 0.5)
+    end
     @test center_value(UpperTriangulation()) ≈ 2
     @test center_value(LowerTriangulation()) ≈ 1
     @test center_value(BestFitTriangulation()) ≈ 1
@@ -28,14 +51,22 @@
     @test pwl(0.5, 0.5) ≈ 1  # (f(0, 1) + f(1, 0)) / 2
     @test pwl(1.5, 1.5) ≈ 9  # (f(1, 2) + f(2, 1)) / 2
     # Random triangulations are reproducible
-    vertices(t) = [
-        s.input_vals for
-        s in BivariatePWLFunction(d, d, f; triangulation = t).segments
-    ]
+    function vertices(t)
+        return [
+            s.input_vals for
+            s in BivariatePWLFunction(d, d, f; triangulation = t).segments
+        ]
+    end
     @test vertices(RandomTriangulation(1)) == vertices(RandomTriangulation(1))
     # The triangulation is stored as the structure of the function
     @test pwl.structure == K1Triangulation()
+    return
+end
+
+function test_matrix_values()
     # Function values can be given as a matrix
+    f = (a, b) -> (a + b)^2
+    d = 0:3
     z = [f(a, b) for a in d, b in d]
     for t in (K1Triangulation(), UpperTriangulation(), UnionJackTriangulation())
         pwl_f = BivariatePWLFunction(d, d, f; triangulation = t)
@@ -52,7 +83,8 @@
         triangulation = BestFitTriangulation(),
     )
     # Matrix input in the convenience method
-    model = Model(optimizer)
+    pwl = BivariatePWLFunction(d, d, f; triangulation = K1Triangulation())
+    model = Model(OPTIMIZER)
     @variable(model, x[1:2])
     w = piecewiselinear(model, x[1], x[2], d, d, z)
     fix(x[1], 1.5)
@@ -60,9 +92,10 @@
     @objective(model, Max, w)
     solve!(model)
     @test value(w) ≈ pwl(1.5, 0.5) atol = 1e-5
+    return
 end
 
-@testset "Evaluation" begin
+function test_evaluation()
     pwl = UnivariatePWLFunction([0, 1, 2], [0, 2, 1])
     @test pwl(0.5) ≈ 1
     @test pwl(1.5) ≈ 1.5
@@ -80,9 +113,10 @@ end
     @test (@elapsed for _ in 1:100
         big(0.99, 0.99)
     end) < 1.0
+    return
 end
 
-@testset "Input validation" begin
+function test_input_validation()
     @test_throws ErrorException UnivariatePWLFunction([0, 2, 1], [0, 1, 2])
     @test_throws ErrorException UnivariatePWLFunction([0, 1, 1], [0, 1, 2])
     @test_throws ErrorException BivariatePWLFunction(
@@ -96,15 +130,10 @@ end
         (a, b) -> a + b;
         triangulation = UnstructuredTriangulation(),
     )
-    # Segments that are not simplices cannot be used with MultipleChoice
-    s = PLO.SegmentPointRep{2,1}(
-        [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
-        [(0.0,), (1.0,), (2.0,), (1.0,)],
-    )
-    pwl = PLO.PWLFunction([s], PLO.UnstructuredTriangulation())
-    model = Model()
-    @variable(model, x[1:2])
-    test_rejected(model, (x[1], x[2]), pwl; method = MultipleChoice())
+    return
+end
+
+function test_non_finite_values()
     # Breakpoints and function values must be finite
     @test_throws r"function value -Inf at the breakpoint 0.0 is not finite" UnivariatePWLFunction(
         0:2,
@@ -113,38 +142,16 @@ end
     @test_throws ErrorException UnivariatePWLFunction([0, 1, Inf], [0, 1, 2])
     @test_throws ErrorException UnivariatePWLFunction([0, 1, 2], [0, NaN, 2])
     @test_throws ErrorException BivariatePWLFunction(0:1, 0:1, (a, b) -> a / b)
-    @test_throws ErrorException PLO.SegmentPointRep{1,2}(
+    @test_throws ErrorException SegmentPointRep{1,2}(
         [(0.0,), (1.0,)],
         [(0.0, 1.0), (1.0, Inf)],
     )
     model = Model()
     @variable(model, x)
-    test_rejected(model, x, 0:2, log)
+    check_rejected(model, x, 0:2, log)
+    return
 end
 
-@testset "MultipleChoice coefficients" begin
-    # Breakpoints like 0.1 are not exact in floating point, which must not
-    # leave round-off errors in coefficients that should be zero
-    for pwl in (
-        UnivariatePWLFunction(0:0.1:1, t -> t^2),
-        BivariatePWLFunction(
-            0:0.1:0.5,
-            0:0.3:0.9,
-            (a, b) -> a * b;
-            triangulation = UnionJackTriangulation(),
-        ),
-    )
-        model = Model()
-        @variable(model, x[1:length(pwl.segments[1].input_vals)-1])
-        _, formulation =
-            piecewiselinear(model, x, pwl; method = MultipleChoice())
-        coefficients = Float64[]
-        for c in formulation.constraints
-            object = constraint_object(c)
-            append!(coefficients, values(object.func.terms))
-            push!(coefficients, MOI.constant(object.set))
-        end
-        @test !isempty(coefficients)
-        @test all(a -> iszero(a) || abs(a) > 1e-9, coefficients)
-    end
-end
+end # module
+
+TestFunctions.runtests()

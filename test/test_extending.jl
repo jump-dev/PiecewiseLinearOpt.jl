@@ -5,27 +5,37 @@
 
 # The extension interface, with the methods from the manual
 
-import PiecewiseLinearOpt:
-    SOS2Method,
-    TriangleSelectionMethod,
-    Direction,
-    Scalar,
-    formulate_pwl!,
-    formulate_sos2!,
-    formulate_triangle_selection!,
-    add_biclique_cover!,
-    cell_diagonals,
-    constrain_output!,
-    record!,
-    segments,
-    input_values,
-    output_values
+isdefined(@__MODULE__, :PLOTestUtilities) ||
+    include(joinpath(@__DIR__, "utilities.jl"))
+
+module TestExtending
+
+using JuMP
+using PiecewiseLinearOpt
+using Test
+
+using ..PLOTestUtilities
+
+function runtests()
+    for name in names(@__MODULE__; all = true)
+        if startswith("$(name)", "test_")
+            @testset "$(name)" begin
+                getfield(@__MODULE__, name)()
+            end
+        end
+    end
+    return
+end
 
 # An SOS2 formulation with a binary for each k that separates λ[1:k] from
 # λ[k+2:n]
 struct LinearBranching <: SOS2Method end
 
-function formulate_sos2!(formulation, λ::Vector, ::LinearBranching)
+function PiecewiseLinearOpt.formulate_sos2!(
+    formulation,
+    λ::Vector,
+    ::LinearBranching,
+)
     n = length(λ)
     cover = [(collect(1:k), collect(k+2:n)) for k in 1:n-2]
     add_biclique_cover!(formulation, λ, cover)
@@ -38,7 +48,7 @@ struct CellBinaries{M<:PWLMethod} <: TriangleSelectionMethod
 end
 CellBinaries() = CellBinaries(Logarithmic())
 
-function formulate_triangle_selection!(
+function PiecewiseLinearOpt.formulate_triangle_selection!(
     formulation,
     λ::Matrix,
     nw_se::Matrix{Bool},
@@ -56,7 +66,7 @@ end
 # The epigraph of a convex univariate function, without binaries
 struct ConvexEpigraph <: PWLMethod end
 
-function formulate_pwl!(
+function PiecewiseLinearOpt.formulate_pwl!(
     formulation,
     (x,)::Tuple{Scalar},
     (y,)::Tuple{Scalar},
@@ -84,13 +94,13 @@ function formulate_pwl!(
     return
 end
 
-@testset "Extension: SOS2 method" begin
+function test_sos2_method()
     # Pinned to the interpolated value inside every segment, with n - 2
     # binaries for n breakpoints
     for n in 2:8
         xs = collect(range(0; stop = 2π, length = n))
         zs = sin.(xs)
-        model = Model(optimizer)
+        model = Model(OPTIMIZER)
         @variable(model, x)
         (y,), formulation = piecewiselinear(
             model,
@@ -110,21 +120,26 @@ end
         end
     end
     # As the axis method of a grid formulation
-    test_triangle_selection(SixStencil(LinearBranching()), K1Triangulation(), 4)
+    check_triangle_selection(
+        SixStencil(LinearBranching()),
+        K1Triangulation(),
+        4,
+    )
     # Recorded and deleted like the built-in methods
     model = Model()
     @variable(model, x)
-    test_formulation(
+    check_formulation(
         model,
         [x],
         UnivariatePWLFunction(0:5, t -> t^2),
         LinearBranching(),
     )
+    return
 end
 
-@testset "Extension: triangle selection method" begin
-    for triangulation in triangulations
-        test_triangle_selection(CellBinaries(), triangulation, 4)
+function test_triangle_selection_method()
+    for triangulation in TRIANGULATIONS
+        check_triangle_selection(CellBinaries(), triangulation, 4)
     end
     # One binary per cell, in addition to those of the axis method
     model = Model()
@@ -135,16 +150,16 @@ end
     @test count(is_binary, formulation.variables) ==
           count(is_binary, reference.variables) - 6 + 9
     # The axis method is taken from the field by default
-    @test PiecewiseLinearOpt.axis_method(CellBinaries(NativeSOS2())) ==
-          NativeSOS2()
+    @test axis_method(CellBinaries(NativeSOS2())) == NativeSOS2()
     model = Model()
     @variable(model, x[1:2])
-    test_formulation(model, x, pwl, CellBinaries(IndependentBranching()))
+    check_formulation(model, x, pwl, CellBinaries(IndependentBranching()))
+    return
 end
 
-@testset "Extension: general method" begin
+function test_general_method()
     pwl = UnivariatePWLFunction(-2:2, t -> t^2)
-    model = Model(optimizer)
+    model = Model(OPTIMIZER)
     @variable(model, x)
     (y,), formulation = piecewiselinear(
         model,
@@ -169,11 +184,8 @@ end
     # it was
     model = Model()
     @variable(model, x)
-    for (f, direction) in (
-        (t -> t^2, PiecewiseLinearOpt.Graph()),
-        (t -> t^2, Hypograph()),
-        (t -> -t^2, Epigraph()),
-    )
+    for (f, direction) in
+        ((t -> t^2, Graph()), (t -> t^2, Hypograph()), (t -> -t^2, Epigraph()))
         @test_throws ErrorException piecewiselinear(
             model,
             [x],
@@ -182,11 +194,15 @@ end
             direction = direction,
         )
         @test num_variables(model) == 1
-        @test num_constraints(model; count_variable_in_set_constraints = true) == 0
+        @test num_constraints(
+            model;
+            count_variable_in_set_constraints = true,
+        ) == 0
     end
+    return
 end
 
-@testset "Extension: public interface" begin
+function test_public_interface()
     for name in (
         :PWLMethod,
         :SOS2Method,
@@ -218,4 +234,9 @@ end
     @test length(segments(pwl)) == 2
     @test input_values(segments(pwl)[2]) == [(1.0,), (3.0,)]
     @test output_values(segments(pwl)[2]) == [(2.0,), (0.0,)]
+    return
 end
+
+end # module
+
+TestExtending.runtests()
