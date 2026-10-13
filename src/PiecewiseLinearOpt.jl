@@ -52,8 +52,6 @@ include("methods/univariate/LogarithmicIndependentBranching.jl")
 include("methods/univariate/NativeSOS2.jl")
 include("methods/univariate/ZigZagBinary.jl")
 include("methods/univariate/ZigZagInteger.jl")
-# ConvexCombination has an SOS2 formulation, so defer this until after the
-# multivariate formulations are defined
 include("methods/univariate/sos2_formulation_base.jl")
 
 # Consider the colloqial "log" to refer to the embedding formulation
