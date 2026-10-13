@@ -30,7 +30,7 @@ function formulate_triangle_selection!(
 
     # In a Union Jack triangulation the diagonals alternate between neighboring
     # cells.
-    for i in 1:n_1-1, j in 1:n_2-1
+    for i in 1:(n_1-1), j in 1:(n_2-1)
         if triangle_direction[i, j] !=
            xor(triangle_direction[1, 1], isodd(i + j))
             error(

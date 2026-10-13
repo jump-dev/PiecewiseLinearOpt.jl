@@ -80,7 +80,7 @@ function is_valid_triangle_selection(nw_se, cover)
         j < n_2 && push!(joined, ((i, j), (i, j + 1)))
     end
     separated(A, B, (r, s)) = (r in A && s in B) || (s in A && r in B)
-    for i in 1:n_1-1, j in 1:n_2-1
+    for i in 1:(n_1-1), j in 1:(n_2-1)
         edge, non_edge = cell_diagonals(nw_se, i, j)
         push!(joined, edge)
         if !any(((A, B),) -> separated(A, B, non_edge), cover)
@@ -99,7 +99,7 @@ function test_covers()
     for n_1 in 2:9, n_2 in 2:9
         # One level for Union Jack and two for K1 when there is more than one
         # cell, as for the optimal covers
-        uj = [isodd(i + j) for i in 1:n_1-1, j in 1:n_2-1]
+        uj = [isodd(i + j) for i in 1:(n_1-1), j in 1:(n_2-1)]
         cover = PLO._greedy_biclique_cover(uj, 200)
         @test is_valid_triangle_selection(uj, cover)
         @test length(cover) == 1

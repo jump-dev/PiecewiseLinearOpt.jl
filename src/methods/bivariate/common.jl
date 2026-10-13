@@ -216,7 +216,7 @@ function _compute_optimal_biclique_cover(
         end
     end
     to_separate = NTuple{2,Tuple{Int,Int}}[]
-    for i in 1:n_1-1, j in 1:n_2-1
+    for i in 1:(n_1-1), j in 1:(n_2-1)
         edge, non_edge = cell_diagonals(triangle_direction, i, j)
         push!(edges, ordered(edge))
         push!(to_separate, ordered(non_edge))
@@ -360,7 +360,7 @@ function _compute_greedy_biclique_cover(
     end
     # The endpoints of the other diagonal must be separated by some level
     pairs = Tuple{Int,Int}[]
-    for i in 1:n_1-1, j in 1:n_2-1
+    for i in 1:(n_1-1), j in 1:(n_2-1)
         edge, (r, s) = cell_diagonals(triangle_direction, i, j)
         link!(edge...)
         push!(pairs, (index[r...], index[s...]))
@@ -393,7 +393,8 @@ function _greedy_levels(
     levels = Vector{Int8}[]
     while !isempty(order)
         side = zeros(Int8, length(neighbors))
-        fits(p, k) = side[p] != 3 - k && all(q -> side[q] != 3 - k, neighbors[p])
+        fits(p, k) =
+            side[p] != 3 - k && all(q -> side[q] != 3 - k, neighbors[p])
         rest = Int[]
         for c in order
             r, s = pairs[c]

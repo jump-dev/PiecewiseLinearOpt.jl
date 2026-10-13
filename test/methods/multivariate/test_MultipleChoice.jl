@@ -145,7 +145,7 @@ function test_coefficients()
         ),
     )
         model = Model()
-        @variable(model, x[1:length(pwl.segments[1].input_vals)-1])
+        @variable(model, x[1:(length(pwl.segments[1].input_vals)-1)])
         _, formulation =
             piecewiselinear(model, x, pwl; method = MultipleChoice())
         coefficients = Float64[]

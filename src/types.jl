@@ -364,7 +364,7 @@ const UnivariatePWLFunction = PWLFunction{1,1}
 const BivariatePWLFunction = PWLFunction{2,1}
 
 function _check_strictly_increasing(xs::Vector{Float64}, name::String)
-    for i in 1:length(xs)-1
+    for i in 1:(length(xs)-1)
         if !(xs[i] < xs[i+1])
             error("The breakpoints in $name must be strictly increasing.")
         end
@@ -392,7 +392,7 @@ function PWLFunction{1,1}(x::Vector, z::Vector)
         PiecewiseLinearOpt.SegmentPointRep{1,1}(
             [(xs[i],), (xs[i+1],)],
             [(zs[i],), (zs[i+1],)],
-        ) for i in 1:length(x)-1
+        ) for i in 1:(length(x)-1)
     ]
 
     return PWLFunction(segments, Intervals())
@@ -460,7 +460,7 @@ function _grid_pwl_function(
     _check_strictly_increasing(ys, "y")
     nw_se = _nw_se_diagonals(triangulation, xs, ys, z, center)
     segments = SegmentPointRep{2,1}[]
-    for i in 1:length(xs)-1, j in 1:length(ys)-1
+    for i in 1:(length(xs)-1), j in 1:(length(ys)-1)
         sw, se, nw, ne = (i, j), (i + 1, j), (i, j + 1), (i + 1, j + 1)
         if nw_se[i, j]
             triangles = ((sw, nw, se), (se, nw, ne))
@@ -488,20 +488,20 @@ function _nw_se_diagonals(::K1Triangulation, xs, ys, z, center)
 end
 
 function _nw_se_diagonals(::UnionJackTriangulation, xs, ys, z, center)
-    return [isodd(i + j) for i in 1:length(xs)-1, j in 1:length(ys)-1]
+    return [isodd(i + j) for i in 1:(length(xs)-1), j in 1:(length(ys)-1)]
 end
 
 function _nw_se_diagonals(::UpperTriangulation, xs, ys, z, center)
     return [
-        z[i, j+1] + z[i+1, j] > z[i, j] + z[i+1, j+1] for i in 1:length(xs)-1,
-        j in 1:length(ys)-1
+        z[i, j+1] + z[i+1, j] > z[i, j] + z[i+1, j+1] for
+        i in 1:(length(xs)-1), j in 1:(length(ys)-1)
     ]
 end
 
 function _nw_se_diagonals(::LowerTriangulation, xs, ys, z, center)
     return [
-        z[i, j+1] + z[i+1, j] < z[i, j] + z[i+1, j+1] for i in 1:length(xs)-1,
-        j in 1:length(ys)-1
+        z[i, j+1] + z[i+1, j] < z[i, j] + z[i+1, j+1] for
+        i in 1:(length(xs)-1), j in 1:(length(ys)-1)
     ]
 end
 
@@ -514,7 +514,7 @@ function _nw_se_diagonals(::BestFitTriangulation, xs, ys, z, center)
     return [
         abs(0.5 * (z[i, j+1] + z[i+1, j]) - center(i, j)) <
         abs(0.5 * (z[i, j] + z[i+1, j+1]) - center(i, j)) for
-        i in 1:length(xs)-1, j in 1:length(ys)-1
+        i in 1:(length(xs)-1), j in 1:(length(ys)-1)
     ]
 end
 

@@ -107,14 +107,14 @@ function formulate_sos2!(
         formulation,
         JuMP.@variable(
             model,
-            [1:n-1],
+            [1:(n-1)],
             Bin,
             base_name = variable_name(formulation, "z")
         ),
     )
     record!(formulation, JuMP.@constraint(model, sum(z) == 1))
     record!(formulation, JuMP.@constraint(model, λ[1] ≤ z[1]))
-    for i in 2:n-1
+    for i in 2:(n-1)
         record!(formulation, JuMP.@constraint(model, λ[i] ≤ z[i-1] + z[i]))
     end
     record!(formulation, JuMP.@constraint(model, λ[n] ≤ z[n-1]))

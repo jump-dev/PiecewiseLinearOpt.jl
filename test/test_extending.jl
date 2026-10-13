@@ -37,7 +37,7 @@ function PiecewiseLinearOpt.formulate_sos2!(
     ::LinearBranching,
 )
     n = length(λ)
-    cover = [(collect(1:k), collect(k+2:n)) for k in 1:n-2]
+    cover = [(collect(1:k), collect((k+2):n)) for k in 1:(n-2)]
     add_biclique_cover!(formulation, λ, cover)
     return
 end
@@ -109,7 +109,7 @@ function test_sos2_method()
             method = LinearBranching(),
         )
         @test count(is_binary, formulation.variables) == max(n - 2, 0)
-        for i in 1:n-1
+        for i in 1:(n-1)
             fix(x, 0.3 * xs[i] + 0.7 * xs[i+1])
             for sense in (MAX_SENSE, MIN_SENSE)
                 @objective(model, sense, y)

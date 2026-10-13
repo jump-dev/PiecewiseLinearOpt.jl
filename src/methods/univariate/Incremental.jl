@@ -46,7 +46,7 @@ function formulate_pwl!(
         formulation,
         JuMP.@variable(
             model,
-            [1:d-1],
+            [1:(d-1)],
             Bin,
             base_name = variable_name(formulation, "z")
         ),
@@ -63,7 +63,7 @@ function formulate_pwl!(
         rhs = ys[1][j] + sum(δ[i] * (ys[i+1][j] - ys[i][j]) for i in 1:d)
         constrain_output!(formulation, output_vars[j], rhs, direction)
     end
-    for i in 1:d-1
+    for i in 1:(d-1)
         record!(formulation, JuMP.@constraint(model, δ[i+1] ≤ z[i]))
         record!(formulation, JuMP.@constraint(model, z[i] ≤ δ[i]))
     end

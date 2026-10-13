@@ -198,7 +198,7 @@ function _check_univariate_sizes(method)
         model = Model(OPTIMIZER)
         @variable(model, x)
         y = piecewiselinear(model, x, xs, zs; method = method)
-        for i in 1:n-1
+        for i in 1:(n-1)
             x0 = 0.3 * xs[i] + 0.7 * xs[i+1]
             y0 = 0.3 * zs[i] + 0.7 * zs[i+1]
             fix(x, x0)

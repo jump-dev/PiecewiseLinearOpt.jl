@@ -50,7 +50,7 @@ function formulate_sos2!(
     λ::Vector{T},
     method::IndependentBranching,
 ) where {T<:Scalar}
-    S = [[i, i + 1] for i in 1:length(λ)-1]
+    S = [[i, i + 1] for i in 1:(length(λ)-1)]
     add_biclique_cover!(formulation, λ, _ordered_cdc_cover(S, method.scheme))
     return nothing
 end
@@ -112,7 +112,7 @@ function formulate_pwl!(
 end
 
 function _check_generalized_1d_ordered(S::Vector{Vector{Int}})
-    for i in 1:length(S), j in i+2:length(S)
+    for i in 1:length(S), j in (i+2):length(S)
         if !isdisjoint(S[i], S[j])
             error(
                 "The segments must be ordered so that only neighboring segments share points, but segments $i and $j share a point.",
@@ -208,8 +208,8 @@ function _biclique_cover_from_ranking(S::Vector{Vector{Int}}, φ::Vector{Int})
         if last ≤ first
             return
         end
-        e = first - 1 + argmin(view(φ, first:last-1))
-        cuts[e] = (first:e, e+1:last)
+        e = first - 1 + argmin(view(φ, first:(last-1)))
+        cuts[e] = (first:e, (e+1):last)
         separate!(first, e)
         separate!(e + 1, last)
         return

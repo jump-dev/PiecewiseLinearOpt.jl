@@ -89,7 +89,7 @@ function test_ordered_cdc_covers()
             S, next = Vector{Int}[], 1
             for i in 1:d
                 first = i == 1 ? next : next - shared
-                push!(S, collect(first:first+2*shared+mod(i, 3)))
+                push!(S, collect(first:(first+2*shared+mod(i, 3))))
                 next = S[end][end] + 1
             end
             cover = PLO._ordered_cdc_cover(S, scheme)

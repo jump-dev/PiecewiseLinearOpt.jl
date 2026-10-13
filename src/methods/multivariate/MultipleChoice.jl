@@ -126,7 +126,7 @@ function _hyperplane_rep(seg::SegmentPointRep{D,F}, ::Type{T}) where {D,F,T}
     function affine(coeffs, offset)
         a = Float64[coeffs; offset]
         tol = 1e-12 * maximum(abs, a)
-        a[abs.(a).<tol] .= 0.0
+        a[abs.(a) .< tol] .= 0.0
         return _AffineFunction{D}(ntuple(j -> a[j], D), a[D+1])
     end
 

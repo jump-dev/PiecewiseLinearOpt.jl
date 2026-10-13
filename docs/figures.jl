@@ -10,13 +10,8 @@ using PiecewiseLinearOpt
 import PiecewiseLinearOpt: segments, input_values, output_values
 
 # The viridis color map, sampled at five points
-const _COLORS = [
-    (68, 1, 84),
-    (59, 82, 139),
-    (33, 144, 141),
-    (93, 200, 99),
-    (253, 231, 37),
-]
+const _COLORS =
+    [(68, 1, 84), (59, 82, 139), (33, 144, 141), (93, 200, 99), (253, 231, 37)]
 
 function _color(t)
     s = clamp(t, 0, 1) * (length(_COLORS) - 1)
@@ -142,7 +137,7 @@ function univariate_figure(
             )
         end
         step = y_hi - y_lo > 3 ? 1.0 : 0.5
-        for b in (ceil(y_lo / step)*step):step:y_hi
+        for b in (ceil(y_lo/step)*step):step:y_hi
             println(
                 io,
                 """<line x1="$x0" y1="$(py(b))" x2="$(x0 + width)" y2="$(py(b))" stroke="#eee"/>""",

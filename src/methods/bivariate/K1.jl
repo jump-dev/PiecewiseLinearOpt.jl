@@ -50,12 +50,12 @@ function formulate_triangle_selection!(
         A = [
             λ[i, j] for
             i in 1:n_1, j in 1:n_2 if (mod(i, 2) == mod(j, 2)) == parity &&
-            (i + j) in offset:4:(n_1+n_2)
+                (i + j) in offset:4:(n_1+n_2)
         ]
         B = [
             λ[i, j] for
             i in 1:n_1, j in 1:n_2 if (mod(i, 2) == mod(j, 2)) == parity &&
-            (i + j) in offset+2:4:(n_1+n_2)
+                (i + j) in (offset+2):4:(n_1+n_2)
         ]
         if !isempty(A)
             record!(formulation, JuMP.@constraint(model, sum(A) ≤ w[k]))
