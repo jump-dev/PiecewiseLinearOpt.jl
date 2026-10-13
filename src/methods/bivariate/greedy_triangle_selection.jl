@@ -20,13 +20,13 @@ variables: 2 for [`K1Triangulation`](@ref), 1 for
 [`UnionJackTriangulation`](@ref), and a few more for irregular triangulations.
 The result is cached for each triangulation.
 """
-struct GreedyTriangleSelection{M<:Method} <: TriangleSelectionMethod
+struct GreedyTriangleSelection{M<:PWLMethod} <: TriangleSelectionMethod
     axis_method::M
     tries::Int
 end
 
 function GreedyTriangleSelection(
-    axis_method::Method = Logarithmic();
+    axis_method::PWLMethod = Logarithmic();
     tries::Integer = 200,
 )
     return GreedyTriangleSelection(axis_method, Int(tries))

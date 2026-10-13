@@ -5,8 +5,8 @@
 ```@docs
 piecewiselinear
 PWLFormulation
-PiecewiseLinearOpt.Direction
-PiecewiseLinearOpt.Graph
+Direction
+Graph
 Epigraph
 Hypograph
 ```
@@ -74,20 +74,20 @@ MultipleChoice
 See [Extending the package](@ref).
 
 ```@docs
-PiecewiseLinearOpt.Method
-PiecewiseLinearOpt.SOS2Method
-PiecewiseLinearOpt.TriangleSelectionMethod
-PiecewiseLinearOpt.formulate_pwl!
-PiecewiseLinearOpt.formulate_sos2!
-PiecewiseLinearOpt.formulate_triangle_selection!
-PiecewiseLinearOpt.axis_method
-PiecewiseLinearOpt.record!
-PiecewiseLinearOpt.variable_name
-PiecewiseLinearOpt.constrain_output!
-PiecewiseLinearOpt.add_biclique_cover!
-PiecewiseLinearOpt.cell_diagonals
-PiecewiseLinearOpt.Scalar
-PiecewiseLinearOpt.segments
-PiecewiseLinearOpt.input_values
-PiecewiseLinearOpt.output_values
+PWLMethod
+SOS2Method
+TriangleSelectionMethod
+formulate_pwl!
+formulate_sos2!
+formulate_triangle_selection!
+axis_method
+record!
+variable_name
+constrain_output!
+add_biclique_cover!
+cell_diagonals
+Scalar
+segments
+input_values
+output_values
 ```

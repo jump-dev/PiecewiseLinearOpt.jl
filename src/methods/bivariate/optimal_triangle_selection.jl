@@ -35,7 +35,7 @@ give the sub-solver a single thread, i.e.
 `optimizer_with_attributes(HiGHS.Optimizer, "threads" => 1)`, or the main
 model fails to solve.
 """
-struct OptimalTriangleSelection{S,M<:Method} <: TriangleSelectionMethod
+struct OptimalTriangleSelection{S,M<:PWLMethod} <: TriangleSelectionMethod
     sub_solver::S
     axis_method::M
     time_limit::Float64
@@ -43,7 +43,7 @@ end
 
 function OptimalTriangleSelection(
     sub_solver,
-    axis_method::Method = Logarithmic();
+    axis_method::PWLMethod = Logarithmic();
     time_limit::Real = 60.0,
 )
     return OptimalTriangleSelection(

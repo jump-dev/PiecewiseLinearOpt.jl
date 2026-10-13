@@ -24,7 +24,7 @@ Use `JuMP.delete(model, formulation)` to remove the function from the model.
 struct PWLFormulation{
     M<:JuMP.GenericModel,
     V<:JuMP.AbstractVariableRef,
-    T<:Method,
+    T<:PWLMethod,
 }
     model::M
     name::String
@@ -33,7 +33,11 @@ struct PWLFormulation{
     constraints::Vector{JuMP.ConstraintRef}
 end
 
-function PWLFormulation(model::JuMP.GenericModel, name::String, method::Method)
+function PWLFormulation(
+    model::JuMP.GenericModel,
+    name::String,
+    method::PWLMethod,
+)
     return PWLFormulation(
         model,
         name,

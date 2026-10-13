@@ -14,7 +14,7 @@ each segment.
 
 It can also be used as the axis method of the bivariate grid formulations.
 """
-struct ConvexCombination <: Method end
+struct ConvexCombination <: PWLMethod end
 
 function formulate_pwl!(
     formulation::PWLFormulation,

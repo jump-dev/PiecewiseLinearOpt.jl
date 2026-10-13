@@ -13,7 +13,7 @@ the diagonals alternate between neighboring cells, e.g.
 It combines an SOS2 constraint along each axis, formulated with `axis_method`,
 with 1 binary variable to select the triangle in the chosen cell.
 """
-struct UnionJack{M<:Method} <: TriangleSelectionMethod
+struct UnionJack{M<:PWLMethod} <: TriangleSelectionMethod
     axis_method::M
 end
 UnionJack() = UnionJack(Logarithmic())

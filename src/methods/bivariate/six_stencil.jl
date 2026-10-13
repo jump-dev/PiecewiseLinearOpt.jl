@@ -13,7 +13,7 @@ functions.
 It combines an SOS2 constraint along each axis, formulated with `axis_method`,
 with 6 binary variables to select the triangle in the chosen cell.
 """
-struct SixStencil{M<:Method} <: TriangleSelectionMethod
+struct SixStencil{M<:PWLMethod} <: TriangleSelectionMethod
     axis_method::M
 end
 SixStencil() = SixStencil(Logarithmic())

@@ -11,7 +11,7 @@ The multiple choice formulation of piecewise linear functions of any dimension
 variable for each segment. The segments must be simplices, but the function
 may be discontinuous.
 """
-struct MultipleChoice <: Method end
+struct MultipleChoice <: PWLMethod end
 
 # Each segment gets its own copy of the input, so the function need not be
 # continuous.

@@ -32,7 +32,7 @@ The `scheme` gives the construction of the branching levels:
 - `:brgc`: binary reflected Gray code (Theorem 1), equivalent to
   [`LogarithmicIndependentBranching`](@ref) for continuous functions.
 """
-struct IndependentBranching <: Method
+struct IndependentBranching <: PWLMethod
     scheme::Symbol
 
     function IndependentBranching(scheme::Symbol = :biclique)

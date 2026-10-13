@@ -13,7 +13,7 @@ corner, e.g. [`K1Triangulation`](@ref).
 It combines an SOS2 constraint along each axis, formulated with `axis_method`,
 with 2 binary variables to select the triangle in the chosen cell.
 """
-struct K1{M<:Method} <: TriangleSelectionMethod
+struct K1{M<:PWLMethod} <: TriangleSelectionMethod
     axis_method::M
 end
 K1() = K1(Logarithmic())

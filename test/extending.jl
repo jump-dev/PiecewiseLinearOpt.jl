@@ -33,7 +33,7 @@ function formulate_sos2!(formulation, λ::Vector, ::LinearBranching)
 end
 
 # A triangle selection with a binary for each cell
-struct CellBinaries{M<:PiecewiseLinearOpt.Method} <: TriangleSelectionMethod
+struct CellBinaries{M<:PWLMethod} <: TriangleSelectionMethod
     axis_method::M
 end
 CellBinaries() = CellBinaries(Logarithmic())
@@ -54,7 +54,7 @@ function formulate_triangle_selection!(
 end
 
 # The epigraph of a convex univariate function, without binaries
-struct ConvexEpigraph <: PiecewiseLinearOpt.Method end
+struct ConvexEpigraph <: PWLMethod end
 
 function formulate_pwl!(
     formulation,
@@ -187,30 +187,27 @@ end
 end
 
 @testset "Extension: public interface" begin
-    @static if VERSION >= v"1.11.0-DEV.469"
-        for name in (
-            :Method,
-            :SOS2Method,
-            :TriangleSelectionMethod,
-            :Direction,
-            :Graph,
-            :Scalar,
-            :formulate_pwl!,
-            :formulate_sos2!,
-            :formulate_triangle_selection!,
-            :axis_method,
-            :record!,
-            :variable_name,
-            :constrain_output!,
-            :add_biclique_cover!,
-            :cell_diagonals,
-            :segments,
-            :input_values,
-            :output_values,
-        )
-            @test Base.ispublic(PiecewiseLinearOpt, name)
-            @test !Base.isexported(PiecewiseLinearOpt, name)
-        end
+    for name in (
+        :PWLMethod,
+        :SOS2Method,
+        :TriangleSelectionMethod,
+        :Direction,
+        :Graph,
+        :Scalar,
+        :formulate_pwl!,
+        :formulate_sos2!,
+        :formulate_triangle_selection!,
+        :axis_method,
+        :record!,
+        :variable_name,
+        :constrain_output!,
+        :add_biclique_cover!,
+        :cell_diagonals,
+        :segments,
+        :input_values,
+        :output_values,
+    )
+        @test Base.isexported(PiecewiseLinearOpt, name)
     end
     # The diagonals of a cell, as an edge and a non-edge of the triangulation
     nw_se = [true false]

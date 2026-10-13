@@ -14,7 +14,7 @@ functions (see Vielma, Ahmed and Nemhauser, 2010).
 For `d` segments, it uses `d - 1` binary variables and `d` continuous variables
 for the fill of each segment.
 """
-struct Incremental <: Method end
+struct Incremental <: PWLMethod end
 
 function formulate_pwl!(
     formulation::PWLFormulation,

@@ -12,7 +12,7 @@ triangulation (Huchette and Vielma, 2023).
 It combines an SOS2 constraint along each axis, formulated with `axis_method`,
 with 9 binary variables to select the triangle in the chosen cell.
 """
-struct NineStencil{M<:Method} <: TriangleSelectionMethod
+struct NineStencil{M<:PWLMethod} <: TriangleSelectionMethod
     axis_method::M
 end
 NineStencil() = NineStencil(Logarithmic())

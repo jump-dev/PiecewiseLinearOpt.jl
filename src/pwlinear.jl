@@ -11,7 +11,7 @@ function formulate_pwl!(
     input_vars,
     output_vars,
     pwl,
-    method::Method,
+    method::PWLMethod,
     direction,
 )
     return error(
@@ -49,7 +49,7 @@ returns the tuple `(output_vars, formulation)`.
 - `method`: the formulation method, defaults to `Logarithmic()` for univariate
   functions, `SixStencil()` for bivariate functions and
   `DisaggregatedLogarithmic()` for functions of more variables.
-- `direction`: whether the outputs equal (`PiecewiseLinearOpt.Graph()`), are
+- `direction`: whether the outputs equal (`Graph()`), are
   at least (`Epigraph()`) or are at most (`Hypograph()`) the function value.
 - `output_vars`: a vector or tuple with an output variable or expression for
   each output of `pwl`. If `nothing`, new variables are created, bounded by
@@ -92,7 +92,7 @@ function piecewiselinear(
     model::JuMP.GenericModel,
     input_vars::Union{Tuple,AbstractVector},
     pwl::PWLFunction{D,F};
-    method::Method = _default_method(Val(D)),
+    method::PWLMethod = _default_method(Val(D)),
     direction::Direction = Graph(),
     output_vars::Union{Nothing,Tuple,AbstractVector} = nothing,
     name::Union{Nothing,AbstractString} = nothing,

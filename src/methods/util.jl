@@ -34,11 +34,11 @@ function _output_constraint(model, y, value, ::Hypograph)
     return JuMP.@constraint(model, y <= value)
 end
 
-struct Grid{D,F}
+struct _Grid{D,F}
     input_vals::Array{NTuple{D,Float64},D}
     output_vals::Array{NTuple{F,Float64},D}
 
-    function Grid(
+    function _Grid(
         input_vals::Array{NTuple{D,Float64},D},
         output_vals::Array{NTuple{F,Float64},D},
     ) where {D,F}
@@ -125,12 +125,12 @@ function _continuous_gridpoints_or_die(pwl::PWLFunction{D,F}) where {D,F}
         end
     end
 
-    return Grid(x_grid, y_grid)
+    return _Grid(x_grid, y_grid)
 end
 
 function _canonicalize_triangulation(
     pwl::PWLFunction{D,F},
-    grid::Grid{D,F},
+    grid::_Grid{D,F},
 ) where {D,F}
     _check_triangulation(pwl)
 
@@ -153,7 +153,7 @@ end
 
 function _create_convex_multiplier_vars(
     formulation::PWLFormulation,
-    grid::Grid{D,F},
+    grid::_Grid{D,F},
     input_vars::NTuple{D,Scalar},
     output_vars::NTuple{F,Scalar},
     direction::Direction,

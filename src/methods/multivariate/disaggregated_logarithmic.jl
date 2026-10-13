@@ -14,7 +14,7 @@ the segments do not share multipliers, the function may be discontinuous.
 
 For `d` segments, it uses `ceil(log2(d))` binary variables.
 """
-struct DisaggregatedLogarithmic <: Method end
+struct DisaggregatedLogarithmic <: PWLMethod end
 
 function formulate_pwl!(
     formulation::PWLFormulation,

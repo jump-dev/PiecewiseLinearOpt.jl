@@ -67,7 +67,7 @@ end
 # -----
 # | / |
 # -----
-function _triangle_directions(pwl::PWLFunction{2}, grid::Grid{2})
+function _triangle_directions(pwl::PWLFunction{2}, grid::_Grid{2})
     n_1, n_2 = size(grid.input_vals)
     triangle_direction = fill(false, (n_1 - 1, n_2 - 1))
     # The first triangle found in each cell, and the number of triangles in it

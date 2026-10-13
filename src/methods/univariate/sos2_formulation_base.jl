@@ -135,7 +135,7 @@ end
 # whose outputs are the unit vectors at the breakpoints.
 # The arguments other than the method are untyped, so that any implementation
 # for a specific method is more specific than this fallback.
-function formulate_sos2!(formulation, λ, method::Method)
+function formulate_sos2!(formulation, λ, method::PWLMethod)
     n = length(λ)
     D = 1
     F = n

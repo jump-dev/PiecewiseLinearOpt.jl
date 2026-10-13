@@ -24,7 +24,7 @@ with a longer time limit. For larger grids, use e.g.
 See [`OptimalTriangleSelection`](@ref) on the number of threads when the
 sub-solver is HiGHS.
 """
-struct OptimalIndependentBranching{S} <: Method
+struct OptimalIndependentBranching{S} <: PWLMethod
     sub_solver::S
     time_limit::Float64
 end

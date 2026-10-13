@@ -4,20 +4,20 @@
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
 """
-    PiecewiseLinearOpt.Method
+    PWLMethod
 
 The abstract type of the formulation methods, which are passed to
 [`piecewiselinear`](@ref) with the `method` keyword.
 
-A new method is a subtype of `Method` that implements
+A new method is a subtype of `PWLMethod` that implements
 [`formulate_pwl!`](@ref). The subtypes [`SOS2Method`](@ref) and
 [`TriangleSelectionMethod`](@ref) only need to implement a part of the
 formulation. See the manual on extending the package for details.
 """
-abstract type Method end
+abstract type PWLMethod end
 
 """
-    PiecewiseLinearOpt.SOS2Method <: Method
+    SOS2Method <: PWLMethod
 
 The abstract type of methods that formulate the SOS2 constraint on a vector of
 convex multipliers, i.e. that at most two of them, and those adjacent, are
@@ -26,10 +26,10 @@ formulates continuous univariate functions through the convex multipliers of
 the breakpoints. It can also be used as the axis method of a
 [`TriangleSelectionMethod`](@ref).
 """
-abstract type SOS2Method <: Method end
+abstract type SOS2Method <: PWLMethod end
 
 """
-    PiecewiseLinearOpt.TriangleSelectionMethod <: Method
+    TriangleSelectionMethod <: PWLMethod
 
 The abstract type of methods for continuous bivariate functions on a grid
 triangulation.
@@ -39,7 +39,7 @@ axis, formulated with [`axis_method`](@ref), and then a triangle in the cell
 with [`formulate_triangle_selection!`](@ref). A subtype must implement the
 latter, and `axis_method` unless it has a field `axis_method`.
 """
-abstract type TriangleSelectionMethod <: Method end
+abstract type TriangleSelectionMethod <: PWLMethod end
 
 """
     formulate_pwl!(
@@ -47,14 +47,14 @@ abstract type TriangleSelectionMethod <: Method end
         x::NTuple{D},
         y::NTuple{F},
         pwl::PWLFunction{D,F},
-        method::Method,
+        method::PWLMethod,
         direction::Direction,
     )
 
 Adds variables and constraints to `formulation.model` so that the outputs `y`
 relate to the function `pwl` of the inputs `x` as given by `direction`.
 
-Implement this for a new [`Method`](@ref), for the dimensions `D` and `F` it
+Implement this for a new [`PWLMethod`](@ref), for the dimensions `D` and `F` it
 supports. The inputs and outputs are variables, affine expressions or
 constants, see [`Scalar`](@ref). The segments of `pwl` are given by
 [`segments`](@ref). Every variable and constraint created must be passed through
@@ -67,7 +67,7 @@ discontinuous; the model is then restored.
 function formulate_pwl! end
 
 """
-    formulate_sos2!(formulation::PWLFormulation, λ::Vector, method::Method)
+    formulate_sos2!(formulation::PWLFormulation, λ::Vector, method::PWLMethod)
 
 Adds variables and constraints to `formulation.model` so that at most two of
 the convex multipliers `λ`, and those adjacent, are nonzero. The multipliers
@@ -112,7 +112,7 @@ Defaults to the field `axis_method` of `method`.
 axis_method(method::TriangleSelectionMethod) = method.axis_method
 # Print methods as they are constructed, e.g. SixStencil(LogarithmicEmbedding())
 # instead of SixStencil{LogarithmicEmbedding}(LogarithmicEmbedding()).
-function Base.show(io::IO, method::Method)
+function Base.show(io::IO, method::PWLMethod)
     print(io, nameof(typeof(method)), "(")
     fields = (getfield(method, f) for f in fieldnames(typeof(method)))
     join(io, (_show_field(io, x) for x in fields), ", ")
@@ -129,20 +129,20 @@ function _show_field(io::IO, x::JuMP.MOI.OptimizerWithAttributes)
 end
 
 """
-    PiecewiseLinearOpt.Direction
+    Direction
 
 The abstract type of the `direction` keyword of [`piecewiselinear`](@ref),
 which gives how the outputs `y` relate to the function value `f(x)`:
-[`PiecewiseLinearOpt.Graph`](@ref) (the default), [`Epigraph`](@ref) or
+[`Graph`](@ref) (the default), [`Epigraph`](@ref) or
 [`Hypograph`](@ref).
 """
 abstract type Direction end
 
 """
-    PiecewiseLinearOpt.Graph()
+    Graph()
 
 The direction where the outputs equal the function value, `y == f(x)`. This
-is the default, so it is not exported.
+is the default.
 """
 struct Graph <: Direction end
 

@@ -60,7 +60,7 @@ largest function values. Existing variables or expressions can be given with
 methods.
 
 The `direction` keyword relaxes the equality between output and function
-value, see [`PiecewiseLinearOpt.Direction`](@ref), and the new output
+value, see [`Direction`](@ref), and the new output
 variables are then only bounded from the side of the function. For example,
 with [`Epigraph`](@ref) the output is only bounded from below, which is
 enough when minimizing:

@@ -4,20 +4,20 @@ CurrentModule = PiecewiseLinearOpt
 
 # Extending the package
 
-A formulation method is a subtype of [`PiecewiseLinearOpt.Method`](@ref) that
+A formulation method is a subtype of [`PWLMethod`](@ref) that
 implements how a function is added to a model. Three levels of extension are
 possible, from the least to the most work:
 
-1. A [`PiecewiseLinearOpt.SOS2Method`](@ref) implements
+1. A [`SOS2Method`](@ref) implements
    [`formulate_sos2!`](@ref), a formulation of the SOS2 constraint on a vector
    of convex multipliers. The package then formulates continuous univariate
    functions with it, and it can be used as the axis method of the bivariate
    grid methods.
-2. A [`PiecewiseLinearOpt.TriangleSelectionMethod`](@ref) implements
+2. A [`TriangleSelectionMethod`](@ref) implements
    [`formulate_triangle_selection!`](@ref), which selects a triangle in a
    cell of a grid, after the package has selected the cell with SOS2
    constraints along the axes.
-3. Any other [`PiecewiseLinearOpt.Method`](@ref) implements
+3. Any other [`PWLMethod`](@ref) implements
    [`formulate_pwl!`](@ref), the whole formulation for the dimensions it
    supports.
 
@@ -25,8 +25,9 @@ In all cases, every variable and constraint added to the model must be passed
 through [`record!`](@ref), so that the [`PWLFormulation`](@ref) can report and
 delete them, and variables should be named with [`variable_name`](@ref). The
 helpers [`constrain_output!`](@ref) and [`add_biclique_cover!`](@ref) cover
-common parts of a formulation. These functions are public but not exported,
-so they are written with the module prefix or imported.
+common parts of a formulation. The interface is exported, but adding a method
+to an interface function requires importing it or writing it with the module
+prefix.
 
 The methods below are examples of the interface. They are tested, but they are
 not meant for production use: `LinearBranching` has a quadratic number of
@@ -72,7 +73,7 @@ value(x), value(y), objective_value(model)
 
 ## A triangle selection method
 
-A [`TriangleSelectionMethod`](@ref PiecewiseLinearOpt.TriangleSelectionMethod)
+A [`TriangleSelectionMethod`](@ref)
 receives the matrix of multipliers of the grid points, of which only the four
 corners of one cell can be nonzero, and must restrict them to one of the two
 triangles of that cell. The simplest way is a binary variable for each cell,
@@ -87,7 +88,7 @@ import PiecewiseLinearOpt:
     add_biclique_cover!,
     cell_diagonals
 
-struct CellBinaries{M<:PiecewiseLinearOpt.Method} <: TriangleSelectionMethod
+struct CellBinaries{M<:PWLMethod} <: TriangleSelectionMethod
     axis_method::M
 end
 CellBinaries() = CellBinaries(Logarithmic())
@@ -161,7 +162,7 @@ import PiecewiseLinearOpt:
     input_values,
     output_values
 
-struct ConvexEpigraph <: PiecewiseLinearOpt.Method end
+struct ConvexEpigraph <: PWLMethod end
 
 function formulate_pwl!(
     formulation,

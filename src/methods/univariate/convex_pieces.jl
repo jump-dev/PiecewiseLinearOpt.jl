@@ -29,7 +29,7 @@ formulation is ideal. With `encoding = :log`, the active piece is encoded with
 
 The function may be discontinuous, and the pieces then end at the jumps.
 """
-struct ConvexPieces <: Method
+struct ConvexPieces <: PWLMethod
     encoding::Symbol
 
     function ConvexPieces(encoding::Symbol = :mc)
