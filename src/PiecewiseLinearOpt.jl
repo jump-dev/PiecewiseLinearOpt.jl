@@ -44,14 +44,14 @@ const Scalar = Union{Real,JuMP.AbstractJuMPScalar}
 include("formulation.jl")
 include("methods/util.jl")
 
-include("methods/univariate/convex_pieces.jl")
-include("methods/univariate/incremental.jl")
-include("methods/univariate/independent_branching.jl")
-include("methods/univariate/logarithmic_embedding.jl")
-include("methods/univariate/logarithmic_independent_branching.jl")
-include("methods/univariate/native_sos2.jl")
-include("methods/univariate/zig_zag_binary.jl")
-include("methods/univariate/zig_zag_integer.jl")
+include("methods/univariate/ConvexPieces.jl")
+include("methods/univariate/Incremental.jl")
+include("methods/univariate/IndependentBranching.jl")
+include("methods/univariate/LogarithmicEmbedding.jl")
+include("methods/univariate/LogarithmicIndependentBranching.jl")
+include("methods/univariate/NativeSOS2.jl")
+include("methods/univariate/ZigZagBinary.jl")
+include("methods/univariate/ZigZagInteger.jl")
 # ConvexCombination has an SOS2 formulation, so defer this until after the
 # multivariate formulations are defined
 include("methods/univariate/sos2_formulation_base.jl")
@@ -59,18 +59,18 @@ include("methods/univariate/sos2_formulation_base.jl")
 # Consider the colloqial "log" to refer to the embedding formulation
 const Logarithmic = LogarithmicEmbedding
 
-include("methods/bivariate/greedy_triangle_selection.jl")
-include("methods/bivariate/k1.jl")
-include("methods/bivariate/nine_stencil.jl")
-include("methods/bivariate/optimal_independent_branching.jl")
-include("methods/bivariate/optimal_triangle_selection.jl")
-include("methods/bivariate/six_stencil.jl")
-include("methods/bivariate/union_jack.jl")
+include("methods/bivariate/GreedyTriangleSelection.jl")
+include("methods/bivariate/K1.jl")
+include("methods/bivariate/NineStencil.jl")
+include("methods/bivariate/OptimalIndependentBranching.jl")
+include("methods/bivariate/OptimalTriangleSelection.jl")
+include("methods/bivariate/SixStencil.jl")
+include("methods/bivariate/UnionJack.jl")
 include("methods/bivariate/common.jl")
 
-include("methods/multivariate/convex_combination.jl")
-include("methods/multivariate/disaggregated_logarithmic.jl")
-include("methods/multivariate/multiple_choice.jl")
+include("methods/multivariate/ConvexCombination.jl")
+include("methods/multivariate/DisaggregatedLogarithmic.jl")
+include("methods/multivariate/MultipleChoice.jl")
 
 include("pwlinear.jl")
 
