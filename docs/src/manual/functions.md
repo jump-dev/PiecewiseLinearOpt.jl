@@ -77,6 +77,43 @@ function at the center of each cell, while [`UpperTriangulation`](@ref) and
 have a fixed structure that the [`K1`](@ref) and [`UnionJack`](@ref) methods
 exploit.
 
+## Relaxations
+
+A piecewise linear relaxation replaces a function by the band between a lower
+and an upper piecewise linear bound, e.g. when the function is only known to
+be within some error of its interpolant. [`UnivariatePWLRelaxation`](@ref)
+builds it from the breakpoints and the two bounds, given as vectors of values
+or as functions:
+
+```@example relaxation
+using PiecewiseLinearOpt
+f(t) = t^2
+pwl = UnivariatePWLRelaxation(0:0.5:2, t -> f(t) - 0.1, t -> f(t) + 0.1)
+input_values(segments(pwl)[1]), output_values(segments(pwl)[1])
+```
+
+Each segment is the convex hull of the bounds at the ends of an interval, so
+the relaxation has several values at a point and cannot be evaluated. It is
+formulated by [`IndependentBranching`](@ref) and
+[`DisaggregatedLogarithmic`](@ref), which model both bounds with the binary
+variables of a single function, half as many as two separate functions for the
+bounds would need (Lyu, Hicks and Huchette, 2025). The output then ranges
+between the bounds:
+
+```@example relaxation
+using JuMP, HiGHS
+model = Model(HiGHS.Optimizer)
+set_silent(model)
+@variable(model, x == 1.25)
+(y,), _ = piecewiselinear(model, [x], pwl; method = IndependentBranching())
+@objective(model, Min, y)
+optimize!(model)
+y_min = value(y)
+@objective(model, Max, y)
+optimize!(model)
+y_min, value(y)
+```
+
 ## General functions
 
 Functions of any dimension, possibly with several outputs or discontinuities,

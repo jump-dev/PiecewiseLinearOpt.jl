@@ -49,6 +49,23 @@ function test_discontinuous()
     return
 end
 
+function test_relaxation()
+    for scheme in SCHEMES
+        @testset "$scheme" begin
+            check_relaxation(IndependentBranching(scheme))
+        end
+    end
+    # Both bounds are modeled with the binary variables of a single function
+    # of 4 segments
+    pwl = UnivariatePWLRelaxation(0:0.5:2, t -> t^2 - 0.1, t -> t^2 + 0.1)
+    model = Model()
+    @variable(model, x)
+    _, formulation =
+        piecewiselinear(model, (x,), pwl; method = IndependentBranching())
+    @test count(is_binary, formulation.variables) == 2
+    return
+end
+
 # Checks that the levels (L, R) form a biclique cover of the conflict graph of
 # the CDC given by S: no level separates two points of the same set, and any
 # two points that are not in a common set are separated by some level.

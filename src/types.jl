@@ -169,7 +169,9 @@ struct Hypograph <: Direction end
 
 A piece of a piecewise linear function from R^D to R^F, given by the points
 `input_vals` and the function values `output_vals` at them. The piece is the
-convex hull of the points, and the function is affine on it.
+convex hull of the points, and the function is affine on it. A piece of a
+relaxation has several values at the same input, see
+[`UnivariatePWLRelaxation`](@ref).
 """
 struct SegmentPointRep{D,F}
     input_vals::Vector{NTuple{D,Float64}}
@@ -228,7 +230,7 @@ struct Unstructured{D} <: SegmentStructure{D} end
 """
     Intervals()
 
-The segments of a univariate function, which are intervals.
+The segments of a univariate function or relaxation, which lie over intervals.
 """
 struct Intervals <: SegmentStructure{1} end
 
@@ -309,7 +311,9 @@ univariate function, a [`GridTriangulation`](@ref) for a bivariate function on
 a grid, or `Unstructured{D}()`.
 
 See also [`UnivariatePWLFunction`](@ref) and [`BivariatePWLFunction`](@ref) for
-constructing functions from breakpoints and function values.
+constructing functions from breakpoints and function values, and
+[`UnivariatePWLRelaxation`](@ref) for a relaxation, whose segments have several
+values at a point.
 """
 struct PWLFunction{D,F,S<:SegmentStructure{D}}
     segments::Vector{SegmentPointRep{D,F}}
@@ -406,6 +410,61 @@ end
 
 function PWLFunction{1,1}(x::AbstractVector, z::AbstractVector)
     return PWLFunction{1,1}(collect(x), collect(z))
+end
+
+"""
+    UnivariatePWLRelaxation(x, lower, upper)
+
+A piecewise linear relaxation of a univariate function, i.e. the band between
+a lower and an upper piecewise linear bound. The band consists of the points
+`(x, y)` with `l(x) ≤ y ≤ u(x)`, where `l` and `u` are the piecewise linear
+functions with the strictly increasing breakpoints `x` that interpolate
+`lower[i]` and `upper[i]`, or `lower(x[i])` and `upper(x[i])` when the bounds
+are given as functions, at the breakpoints. For example, a function that is
+within `ε` of its interpolant has the relaxation
+`UnivariatePWLRelaxation(x, t -> f(t) - ε, t -> f(t) + ε)`.
+
+Each segment of the relaxation is the convex hull of the four points of the
+bounds at the ends of an interval, so the relaxation has several values at a
+point and cannot be evaluated. It is formulated by [`IndependentBranching`](@ref)
+and [`DisaggregatedLogarithmic`](@ref), which model both bounds with the binary
+variables of a single function, half as many as two separate functions for the
+bounds would need (Lyu, Hicks and Huchette, 2025). The other methods reject it.
+"""
+function UnivariatePWLRelaxation(x::AbstractVector, lower, upper)
+    xs = [convert(Float64, xi) for xi in x]
+    ls = _bound_values(lower, xs, "lower")
+    us = _bound_values(upper, xs, "upper")
+    _check_strictly_increasing(xs, "x")
+    for i in eachindex(xs)
+        if ls[i] > us[i]
+            error(
+                "The lower bound $(ls[i]) is above the upper bound $(us[i]) at the breakpoint $(xs[i]).",
+            )
+        end
+    end
+    segments = SegmentPointRep{1,1}[]
+    for i in 1:(length(xs)-1)
+        inputs = [(xs[i],), (xs[i],), (xs[i+1],), (xs[i+1],)]
+        outputs = [(ls[i],), (us[i],), (ls[i+1],), (us[i+1],)]
+        # Where the bounds coincide, the two points are the same
+        keep = [true, ls[i] != us[i], true, ls[i+1] != us[i+1]]
+        push!(segments, SegmentPointRep{1,1}(inputs[keep], outputs[keep]))
+    end
+    return PWLFunction(segments, Intervals())
+end
+
+function _bound_values(f::Function, xs::Vector{Float64}, name::String)
+    return [convert(Float64, f(xi)) for xi in xs]
+end
+
+function _bound_values(z::AbstractVector, xs::Vector{Float64}, name::String)
+    if length(z) != length(xs)
+        error(
+            "Mismatch in the number of breakpoints and values of the $name bound.",
+        )
+    end
+    return [convert(Float64, zi) for zi in z]
 end
 
 """
@@ -536,9 +595,9 @@ end
     (pwl::PWLFunction)(x::Real...)
 
 Evaluates the piecewise linear function at `x`, returning a number for a
-function with one output and a tuple otherwise. Every segment must be a simplex.
-Where the function is discontinuous, the value of the first segment containing
-`x` is returned.
+function with one output and a tuple otherwise. Every segment must be a
+simplex, so a relaxation cannot be evaluated. Where the function is
+discontinuous, the value of the first segment containing `x` is returned.
 """
 function (pwl::PWLFunction{D,F})(x::Vararg{Real,D}) where {D,F}
     hyperplanes = pwl.hyperplanes[]

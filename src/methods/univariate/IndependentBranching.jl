@@ -21,8 +21,9 @@
 
 Logarithmically sized ideal formulation of univariate piecewise linear
 functions, based on independent branching over the ordered segments (Lyu, Hicks
-and Huchette, 2023). It supports discontinuous functions, and can be used as the
-axis method of the bivariate grid formulations.
+and Huchette, 2023). It supports discontinuous functions and relaxations, see
+[`UnivariatePWLRelaxation`](@ref), and can be used as the axis method of the
+bivariate grid formulations.
 
 The `scheme` gives the construction of the branching levels:
 

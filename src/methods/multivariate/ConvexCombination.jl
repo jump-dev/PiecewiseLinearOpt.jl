@@ -40,6 +40,7 @@ function formulate_pwl!(
     all_input_vals = Set{NTuple{D,Float64}}()
     output_val_map = Dict{NTuple{D,Float64},NTuple{F,Float64}}()
     for seg in segments
+        _check_single_valued(seg)
         for (it, input_val) in enumerate(seg.input_vals)
             push!(all_input_vals, input_val)
             output_val = seg.output_vals[it]

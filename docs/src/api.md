@@ -17,6 +17,7 @@ Hypograph
 PWLFunction
 UnivariatePWLFunction
 BivariatePWLFunction
+UnivariatePWLRelaxation
 SegmentPointRep
 SegmentStructure
 Intervals

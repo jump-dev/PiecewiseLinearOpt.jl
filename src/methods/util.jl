@@ -60,9 +60,10 @@ function _continuous_gridpoints_or_die(pwl::PWLFunction{D,F}) where {D,F}
         end
     end
 
-    # Step 2: Verify that function is not multivalued
+    # Step 2: Verify that the function is single-valued and continuous
     ys = Dict{NTuple{D,Float64},NTuple{F,Float64}}()
     for segment in pwl.segments
+        _check_single_valued(segment)
         for (x, y) in zip(segment.input_vals, segment.output_vals)
             if haskey(ys, x)
                 if y != ys[x]
@@ -245,6 +246,20 @@ function add_biclique_cover!(
         )
     end
     return nothing
+end
+
+# Errors if a segment has several values at the same point, i.e. is a piece of
+# a relaxation rather than of a function
+function _check_single_valued(segment::SegmentPointRep)
+    for (i, x) in enumerate(segment.input_vals), j in 1:(i-1)
+        if x == segment.input_vals[j] &&
+           segment.output_vals[i] != segment.output_vals[j]
+            error(
+                "A segment has several values at the point $x, so it is a piece of a relaxation rather than of a function. Relaxations are formulated by IndependentBranching and DisaggregatedLogarithmic.",
+            )
+        end
+    end
+    return
 end
 
 function _check_triangle(segment::SegmentPointRep{D}) where {D}

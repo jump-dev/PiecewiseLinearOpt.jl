@@ -32,6 +32,11 @@ function test_univariate()
     return
 end
 
+function test_relaxation()
+    check_relaxation(DisaggregatedLogarithmic())
+    return
+end
+
 function test_bivariate_simple()
     check_bivariate_simple(DisaggregatedLogarithmic())
     return

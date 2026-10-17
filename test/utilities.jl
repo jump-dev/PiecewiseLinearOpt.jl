@@ -25,6 +25,7 @@ export FULL,
     check_formulation,
     check_univariate,
     check_discontinuous,
+    check_relaxation,
     check_bivariate_simple,
     check_bivariate_grid,
     check_triangle_selection,
@@ -322,6 +323,48 @@ function _check_univariate_multiple_outputs(method)
 end
 
 # Discontinuous univariate functions
+
+# A relaxation of t^2 with a band of ±0.1 around its interpolant: inside each
+# interval, y ranges between the bounds
+function check_relaxation(method)
+    f = t -> t^2
+    xs = 0:0.5:2
+    pwl = UnivariatePWLRelaxation(xs, t -> f(t) - 0.1, t -> f(t) + 0.1)
+    model = Model(OPTIMIZER)
+    @variable(model, x)
+    (y,), _ = piecewiselinear(model, (x,), pwl; method = method)
+    for t in (0.0, 0.3, 0.5, 1.25, 2.0)
+        fix(x, t)
+        i = min(searchsortedlast(xs, t), length(xs) - 1)
+        a, b = xs[i], xs[i+1]
+        interpolant = f(a) + (f(b) - f(a)) * (t - a) / (b - a)
+        @objective(model, Min, y)
+        solve!(model)
+        @test termination_status(model) == MOI.OPTIMAL
+        @test value(y) ≈ interpolant - 0.1 atol = 1e-5
+        @objective(model, Max, y)
+        solve!(model)
+        @test termination_status(model) == MOI.OPTIMAL
+        @test value(y) ≈ interpolant + 0.1 atol = 1e-5
+    end
+    # Points outside the domain are infeasible
+    fix(x, 2.5)
+    solve!(model)
+    @test termination_status(model) == MOI.INFEASIBLE
+    # Where the bounds coincide, the relaxation has a single value
+    pwl = UnivariatePWLRelaxation([0, 1, 2], [0, 1, 0], [1, 1, 2])
+    model = Model(OPTIMIZER)
+    @variable(model, x)
+    fix(x, 1)
+    (y,), _ = piecewiselinear(model, (x,), pwl; method = method)
+    for sense in (MIN_SENSE, MAX_SENSE)
+        @objective(model, sense, y)
+        solve!(model)
+        @test termination_status(model) == MOI.OPTIMAL
+        @test value(y) ≈ 1 atol = 1e-5
+    end
+    return
+end
 
 function check_discontinuous(method)
     @testset "Jump" begin

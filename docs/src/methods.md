@@ -55,19 +55,23 @@ Below, `d` is the number of segments of a univariate function.
 
 The default is [`Logarithmic`](@ref LogarithmicEmbedding).
 
-| Method | Integer variables | Discontinuous |
-|:-------|:------------------|:--------------|
-| [`LogarithmicEmbedding`](@ref), also `Logarithmic()` | `ceil(log2(d))` binary | no |
-| [`LogarithmicIndependentBranching`](@ref) | `ceil(log2(d))` binary | no |
-| [`IndependentBranching`](@ref) | `ceil(log2(d))` binary | yes |
-| [`ZigZagBinary`](@ref) | `ceil(log2(d))` binary | no |
-| [`ZigZagInteger`](@ref) | `ceil(log2(d))` general integer | no |
-| [`DisaggregatedLogarithmic`](@ref) | `ceil(log2(d))` binary | yes |
-| [`Incremental`](@ref) | `d - 1` binary | no |
-| [`ConvexCombination`](@ref) | `d` binary | no |
-| [`MultipleChoice`](@ref) | `d` binary | yes |
-| [`NativeSOS2`](@ref) | none, branching by the solver | no |
-| [`ConvexPieces`](@ref) | one binary per convex piece, none for a convex function | yes |
+| Method | Integer variables | Discontinuous | Relaxation |
+|:-------|:------------------|:--------------|:-----------|
+| [`LogarithmicEmbedding`](@ref), also `Logarithmic()` | `ceil(log2(d))` binary | no | no |
+| [`LogarithmicIndependentBranching`](@ref) | `ceil(log2(d))` binary | no | no |
+| [`IndependentBranching`](@ref) | `ceil(log2(d))` binary | yes | yes |
+| [`ZigZagBinary`](@ref) | `ceil(log2(d))` binary | no | no |
+| [`ZigZagInteger`](@ref) | `ceil(log2(d))` general integer | no | no |
+| [`DisaggregatedLogarithmic`](@ref) | `ceil(log2(d))` binary | yes | yes |
+| [`Incremental`](@ref) | `d - 1` binary | no | no |
+| [`ConvexCombination`](@ref) | `d` binary | no | no |
+| [`MultipleChoice`](@ref) | `d` binary | yes | no |
+| [`NativeSOS2`](@ref) | none, branching by the solver | no | no |
+| [`ConvexPieces`](@ref) | one binary per convex piece, none for a convex function | yes | no |
+
+A relaxation, see [`UnivariatePWLRelaxation`](@ref), is a band between a lower
+and an upper piecewise linear bound. The two methods that support it model
+both bounds with one set of binary variables.
 
 [`NativeSOS2`](@ref) leaves the branching to solvers that support SOS2
 constraints, e.g. Gurobi or Xpress; for other solvers, such as HiGHS,

@@ -10,7 +10,9 @@ The logarithmic disaggregated convex combination formulation.
 
 It works for piecewise linear functions of any dimension (see Vielma, Ahmed and
 Nemhauser, 2010), with a convex multiplier for each vertex of each segment. As
-the segments do not share multipliers, the function may be discontinuous.
+the segments do not share multipliers, the function may be discontinuous, and
+the segments may have several values at a point, as in a
+[`UnivariatePWLRelaxation`](@ref).
 
 For `d` segments, it uses `ceil(log2(d))` binary variables.
 """

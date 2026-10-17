@@ -133,6 +133,73 @@ function test_input_validation()
     return
 end
 
+function test_relaxation_construction()
+    f = t -> t^2
+    xs = 0:0.5:2
+    pwl = UnivariatePWLRelaxation(xs, t -> f(t) - 0.1, t -> f(t) + 0.1)
+    @test length(segments(pwl)) == 4
+    @test input_values(segments(pwl)[1]) == [(0.0,), (0.0,), (0.5,), (0.5,)]
+    @test output_values(segments(pwl)[1]) == [(-0.1,), (0.1,), (0.15,), (0.35,)]
+    @test pwl.structure == Intervals()
+    # Bounds as vectors give the same segments
+    lower = [f(t) - 0.1 for t in xs]
+    upper = [f(t) + 0.1 for t in xs]
+    pwl_z = UnivariatePWLRelaxation(xs, lower, upper)
+    @test [s.input_vals for s in segments(pwl_z)] == [s.input_vals for s in segments(pwl)]
+    @test [s.output_vals for s in segments(pwl_z)] == [s.output_vals for s in segments(pwl)]
+    # Coinciding bounds give a single point
+    pwl = UnivariatePWLRelaxation([0, 1, 2], [0, 1, 0], [1, 1, 2])
+    @test input_values(segments(pwl)[1]) == [(0.0,), (0.0,), (1.0,)]
+    @test output_values(segments(pwl)[2]) == [(1.0,), (0.0,), (2.0,)]
+    # A relaxation cannot be evaluated
+    @test_throws ErrorException pwl(0.5)
+    # Invalid input
+    @test_throws r"above the upper bound" UnivariatePWLRelaxation(
+        [0, 1],
+        [0, 2],
+        [1, 1],
+    )
+    @test_throws r"number of breakpoints" UnivariatePWLRelaxation(
+        [0, 1],
+        [0, 1, 2],
+        [1, 2],
+    )
+    @test_throws r"number of breakpoints" UnivariatePWLRelaxation(
+        [0, 1],
+        [0, 1],
+        [1],
+    )
+    @test_throws r"strictly increasing" UnivariatePWLRelaxation(
+        [1, 0],
+        [0, 1],
+        [1, 2],
+    )
+    @test_throws r"not finite" UnivariatePWLRelaxation([0, 1], [0, 1], [1, Inf])
+    # The methods for functions reject relaxations, and say so
+    pwl = UnivariatePWLRelaxation(xs, lower, upper)
+    model = Model()
+    @variable(model, x)
+    for method in (
+        Logarithmic(),
+        ZigZagBinary(),
+        NativeSOS2(),
+        Incremental(),
+        ConvexCombination(),
+    )
+        @test_throws r"relaxation" piecewiselinear(
+            model,
+            (x,),
+            pwl;
+            method = method,
+        )
+        check_rejected(model, (x,), pwl; method = method)
+    end
+    for method in (MultipleChoice(), ConvexPieces())
+        check_rejected(model, (x,), pwl; method = method)
+    end
+    return
+end
+
 function test_non_finite_values()
     # Breakpoints and function values must be finite
     @test_throws r"function value -Inf at the breakpoint 0.0 is not finite" UnivariatePWLFunction(

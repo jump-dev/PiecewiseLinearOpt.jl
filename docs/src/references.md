@@ -29,7 +29,9 @@
   [doi:10.1287/opre.2023.0187](https://doi.org/10.1287/opre.2023.0187),
   [arXiv:2304.14542](https://arxiv.org/abs/2304.14542).
   The Gray code and biclique cover formulations of
-  [`IndependentBranching`](@ref).
+  [`IndependentBranching`](@ref), and the formulation of piecewise linear
+  relaxations with the binary variables of a single function, see
+  [`UnivariatePWLRelaxation`](@ref).
 - J. P. Vielma. Embedding formulations and complexity for unions of polyhedra.
   _Management Science_ 64(10):4721–4734, 2018.
   [arXiv:1506.01417](https://arxiv.org/abs/1506.01417).
