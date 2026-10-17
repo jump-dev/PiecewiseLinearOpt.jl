@@ -77,7 +77,10 @@ much slower than the other methods.
 ## Bivariate functions
 
 Bivariate functions are defined on a grid, where each cell is split into two
-triangles. The default is [`SixStencil`](@ref).
+triangles. The default method depends on the triangulation: [`K1`](@ref) for
+[`K1Triangulation`](@ref), [`UnionJack`](@ref) for
+[`UnionJackTriangulation`](@ref) and [`GreedyTriangleSelection`](@ref) for
+the others.
 
 The grid methods select a cell with an SOS2 constraint along each axis,
 formulated with any univariate method in the table above (the `axis_method`,
@@ -86,8 +89,8 @@ triangle in the cell:
 
 | Method | Triangle selection | Triangulation |
 |:-------|:-------------------|:--------------|
-| [`SixStencil`](@ref) | 6 binary | any |
-| [`NineStencil`](@ref) | 9 binary | any |
+| [`SixStencil`](@ref) | up to 6 binary | any |
+| [`NineStencil`](@ref) | up to 9 binary | any |
 | [`GreedyTriangleSelection`](@ref) | few, typically 2 to 5, found by a heuristic | any |
 | [`OptimalTriangleSelection`](@ref) | smallest number, typically 2 to 4, computed with a solver | any |
 | [`K1`](@ref) | 2 binary | [`K1Triangulation`](@ref) |

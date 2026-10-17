@@ -146,9 +146,9 @@ function test_triangle_selection_method()
     @variable(model, x[1:2])
     pwl = BivariatePWLFunction(0:3, 0:3, (a, b) -> a * b)
     _, formulation = piecewiselinear(model, x, pwl; method = CellBinaries())
-    _, reference = piecewiselinear(model, x, pwl; method = SixStencil())
+    _, reference = piecewiselinear(model, x, pwl; method = K1())
     @test count(is_binary, formulation.variables) ==
-          count(is_binary, reference.variables) - 6 + 9
+          count(is_binary, reference.variables) - 2 + 9
     # The axis method is taken from the field by default
     @test axis_method(CellBinaries(NativeSOS2())) == NativeSOS2()
     model = Model()

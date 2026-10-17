@@ -7,11 +7,12 @@
     SixStencil(axis_method = Logarithmic())
 
 Formulation of bivariate continuous piecewise linear functions on any grid
-triangulation (Huchette and Vielma, 2023), the default method for bivariate
-functions.
+triangulation (Huchette and Vielma, 2023).
 
 It combines an SOS2 constraint along each axis, formulated with `axis_method`,
-with 6 binary variables to select the triangle in the chosen cell.
+with 6 binary variables to select the triangle in the chosen cell. Fewer are
+needed on small grids, or when the diagonals of all cells have the same
+direction, as levels that separate nothing are left out.
 """
 struct SixStencil{M<:PWLMethod} <: TriangleSelectionMethod
     axis_method::M
@@ -24,35 +25,25 @@ function formulate_triangle_selection!(
     triangle_direction::Matrix{Bool},
     method::SixStencil,
 )
-    model = formulation.model
     n_1, n_2 = size(λ)
     @assert size(triangle_direction) == (n_1 - 1, n_2 - 1)
+    cover = _BicliqueCover()
 
-    # diagonal lines running from SW to NE. Grouped with an offset of 3.
-    w_sw_ne = record!(
-        formulation,
-        JuMP.@variable(
-            model,
-            [0:2],
-            Bin,
-            base_name = variable_name(formulation, "w_sw_ne")
-        ),
-    )
+    # Diagonal lines of cells running from SW to NE, grouped with an offset of
+    # 3 into three levels. Along each line, the ends of the diagonals that are
+    # not edges alternate between the two sides of the level.
     for o in 0:2
         A_o = Set{Tuple{Int,Int}}()
         B_o = Set{Tuple{Int,Int}}()
         for off_1 in o:3:(n_1-2)
-            sw_in_A = true # whether we put the SW corner of the next triangle to cover in set A
+            sw_in_A = true
             for i in (1+off_1):(n_1-1)
                 j = i - off_1
-                if !(1 ≤ i ≤ n_1 - 1)
+                if !(1 ≤ j ≤ n_2 - 1)
                     continue
                 end
-                if !(1 ≤ j ≤ n_2 - 1)
-                    continue # should never happen
-                end
-                if triangle_direction[i, j] # if we need to cover the edge...
-                    if sw_in_A # figure out which set we need to put it in; this depends on previous triangle in our current line
+                if triangle_direction[i, j]
+                    if sw_in_A
                         push!(A_o, (i, j))
                         push!(B_o, (i + 1, j + 1))
                     else
@@ -82,31 +73,10 @@ function formulate_triangle_selection!(
                 end
             end
         end
-        record!(
-            formulation,
-            JuMP.@constraint(
-                model,
-                sum(λ[i, j] for (i, j) in A_o) ≤ w_sw_ne[o]
-            ),
-        )
-        record!(
-            formulation,
-            JuMP.@constraint(
-                model,
-                sum(λ[i, j] for (i, j) in B_o) ≤ 1 - w_sw_ne[o]
-            ),
-        )
+        push!(cover, (sort!(collect(A_o)), sort!(collect(B_o))))
     end
 
-    w_se_nw = record!(
-        formulation,
-        JuMP.@variable(
-            model,
-            [0:2],
-            Bin,
-            base_name = variable_name(formulation, "w_se_nw")
-        ),
-    )
+    # The same for the lines running from SE to NW
     for o in 0:2
         A_o = Set{Tuple{Int,Int}}()
         B_o = Set{Tuple{Int,Int}}()
@@ -148,20 +118,9 @@ function formulate_triangle_selection!(
                 end
             end
         end
-        record!(
-            formulation,
-            JuMP.@constraint(
-                model,
-                sum(λ[i, j] for (i, j) in A_o) ≤ w_se_nw[o]
-            ),
-        )
-        record!(
-            formulation,
-            JuMP.@constraint(
-                model,
-                sum(λ[i, j] for (i, j) in B_o) ≤ 1 - w_se_nw[o]
-            ),
-        )
+        push!(cover, (sort!(collect(A_o)), sort!(collect(B_o))))
     end
+
+    add_biclique_cover!(formulation, λ, cover)
     return nothing
 end

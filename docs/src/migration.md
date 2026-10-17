@@ -10,7 +10,10 @@ Version 0.5 is a rewrite with a new interface. The main changes are:
   output only.
 - The triangulation of bivariate functions is given as a value with the
   `triangulation` keyword instead of the `pattern` keyword, and the default is
-  now [`K1Triangulation`](@ref) instead of best fit.
+  now [`K1Triangulation`](@ref) instead of best fit. The default method of
+  bivariate functions depends on the triangulation, see
+  [Formulation methods](@ref), instead of always being the six-stencil
+  formulation; pass `method = SixStencil()` to keep it.
 - Functions may have several outputs, more than two inputs and, for some
   methods, discontinuities.
 - The `direction` keyword takes `Epigraph()` or `Hypograph()` for a function

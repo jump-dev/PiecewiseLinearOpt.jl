@@ -19,9 +19,18 @@ function formulate_pwl!(
     )
 end
 
-_default_method(::Val{1}) = Logarithmic()
-_default_method(::Val{2}) = SixStencil()
-_default_method(::Val) = DisaggregatedLogarithmic()
+# The default method depends on the number of inputs and, for bivariate
+# functions, on the structure of the triangulation: the methods for the K1 and
+# Union Jack triangulations need fewer binary variables than the general ones.
+_default_method(::PWLFunction{1}) = Logarithmic()
+_default_method(::PWLFunction{2,F,K1Triangulation}) where {F} = K1()
+function _default_method(::PWLFunction{2,F,UnionJackTriangulation}) where {F}
+    return UnionJack()
+end
+function _default_method(::PWLFunction{2,F,<:GridTriangulation}) where {F}
+    return GreedyTriangleSelection()
+end
+_default_method(::PWLFunction) = DisaggregatedLogarithmic()
 
 """
     piecewiselinear(
@@ -46,9 +55,12 @@ returns the tuple `(output_vars, formulation)`.
 
 ## Keyword arguments
 
-- `method`: the formulation method, defaults to `Logarithmic()` for univariate
-  functions, `SixStencil()` for bivariate functions and
-  `DisaggregatedLogarithmic()` for functions of more variables.
+- `method`: the formulation method. The default is `Logarithmic()` for
+  univariate functions and `DisaggregatedLogarithmic()` for functions of three
+  or more variables. For bivariate functions it depends on the triangulation of
+  `pwl`: `K1()` for a `K1Triangulation`, `UnionJack()` for a
+  `UnionJackTriangulation`, `GreedyTriangleSelection()` for any other grid
+  triangulation and `DisaggregatedLogarithmic()` for unstructured segments.
 - `direction`: whether the outputs equal (`Graph()`), are
   at least (`Epigraph()`) or are at most (`Hypograph()`) the function value.
 - `output_vars`: a vector or tuple with an output variable or expression for
@@ -92,7 +104,7 @@ function piecewiselinear(
     model::JuMP.GenericModel,
     input_vars::Union{Tuple,AbstractVector},
     pwl::PWLFunction{D,F};
-    method::PWLMethod = _default_method(Val(D)),
+    method::PWLMethod = _default_method(pwl),
     direction::Direction = Graph(),
     output_vars::Union{Nothing,Tuple,AbstractVector} = nothing,
     name::Union{Nothing,AbstractString} = nothing,

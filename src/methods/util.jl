@@ -205,7 +205,8 @@ For each level `(L, R)` in `cover`, it adds a binary variable `z` and the
 constraints `sum(λ[L]) ≤ z` and `sum(λ[R]) ≤ 1 - z`, so that the multipliers
 in `L` and those in `R` cannot be nonzero at the same time (Huchette and
 Vielma, 2019). The levels are pairs of vectors of indices into `λ`, either
-integers or tuples for a matrix.
+integers or tuples for a matrix. A level with an empty side separates nothing
+and is left out.
 
 The formulation is valid for a disjunctive constraint on the support of `λ` if
 no level separates two multipliers that may be nonzero together, and every
@@ -216,7 +217,8 @@ function add_biclique_cover!(
     λ::AbstractArray,
     cover::Vector{<:Tuple{AbstractVector,AbstractVector}},
 )
-    if isempty(cover)
+    levels = [(L, R) for (L, R) in cover if !isempty(L) && !isempty(R)]
+    if isempty(levels)
         return nothing
     end
     model = formulation.model
@@ -224,30 +226,23 @@ function add_biclique_cover!(
         formulation,
         JuMP.@variable(
             model,
-            [1:length(cover)],
+            [1:length(levels)],
             Bin,
             base_name = variable_name(formulation, "z")
         ),
     )
-    for (j, (L, R)) in enumerate(cover)
-        if !isempty(L)
-            record!(
-                formulation,
-                JuMP.@constraint(
-                    model,
-                    sum(_multiplier(λ, k) for k in L) ≤ z[j]
-                ),
-            )
-        end
-        if !isempty(R)
-            record!(
-                formulation,
-                JuMP.@constraint(
-                    model,
-                    sum(_multiplier(λ, k) for k in R) ≤ 1 - z[j]
-                ),
-            )
-        end
+    for (j, (L, R)) in enumerate(levels)
+        record!(
+            formulation,
+            JuMP.@constraint(model, sum(_multiplier(λ, k) for k in L) ≤ z[j]),
+        )
+        record!(
+            formulation,
+            JuMP.@constraint(
+                model,
+                sum(_multiplier(λ, k) for k in R) ≤ 1 - z[j]
+            ),
+        )
     end
     return nothing
 end
