@@ -130,6 +130,23 @@ end
 const _BicliqueCover =
     Vector{Tuple{Vector{Tuple{Int,Int}},Vector{Tuple{Int,Int}}}}
 
+# The triangle selections of the methods that need no sub-solver are built as
+# biclique covers by `_triangle_selection_cover(method, nw_se)`, which returns
+# the levels as pairs of grid indices, and are added with
+# `add_biclique_cover!`. Keeping the cover separate makes it testable and lets
+# the documentation draw it.
+function formulate_triangle_selection!(
+    formulation::PWLFormulation,
+    λ::Matrix{<:JuMP.AbstractVariableRef},
+    triangle_direction::Matrix{Bool},
+    method::Union{K1,UnionJack,SixStencil,NineStencil,GreedyTriangleSelection},
+)
+    @assert size(triangle_direction) == size(λ) .- 1
+    cover = _triangle_selection_cover(method, triangle_direction)
+    add_biclique_cover!(formulation, λ, cover)
+    return nothing
+end
+
 # The result of computing an optimal cover: the cover found, or `nothing`,
 # whether it is proven optimal, and the time limit it was computed with.
 struct _CachedCover

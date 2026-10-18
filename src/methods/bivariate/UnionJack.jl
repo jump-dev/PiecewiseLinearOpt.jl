@@ -19,14 +19,11 @@ struct UnionJack{M<:PWLMethod} <: TriangleSelectionMethod
 end
 UnionJack() = UnionJack(Logarithmic())
 
-function formulate_triangle_selection!(
-    formulation::PWLFormulation,
-    λ::Matrix{<:JuMP.AbstractVariableRef},
+function _triangle_selection_cover(
+    ::UnionJack,
     triangle_direction::Matrix{Bool},
-    method::UnionJack,
 )
-    n_1, n_2 = size(λ)
-    @assert size(triangle_direction) == (n_1 - 1, n_2 - 1)
+    n_1, n_2 = size(triangle_direction) .+ 1
 
     # In a Union Jack triangulation the diagonals alternate between neighboring
     # cells.
@@ -47,6 +44,5 @@ function formulate_triangle_selection!(
     j_start = triangle_direction[1, 1] ? 1 : 2
     L = vec([(i, j) for i in 1:2:n_1, j in j_start:2:n_2])
     R = vec([(i, j) for i in 2:2:n_1, j in (3-j_start):2:n_2])
-    add_biclique_cover!(formulation, λ, [(L, R)])
-    return nothing
+    return _BicliqueCover([(L, R)])
 end

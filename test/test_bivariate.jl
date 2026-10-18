@@ -14,6 +14,9 @@ using JuMP
 using PiecewiseLinearOpt
 using Test
 
+import PiecewiseLinearOpt as PLO
+import Random
+
 using ..PLOTestUtilities
 
 function runtests()
@@ -174,6 +177,75 @@ function test_stencil_levels()
             end
         end
     end
+    return
+end
+
+# Checks that a triangle selection is a valid biclique cover: no level
+# separates two points that share a triangle, and the ends of the diagonal
+# that is not an edge are separated in every cell.
+function is_valid_triangle_selection(nw_se, cover)
+    n_1, n_2 = size(nw_se) .+ 1
+    for (L, R) in cover
+        if !isdisjoint(L, R)
+            return false
+        end
+        side = Dict((p => 1 for p in L)..., (p => 2 for p in R)...)
+        separated((p, q)) = get(side, p, 0) + get(side, q, 0) == 3
+        for i in 1:n_1, j in 1:n_2
+            if (i < n_1 && separated(((i, j), (i + 1, j)))) ||
+               (j < n_2 && separated(((i, j), (i, j + 1))))
+                return false
+            end
+        end
+        for i in 1:(n_1-1), j in 1:(n_2-1)
+            if separated(first(PLO.cell_diagonals(nw_se, i, j)))
+                return false
+            end
+        end
+    end
+    for i in 1:(n_1-1), j in 1:(n_2-1)
+        p, q = last(PLO.cell_diagonals(nw_se, i, j))
+        if !any(((L, R),) -> (p in L && q in R) || (q in L && p in R), cover)
+            return false
+        end
+    end
+    return true
+end
+
+function test_triangle_selection_covers()
+    rng = Random.MersenneTwister(5)
+    for n_1 in 2:6, n_2 in 2:6
+        k1 = fill(true, n_1 - 1, n_2 - 1)
+        union_jack = [isodd(i + j) for i in 1:(n_1-1), j in 1:(n_2-1)]
+        random = rand(rng, Bool, n_1 - 1, n_2 - 1)
+        flipped = [!x for x in union_jack]
+        @test is_valid_triangle_selection(
+            k1,
+            PLO._triangle_selection_cover(K1(), k1),
+        )
+        @test is_valid_triangle_selection(
+            union_jack,
+            PLO._triangle_selection_cover(UnionJack(), union_jack),
+        )
+        @test is_valid_triangle_selection(
+            flipped,
+            PLO._triangle_selection_cover(UnionJack(), flipped),
+        )
+        for method in (SixStencil(), NineStencil(), GreedyTriangleSelection())
+            for nw_se in (k1, union_jack, random)
+                cover = PLO._triangle_selection_cover(method, nw_se)
+                @test is_valid_triangle_selection(nw_se, cover)
+            end
+        end
+    end
+    @test_throws ErrorException PLO._triangle_selection_cover(
+        K1(),
+        [true false; true true],
+    )
+    @test_throws ErrorException PLO._triangle_selection_cover(
+        UnionJack(),
+        [true true; true true],
+    )
     return
 end
 

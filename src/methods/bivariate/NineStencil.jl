@@ -18,14 +18,11 @@ struct NineStencil{M<:PWLMethod} <: TriangleSelectionMethod
 end
 NineStencil() = NineStencil(Logarithmic())
 
-function formulate_triangle_selection!(
-    formulation::PWLFormulation,
-    λ::Matrix{<:JuMP.AbstractVariableRef},
+function _triangle_selection_cover(
+    ::NineStencil,
     triangle_direction::Matrix{Bool},
-    method::NineStencil,
 )
-    n_1, n_2 = size(λ)
-    @assert size(triangle_direction) == (n_1 - 1, n_2 - 1)
+    n_1, n_2 = size(triangle_direction) .+ 1
     cover = _BicliqueCover()
 
     # A level for each of the nine residue classes (o_1, o_2) of the grid
@@ -50,7 +47,5 @@ function formulate_triangle_selection!(
         end
         push!(cover, (sort!(collect(has_edge_across_stencil)), stencil))
     end
-
-    add_biclique_cover!(formulation, λ, cover)
-    return nothing
+    return cover
 end

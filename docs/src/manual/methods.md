@@ -78,6 +78,56 @@ constraints, e.g. Gurobi or Xpress; for other solvers, such as HiGHS,
 MathOptInterface reformulates the constraint with binary variables, which is
 much slower than the other methods.
 
+The number of binary variables is only one measure of the size of a
+formulation. The logarithmic methods have few binary variables but denser
+constraints: their number of nonzero coefficients grows like `d * log2(d)`,
+against `d` for the linear-size methods, although for a few hundred segments
+the difference is within a factor of two. The figure counts both for a
+function with `d` segments:
+
+```@example size
+using JuMP, PiecewiseLinearOpt, Plots
+ENV["GKSwstype"] = "100" # hide
+methods = [Logarithmic(), IndependentBranching(), DisaggregatedLogarithmic(), Incremental(), MultipleChoice()]
+ds = [4, 8, 16, 32, 64, 128, 256]
+function model_size(method, d)
+    model = Model()
+    @variable(model, x)
+    _, formulation = piecewiselinear(model, [x], UnivariatePWLFunction(0:d, t -> t^2); method)
+    nonzeros = sum(
+        length(constraint_object(c).func.terms) for
+        c in formulation.constraints if constraint_object(c).func isa AffExpr
+    )
+    return count(is_binary, formulation.variables), nonzeros
+end
+sizes = [model_size(method, d) for method in methods, d in ds]
+binaries = plot(
+    ds,
+    [first.(sizes[k, :]) for k in eachindex(methods)];
+    label = permutedims(string.(methods)),
+    legend = :topleft,
+    ylabel = "binary variables",
+)
+nonzeros = plot(
+    ds,
+    [last.(sizes[k, :]) for k in eachindex(methods)];
+    label = "",
+    ylabel = "nonzero coefficients",
+)
+plot(
+    binaries,
+    nonzeros;
+    xscale = :log2,
+    yscale = :log2,
+    xlabel = "segments",
+    marker = :circle,
+    layout = (1, 2),
+    size = (700, 320),
+    left_margin = 5Plots.mm,
+    bottom_margin = 5Plots.mm,
+)
+```
+
 ## Bivariate functions
 
 Bivariate functions are defined on a grid, where each cell is split into two

@@ -19,14 +19,11 @@ struct SixStencil{M<:PWLMethod} <: TriangleSelectionMethod
 end
 SixStencil() = SixStencil(Logarithmic())
 
-function formulate_triangle_selection!(
-    formulation::PWLFormulation,
-    λ::Matrix{<:JuMP.AbstractVariableRef},
+function _triangle_selection_cover(
+    ::SixStencil,
     triangle_direction::Matrix{Bool},
-    method::SixStencil,
 )
-    n_1, n_2 = size(λ)
-    @assert size(triangle_direction) == (n_1 - 1, n_2 - 1)
+    n_1, n_2 = size(triangle_direction) .+ 1
     cover = _BicliqueCover()
 
     # Diagonal lines of cells running from SW to NE, grouped with an offset of
@@ -120,7 +117,5 @@ function formulate_triangle_selection!(
         end
         push!(cover, (sort!(collect(A_o)), sort!(collect(B_o))))
     end
-
-    add_biclique_cover!(formulation, λ, cover)
-    return nothing
+    return cover
 end

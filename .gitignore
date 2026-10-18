@@ -8,3 +8,4 @@ docs/src/assets/univariate.svg
 *.DS_Store
 .DS_Store
 .vscode/settings.json
+docs/src/tutorials/*.md

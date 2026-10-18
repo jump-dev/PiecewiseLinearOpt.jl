@@ -19,14 +19,8 @@ struct K1{M<:PWLMethod} <: TriangleSelectionMethod
 end
 K1() = K1(Logarithmic())
 
-function formulate_triangle_selection!(
-    formulation::PWLFormulation,
-    λ::Matrix{<:JuMP.AbstractVariableRef},
-    triangle_direction::Matrix{Bool},
-    method::K1,
-)
-    n_1, n_2 = size(λ)
-    @assert size(triangle_direction) == (n_1 - 1, n_2 - 1)
+function _triangle_selection_cover(::K1, triangle_direction::Matrix{Bool})
+    n_1, n_2 = size(triangle_direction) .+ 1
 
     # The formulation assumes every cell is split along its NW-SE diagonal.
     if !all(triangle_direction)
@@ -51,6 +45,5 @@ function formulate_triangle_selection!(
         ]
         push!(cover, (A, B))
     end
-    add_biclique_cover!(formulation, λ, cover)
-    return nothing
+    return cover
 end

@@ -32,13 +32,9 @@ function GreedyTriangleSelection(
     return GreedyTriangleSelection(axis_method, Int(tries))
 end
 
-function formulate_triangle_selection!(
-    formulation::PWLFormulation,
-    λ::Matrix{<:JuMP.AbstractVariableRef},
-    triangle_direction::Matrix{Bool},
+function _triangle_selection_cover(
     method::GreedyTriangleSelection,
+    triangle_direction::Matrix{Bool},
 )
-    cover = _greedy_biclique_cover(triangle_direction, method.tries)
-    add_biclique_cover!(formulation, λ, cover)
-    return nothing
+    return _greedy_biclique_cover(triangle_direction, method.tries)
 end

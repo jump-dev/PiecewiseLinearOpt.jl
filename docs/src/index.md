@@ -56,12 +56,28 @@ value(x), value(y), value(z)
 
 ## Contents
 
+The manual:
+
 - [Piecewise linear functions](@ref) describes how to construct functions.
 - [Adding functions to a model](@ref) describes [`piecewiselinear`](@ref) and
   the formulations it returns.
-- [Formulation methods](@ref) gives an overview of the available methods.
+- [Formulation methods](@ref) gives an overview of the available methods and
+  advice on choosing one.
+
+The tutorials show the package at work on complete models:
+
+- [Transportation with economies of scale](@ref) approximates concave and
+  fixed-charge costs of a single variable, and compares with solving the
+  nonlinear model directly.
+- [Hydropower scheduling](@ref) approximates a production function of two
+  variables in a model with on/off decisions.
+
+Further pages:
+
+- [References](@ref) lists the papers behind the formulations.
 - [Extending the package](@ref) describes how to add a method.
-- [Migrating from version 0.4](@ref) lists the changes from previous versions.
+- [Release notes](@ref) and [Migrating from version 0.4](@ref) list the
+  changes from previous versions.
 
 ## Getting help
 

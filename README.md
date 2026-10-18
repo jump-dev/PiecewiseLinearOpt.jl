@@ -46,10 +46,13 @@ optimize!(model)
 The [documentation](https://jump.dev/PiecewiseLinearOpt.jl/stable) describes
 how to construct functions (univariate, bivariate on grid triangulations, or
 of several variables), the available
-[formulation methods](https://jump.dev/PiecewiseLinearOpt.jl/stable/methods/),
-how to [extend the package](https://jump.dev/PiecewiseLinearOpt.jl/stable/extending/)
+[formulation methods](https://jump.dev/PiecewiseLinearOpt.jl/stable/manual/methods/),
+how to [extend the package](https://jump.dev/PiecewiseLinearOpt.jl/stable/developers/extending/)
 with new formulations, and how to
 [migrate from version 0.4](https://jump.dev/PiecewiseLinearOpt.jl/stable/migration/).
+The [tutorials](https://jump.dev/PiecewiseLinearOpt.jl/stable/tutorials/transportation/)
+work through complete models and compare the piecewise linear approach with
+solving the nonlinear models directly.
 
 ## Getting help
 
