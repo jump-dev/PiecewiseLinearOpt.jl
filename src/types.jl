@@ -3,131 +3,617 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
-struct PWLFunction{D}
-    x::Vector{NTuple{D,Float64}}
-    z::Vector{Float64}
-    T::Vector{Vector{Int}}
-    meta::Dict
+"""
+    PWLMethod
+
+The abstract type of the formulation methods, which are passed to
+[`piecewiselinear`](@ref) with the `method` keyword.
+
+A new method is a subtype of `PWLMethod` that implements
+[`formulate_pwl!`](@ref). The subtypes [`SOS2Method`](@ref) and
+[`TriangleSelectionMethod`](@ref) only need to implement a part of the
+formulation. See the manual on extending the package for details.
+"""
+abstract type PWLMethod end
+
+"""
+    SOS2Method <: PWLMethod
+
+The abstract type of methods that formulate the SOS2 constraint on a vector of
+convex multipliers, i.e. that at most two of them, and those adjacent, are
+nonzero. A subtype must implement [`formulate_sos2!`](@ref), and then
+formulates continuous univariate functions through the convex multipliers of
+the breakpoints. It can also be used as the axis method of a
+[`TriangleSelectionMethod`](@ref).
+"""
+abstract type SOS2Method <: PWLMethod end
+
+"""
+    TriangleSelectionMethod <: PWLMethod
+
+The abstract type of methods for continuous bivariate functions on a grid
+triangulation.
+
+These methods select a cell of the grid with an SOS2 constraint along each
+axis, formulated with [`axis_method`](@ref), and then a triangle in the cell
+with [`formulate_triangle_selection!`](@ref). A subtype must implement the
+latter, and `axis_method` unless it has a field `axis_method`.
+"""
+abstract type TriangleSelectionMethod <: PWLMethod end
+
+"""
+    formulate_pwl!(
+        formulation::PWLFormulation,
+        x::NTuple{D},
+        y::NTuple{F},
+        pwl::PWLFunction{D,F},
+        method::PWLMethod,
+        direction::Direction,
+    )
+
+Adds variables and constraints to `formulation.model` so that the outputs `y`
+relate to the function `pwl` of the inputs `x` as given by `direction`.
+
+Implement this for a new [`PWLMethod`](@ref), for the dimensions `D` and `F` it
+supports. The inputs and outputs are variables, affine expressions or
+constants, see [`Scalar`](@ref). The segments of `pwl` are given by
+[`segments`](@ref). Every variable and constraint created must be passed through
+[`record!`](@ref), so that the formulation can be deleted again, and the
+variables should be named with [`variable_name`](@ref). Use
+[`constrain_output!`](@ref) to relate an output to its function value in the
+given direction. Throw an error if `pwl` is not supported, e.g. because it is
+discontinuous; the model is then restored.
+"""
+function formulate_pwl! end
+
+"""
+    formulate_sos2!(formulation::PWLFormulation, λ::Vector, method::PWLMethod)
+
+Adds variables and constraints to `formulation.model` so that at most two of
+the convex multipliers `λ`, and those adjacent, are nonzero. The multipliers
+are variables or affine expressions, and already sum to one.
+
+Implement this for a new [`SOS2Method`](@ref). Every other method has a
+default implementation, which formulates a piecewise linear function whose
+outputs are the multipliers.
+"""
+function formulate_sos2! end
+
+"""
+    formulate_triangle_selection!(
+        formulation::PWLFormulation,
+        λ::Matrix,
+        nw_se::Matrix{Bool},
+        method::TriangleSelectionMethod,
+    )
+
+Adds variables and constraints to `formulation.model` that select a triangle
+in a cell of the grid.
+
+The convex multipliers `λ` of the grid points are nonzero on at most the four
+corners of one cell, ensured by the SOS2 constraints along the axes, and must
+be restricted to one of the two triangles of that cell. Cell `(i, j)` has the
+corners `λ[i, j]`,
+`λ[i + 1, j]`, `λ[i, j + 1]` and `λ[i + 1, j + 1]`, and is split along the
+diagonal from `λ[i, j + 1]` to `λ[i + 1, j]` if `nw_se[i, j]` is true, and
+along the other diagonal otherwise; see [`cell_diagonals`](@ref).
+
+Implement this for a new [`TriangleSelectionMethod`](@ref). Throw an error if
+the triangulation is not supported.
+"""
+function formulate_triangle_selection! end
+
+"""
+    axis_method(method::TriangleSelectionMethod)
+
+The method that formulates the SOS2 constraints along the axes of the grid.
+Defaults to the field `axis_method` of `method`.
+"""
+axis_method(method::TriangleSelectionMethod) = method.axis_method
+# Print methods as they are constructed, e.g. SixStencil(LogarithmicEmbedding())
+# instead of SixStencil{LogarithmicEmbedding}(LogarithmicEmbedding()).
+function Base.show(io::IO, method::PWLMethod)
+    print(io, nameof(typeof(method)), "(")
+    fields = (getfield(method, f) for f in fieldnames(typeof(method)))
+    join(io, (_show_field(io, x) for x in fields), ", ")
+    print(io, ")")
+    return
 end
 
-function PWLFunction{D}(
-    x::Vector{NTuple{D}},
-    z::Vector,
-    T::Vector{Vector},
-    meta::Dict,
-) where {D}
-    @assert length(x) == length(z)
-    for t in T
-        @assert minimum(t) > 0 && maximum(t) <= length(x)
+_show_field(io::IO, x) = repr(x; context = io)
+
+# A sub-solver given with attributes is shown by its constructor only, as the
+# attributes make the output very long
+function _show_field(io::IO, x::JuMP.MOI.OptimizerWithAttributes)
+    return repr(x.optimizer_constructor; context = io)
+end
+
+"""
+    Direction
+
+The abstract type of the `direction` keyword of [`piecewiselinear`](@ref),
+which gives how the outputs `y` relate to the function value `f(x)`:
+[`Graph`](@ref) (the default), [`Epigraph`](@ref) or
+[`Hypograph`](@ref).
+"""
+abstract type Direction end
+
+"""
+    Graph()
+
+The direction where the outputs equal the function value, `y == f(x)`. This
+is the default.
+"""
+struct Graph <: Direction end
+
+"""
+    Epigraph()
+
+The direction where the outputs are at least the function value, `y >= f(x)`,
+which suffices when the function is minimized. The new output variables are
+then only bounded from below.
+"""
+struct Epigraph <: Direction end
+
+"""
+    Hypograph()
+
+The direction where the outputs are at most the function value, `y <= f(x)`,
+which suffices when the function is maximized. The new output variables are
+then only bounded from above.
+"""
+struct Hypograph <: Direction end
+
+"""
+    SegmentPointRep{D,F}(input_vals, output_vals)
+
+A piece of a piecewise linear function from R^D to R^F, given by the points
+`input_vals` and the function values `output_vals` at them. The piece is the
+convex hull of the points, and the function is affine on it. A piece of a
+relaxation has several values at the same input, see
+[`UnivariatePWLRelaxation`](@ref).
+"""
+struct SegmentPointRep{D,F}
+    input_vals::Vector{NTuple{D,Float64}}
+    output_vals::Vector{NTuple{F,Float64}}
+
+    function SegmentPointRep{D,F}(
+        input_vals::Vector{NTuple{D,Float64}},
+        output_vals::Vector{NTuple{F,Float64}},
+    ) where {D,F}
+        if length(input_vals) != length(output_vals)
+            error("Must specify the same number of input and output values.")
+        end
+        for (x, y) in zip(input_vals, output_vals)
+            if !all(isfinite, x)
+                error("The breakpoint $x is not finite.")
+            elseif !all(isfinite, y)
+                error(
+                    "The function value $(D == F == 1 ? only(y) : y) at the breakpoint $(D == 1 ? only(x) : x) is not finite. The breakpoints and function values become coefficients of the model, so they must be finite, e.g. not log(0).",
+                )
+            end
+        end
+        # What each method requires of the segments, e.g. that they are
+        # simplices or aligned with a grid, is checked when formulating.
+        return new{D,F}(input_vals, output_vals)
     end
-    return PWLFunction{D}(x, z, T, meta)
 end
 
-PWLFunction(x, z, T) = PWLFunction(x, z, T, Dict())
-
-const UnivariatePWLFunction = PWLFunction{1}
-
-function UnivariatePWLFunction(x, z)
-    @assert issorted(x)
-    return PWLFunction(
-        Tuple{Float64}[(xx,) for xx in x],
-        convert(Vector{Float64}, z),
-        [[i, i + 1] for i in 1:length(x)-1],
-    )
+struct _AffineFunction{D}
+    coeffs::NTuple{D,Float64}
+    offset::Float64
 end
 
-function UnivariatePWLFunction(x, fz::Function)
-    @assert issorted(x)
-    return PWLFunction(
-        Tuple{Float64}[(xx,) for xx in x],
-        map(t -> convert(Float64, fz(t)), x),
-        [[i, i + 1] for i in 1:length(x)-1],
-    )
+# The hyperplane representation of a simplex segment, used internally by the
+# MultipleChoice method and for evaluation: the domain is given by f(x) ≥ 0 for
+# each f in constraints, and the function value by funcs.
+struct _HyperplaneSegment{D,F}
+    constraints::Vector{_AffineFunction{D}}
+    funcs::NTuple{F,_AffineFunction{D}}
 end
 
-const BivariatePWLFunction = PWLFunction{2}
+"""
+    SegmentStructure{D}
 
-function BivariatePWLFunction(
+How the segments of a piecewise linear function of `D` inputs are arranged.
+"""
+abstract type SegmentStructure{D} end
+
+"""
+    Unstructured{D}()
+
+Segments without any known structure, e.g. a triangulation in three or more
+dimensions.
+"""
+struct Unstructured{D} <: SegmentStructure{D} end
+
+"""
+    Intervals()
+
+The segments of a univariate function or relaxation, which lie over intervals.
+"""
+struct Intervals <: SegmentStructure{1} end
+
+"""
+    GridTriangulation
+
+A triangulation of a rectangular grid, where each cell is split into two
+triangles along one of its diagonals. The subtypes describe how the diagonals
+are chosen when constructing a [`BivariatePWLFunction`](@ref).
+"""
+abstract type GridTriangulation <: SegmentStructure{2} end
+
+"""
+    UnstructuredTriangulation()
+
+A grid triangulation without any known structure, e.g. one built segment by
+segment.
+"""
+struct UnstructuredTriangulation <: GridTriangulation end
+
+"""
+    K1Triangulation()
+
+Every cell is split along the diagonal from its upper left to its lower right
+corner.
+"""
+struct K1Triangulation <: GridTriangulation end
+
+"""
+    UnionJackTriangulation()
+
+The diagonals alternate between neighboring cells, forming a Union Jack pattern.
+"""
+struct UnionJackTriangulation <: GridTriangulation end
+
+"""
+    UpperTriangulation()
+
+Every cell is split along the diagonal with the larger average of the function
+values at its end points, which gives the largest interpolant.
+"""
+struct UpperTriangulation <: GridTriangulation end
+
+"""
+    LowerTriangulation()
+
+Every cell is split along the diagonal with the smaller average of the function
+values at its end points, which gives the smallest interpolant.
+"""
+struct LowerTriangulation <: GridTriangulation end
+
+"""
+    BestFitTriangulation()
+
+Every cell is split along the diagonal whose midpoint value is closest to the
+function value at the center of the cell. This requires the function, not only
+its values at the grid points.
+"""
+struct BestFitTriangulation <: GridTriangulation end
+
+"""
+    RandomTriangulation(seed = nothing)
+
+Every cell is split along a random diagonal. If `seed` is `nothing`, the seed is
+derived from the size of the grid.
+"""
+struct RandomTriangulation <: GridTriangulation
+    seed::Union{Nothing,Integer}
+end
+RandomTriangulation() = RandomTriangulation(nothing)
+
+"""
+    PWLFunction(segments::Vector{SegmentPointRep{D,F}}, structure::SegmentStructure{D})
+
+A piecewise linear function from R^D to R^F, given by its `segments`. The
+`structure` describes how the segments are arranged, e.g. `Intervals()` for a
+univariate function, a [`GridTriangulation`](@ref) for a bivariate function on
+a grid, or `Unstructured{D}()`.
+
+See also [`UnivariatePWLFunction`](@ref) and [`BivariatePWLFunction`](@ref) for
+constructing functions from breakpoints and function values, and
+[`UnivariatePWLRelaxation`](@ref) for a relaxation, whose segments have several
+values at a point.
+"""
+struct PWLFunction{D,F,S<:SegmentStructure{D}}
+    segments::Vector{SegmentPointRep{D,F}}
+    structure::S
+    # The hyperplane representation of the segments, computed on first
+    # evaluation of the function
+    hyperplanes::Base.RefValue{Union{Nothing,Vector{_HyperplaneSegment{D,F}}}}
+
+    function PWLFunction(
+        segments::Vector{SegmentPointRep{D,F}},
+        structure::S,
+    ) where {D,F,S<:SegmentStructure{D}}
+        return new{D,F,S}(
+            segments,
+            structure,
+            Ref{Union{Nothing,Vector{_HyperplaneSegment{D,F}}}}(nothing),
+        )
+    end
+end
+
+function PWLFunction{D,F}(
+    segments::Vector{SegmentPointRep{D,F}},
+    structure::SegmentStructure{D},
+) where {D,F}
+    return PWLFunction(segments, structure)
+end
+
+"""
+    segments(pwl::PWLFunction{D,F})
+
+The segments of `pwl`, a vector of [`SegmentPointRep{D,F}`](@ref). Read their
+points with [`input_values`](@ref) and [`output_values`](@ref).
+"""
+segments(pwl::PWLFunction) = pwl.segments
+
+"""
+    input_values(segment::SegmentPointRep{D,F})
+
+The points of `segment`, a vector of `NTuple{D,Float64}`.
+"""
+input_values(segment::SegmentPointRep) = segment.input_vals
+
+"""
+    output_values(segment::SegmentPointRep{D,F})
+
+The function values at the points of `segment`, a vector of
+`NTuple{F,Float64}`.
+"""
+output_values(segment::SegmentPointRep) = segment.output_vals
+
+const UnivariatePWLFunction = PWLFunction{1,1}
+const BivariatePWLFunction = PWLFunction{2,1}
+
+function _check_strictly_increasing(xs::Vector{Float64}, name::String)
+    for i in 1:(length(xs)-1)
+        if !(xs[i] < xs[i+1])
+            error("The breakpoints in $name must be strictly increasing.")
+        end
+    end
+    return
+end
+
+"""
+    UnivariatePWLFunction(x, f::Function)
+    UnivariatePWLFunction(x, z::AbstractVector)
+
+The piecewise linear function with the strictly increasing breakpoints `x`,
+which interpolates `f(x[i])`, or `z[i]`, at the breakpoints.
+"""
+UnivariatePWLFunction
+
+function PWLFunction{1,1}(x::Vector, z::Vector)
+    if length(x) != length(z)
+        error("Mismatch in the number of points and function values")
+    end
+    xs = [convert(Float64, xi) for xi in x]
+    zs = [convert(Float64, zi) for zi in z]
+    _check_strictly_increasing(xs, "x")
+    segments = [
+        PiecewiseLinearOpt.SegmentPointRep{1,1}(
+            [(xs[i],), (xs[i+1],)],
+            [(zs[i],), (zs[i+1],)],
+        ) for i in 1:(length(x)-1)
+    ]
+
+    return PWLFunction(segments, Intervals())
+end
+
+function PWLFunction{1,1}(x::AbstractVector, f::Function)
+    d = collect(x)
+    fd = [f(xi) for xi in d]
+    return PWLFunction{1,1}(d, fd)
+end
+
+function PWLFunction{1,1}(x::AbstractVector, z::AbstractVector)
+    return PWLFunction{1,1}(collect(x), collect(z))
+end
+
+"""
+    UnivariatePWLRelaxation(x, lower, upper)
+
+A piecewise linear relaxation of a univariate function, i.e. the band between
+a lower and an upper piecewise linear bound. The band consists of the points
+`(x, y)` with `l(x) ≤ y ≤ u(x)`, where `l` and `u` are the piecewise linear
+functions with the strictly increasing breakpoints `x` that interpolate
+`lower[i]` and `upper[i]`, or `lower(x[i])` and `upper(x[i])` when the bounds
+are given as functions, at the breakpoints. For example, a function that is
+within `ε` of its interpolant has the relaxation
+`UnivariatePWLRelaxation(x, t -> f(t) - ε, t -> f(t) + ε)`.
+
+Each segment of the relaxation is the convex hull of the four points of the
+bounds at the ends of an interval, so the relaxation has several values at a
+point and cannot be evaluated. It is formulated by [`IndependentBranching`](@ref)
+and [`DisaggregatedLogarithmic`](@ref), which model both bounds with the binary
+variables of a single function, half as many as two separate functions for the
+bounds would need (Lyu, Hicks and Huchette, 2025). The other methods reject it.
+"""
+function UnivariatePWLRelaxation(x::AbstractVector, lower, upper)
+    xs = [convert(Float64, xi) for xi in x]
+    ls = _bound_values(lower, xs, "lower")
+    us = _bound_values(upper, xs, "upper")
+    _check_strictly_increasing(xs, "x")
+    for i in eachindex(xs)
+        if ls[i] > us[i]
+            error(
+                "The lower bound $(ls[i]) is above the upper bound $(us[i]) at the breakpoint $(xs[i]).",
+            )
+        end
+    end
+    segments = SegmentPointRep{1,1}[]
+    for i in 1:(length(xs)-1)
+        inputs = [(xs[i],), (xs[i],), (xs[i+1],), (xs[i+1],)]
+        outputs = [(ls[i],), (us[i],), (ls[i+1],), (us[i+1],)]
+        # Where the bounds coincide, the two points are the same
+        keep = [true, ls[i] != us[i], true, ls[i+1] != us[i+1]]
+        push!(segments, SegmentPointRep{1,1}(inputs[keep], outputs[keep]))
+    end
+    return PWLFunction(segments, Intervals())
+end
+
+function _bound_values(f::Function, xs::Vector{Float64}, name::String)
+    return [convert(Float64, f(xi)) for xi in xs]
+end
+
+function _bound_values(z::AbstractVector, xs::Vector{Float64}, name::String)
+    if length(z) != length(xs)
+        error(
+            "Mismatch in the number of breakpoints and values of the $name bound.",
+        )
+    end
+    return [convert(Float64, zi) for zi in z]
+end
+
+"""
+    BivariatePWLFunction(x, y, f::Function; triangulation = K1Triangulation())
+    BivariatePWLFunction(x, y, z::AbstractMatrix; triangulation = K1Triangulation())
+
+The piecewise linear function on the grid with breakpoints `x` and `y`, which
+interpolates `f(x[i], y[j])`, or `z[i, j]`, at the grid points. Each cell of
+the grid is split into two triangles as given by `triangulation`, see
+[`GridTriangulation`](@ref).
+"""
+BivariatePWLFunction
+
+function PWLFunction{2,1}(
     x,
     y,
-    fz::Function;
-    pattern = :BestFit,
-    seed = hash((length(x), length(y))),
+    f::Function;
+    triangulation::GridTriangulation = K1Triangulation(),
 )
-    @assert issorted(x)
-    @assert issorted(y)
-    X = vec(collect(Base.product(x, y)))
-    # X = vec(Tuple{Float64,Float64}[(_x,_y) for _x in x, _y in y])
-    Z = map(t -> convert(Float64, fz(t...)), X)
-    T = Vector{Vector{Int}}()
-    m = length(x)
-    n = length(y)
-    mt = Random.MersenneTwister(seed)
-    # run for each square on [x[i],x[i+1]] × [y[i],y[i+1]]
-    for i in 1:length(x)-1, j in 1:length(y)-1
-        SWt, NWt, NEt, SEt = LinearIndices((m, n))[i, j],
-        LinearIndices((m, n))[i, j+1],
-        LinearIndices((m, n))[i+1, j+1],
-        LinearIndices((m, n))[i+1, j]
-        xL, xU, yL, yU = x[i], x[i+1], y[j], y[j+1]
-        @assert xL == X[SWt][1] == X[NWt][1]
-        @assert xU == X[SEt][1] == X[NEt][1]
-        @assert yL == X[SWt][2] == X[SEt][2]
-        @assert yU == X[NWt][2] == X[NEt][2]
-        SW, NW, NE, SE = Z[SWt], Z[NWt], Z[NEt], Z[SEt]
-        mid1 = 0.5 * (SW + NE)
-        mid2 = 0.5 * (NW + SE)
-        if pattern == :Upper
-            if mid1 > mid2
-                t1 = [SWt, NWt, NEt]
-                t2 = [SWt, NEt, SEt]
-            else
-                t1 = [SWt, NWt, SEt]
-                t2 = [SEt, NWt, NEt]
-            end
-        elseif pattern == :Lower
-            if mid1 > mid2
-                t1 = [SWt, NWt, SEt]
-                t2 = [SEt, NWt, NEt]
-            else
-                t1 = [SWt, NWt, NEt]
-                t2 = [SWt, NEt, SEt]
-            end
-        elseif pattern == :BestFit
-            mid3 = fz(0.5 * (xL + xU), 0.5 * (yL + yU))
-            if abs(mid1 - mid3) < abs(mid2 - mid3)
-                t1 = [SWt, NWt, NEt]
-                t2 = [SWt, NEt, SEt]
-            else
-                t1 = [SWt, NWt, SEt]
-                t2 = [SEt, NWt, NEt]
-            end
-        elseif pattern == :UnionJack
-            t1 = [SWt, SEt]
-            t2 = [NWt, NEt]
-            if iseven(i + j)
-                push!(t1, NWt)
-                push!(t2, SEt)
-            else
-                push!(t1, NEt)
-                push!(t2, SWt)
-            end
-        elseif pattern == :K1
-            t1 = [SEt, SWt, NWt]
-            t2 = [NWt, NEt, SEt]
-        elseif pattern == :Random
-            if rand(mt, Bool)
-                t1 = [NWt, NEt, SEt]
-                t2 = [SEt, SWt, NWt]
-            else
-                t1 = [SWt, NWt, NEt]
-                t2 = [NEt, SEt, SWt]
-            end
-        else
-            error("pattern $pattern not currently supported")
-        end
-        push!(T, t1)
-        push!(T, t2)
+    xs = [convert(Float64, xi) for xi in x]
+    ys = [convert(Float64, yi) for yi in y]
+    z = [convert(Float64, f(xi, yj)) for xi in xs, yj in ys]
+    center(i, j) = f(0.5 * (xs[i] + xs[i+1]), 0.5 * (ys[j] + ys[j+1]))
+    return _grid_pwl_function(xs, ys, z, triangulation, center)
+end
+
+function PWLFunction{2,1}(
+    x,
+    y,
+    z::AbstractMatrix;
+    triangulation::GridTriangulation = K1Triangulation(),
+)
+    if size(z) != (length(x), length(y))
+        error(
+            "The matrix of function values must have size $((length(x), length(y))), got $(size(z)).",
+        )
     end
-    return PWLFunction{2}(X, Z, T, Dict(:structure => pattern))
+    xs = [convert(Float64, xi) for xi in x]
+    ys = [convert(Float64, yi) for yi in y]
+    zs = [convert(Float64, zij) for zij in z]
+    return _grid_pwl_function(xs, ys, zs, triangulation, nothing)
+end
+
+function _grid_pwl_function(
+    xs::Vector{Float64},
+    ys::Vector{Float64},
+    z::Matrix{Float64},
+    triangulation::GridTriangulation,
+    center::Union{Nothing,Function},
+)
+    _check_strictly_increasing(xs, "x")
+    _check_strictly_increasing(ys, "y")
+    nw_se = _nw_se_diagonals(triangulation, xs, ys, z, center)
+    segments = SegmentPointRep{2,1}[]
+    for i in 1:(length(xs)-1), j in 1:(length(ys)-1)
+        sw, se, nw, ne = (i, j), (i + 1, j), (i, j + 1), (i + 1, j + 1)
+        if nw_se[i, j]
+            triangles = ((sw, nw, se), (se, nw, ne))
+        else
+            triangles = ((sw, ne, se), (sw, nw, ne))
+        end
+        for t in triangles
+            push!(
+                segments,
+                SegmentPointRep{2,1}(
+                    [(xs[k], ys[l]) for (k, l) in t],
+                    [(z[k, l],) for (k, l) in t],
+                ),
+            )
+        end
+    end
+    return PWLFunction(segments, triangulation)
+end
+
+# Returns whether each cell (i, j) is split along its NW-SE diagonal, in which
+# case the value at the center of the cell is the average of the NW and SE
+# values, instead of the SW and NE values.
+function _nw_se_diagonals(::K1Triangulation, xs, ys, z, center)
+    return fill(true, length(xs) - 1, length(ys) - 1)
+end
+
+function _nw_se_diagonals(::UnionJackTriangulation, xs, ys, z, center)
+    return [isodd(i + j) for i in 1:(length(xs)-1), j in 1:(length(ys)-1)]
+end
+
+function _nw_se_diagonals(::UpperTriangulation, xs, ys, z, center)
+    return [
+        z[i, j+1] + z[i+1, j] > z[i, j] + z[i+1, j+1] for
+        i in 1:(length(xs)-1), j in 1:(length(ys)-1)
+    ]
+end
+
+function _nw_se_diagonals(::LowerTriangulation, xs, ys, z, center)
+    return [
+        z[i, j+1] + z[i+1, j] < z[i, j] + z[i+1, j+1] for
+        i in 1:(length(xs)-1), j in 1:(length(ys)-1)
+    ]
+end
+
+function _nw_se_diagonals(::BestFitTriangulation, xs, ys, z, center)
+    if center === nothing
+        error(
+            "BestFitTriangulation requires the function itself, not only its values at the grid points.",
+        )
+    end
+    return [
+        abs(0.5 * (z[i, j+1] + z[i+1, j]) - center(i, j)) <
+        abs(0.5 * (z[i, j] + z[i+1, j+1]) - center(i, j)) for
+        i in 1:(length(xs)-1), j in 1:(length(ys)-1)
+    ]
+end
+
+function _nw_se_diagonals(t::RandomTriangulation, xs, ys, z, center)
+    seed = something(t.seed, hash((length(xs), length(ys))))
+    return rand(
+        Random.MersenneTwister(seed),
+        Bool,
+        length(xs) - 1,
+        length(ys) - 1,
+    )
+end
+
+function _nw_se_diagonals(t::GridTriangulation, xs, ys, z, center)
+    return error("Cannot construct a grid triangulation of type $(typeof(t)).")
+end
+
+"""
+    (pwl::PWLFunction)(x::Real...)
+
+Evaluates the piecewise linear function at `x`, returning a number for a
+function with one output and a tuple otherwise. Every segment must be a
+simplex, so a relaxation cannot be evaluated. Where the function is
+discontinuous, the value of the first segment containing `x` is returned.
+"""
+function (pwl::PWLFunction{D,F})(x::Vararg{Real,D}) where {D,F}
+    hyperplanes = pwl.hyperplanes[]
+    if hyperplanes === nothing
+        hyperplanes = [_hyperplane_rep(seg, Float64) for seg in pwl.segments]
+        pwl.hyperplanes[] = hyperplanes
+    end
+    for h in hyperplanes
+        if all(c -> _evaluate(c, x) ≥ -1e-9, h.constraints)
+            y = map(g -> _evaluate(g, x), h.funcs)
+            return F == 1 ? y[1] : y
+        end
+    end
+    return error("The point $x is outside the domain of the function.")
+end
+
+function _evaluate(f::_AffineFunction{D}, x) where {D}
+    return sum(f.coeffs[j] * x[j] for j in 1:D) + f.offset
 end
