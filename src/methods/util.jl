@@ -142,7 +142,7 @@ function _canonicalize_triangulation(
     end
     x_to_i = [Dict(U[j][i] => i for i in 1:size(xs, j)) for j in 1:D]
 
-    canonical_input_segments = Vector{NTuple{D,Int64}}[]
+    canonical_input_segments = Vector{NTuple{D,Int}}[]
     for segment in pwl.segments
         push!(
             canonical_input_segments,
