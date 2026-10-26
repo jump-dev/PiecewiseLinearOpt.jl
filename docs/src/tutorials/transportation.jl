@@ -133,23 +133,23 @@ plot!(
     label = "approximation",
 )
 
-# [`piecewiselinear`](@ref) adds the approximation to the model and returns an
-# expression for its value. The cost is minimized, so the output only needs to
+# A [`PiecewiseLinear`](@ref) holds the approximation of the cost of an arc.
+# Calling it with the flow adds the approximation to the model and returns a
+# variable for its value. The cost is minimized, so the output only needs to
 # be bounded from below, which the [`Epigraph`](@ref) direction expresses and
 # which gives a slightly smaller model:
 
 function solve_pwl(n; method = Logarithmic())
     model, x = transportation_model(HiGHS.Optimizer)
-    costs = [
-        piecewiselinear(
-            model,
-            x[i, j],
-            range(0, capacity(i, j); length = n),
-            t -> cost(i, j, t);
+    approximation = [
+        PiecewiseLinear(
+            t -> cost(i, j, t),
+            range(0, capacity(i, j); length = n);
             method = method,
             direction = Epigraph(),
         ) for i in 1:I, j in 1:J
     ]
+    costs = [approximation[i, j](x[i, j]) for i in 1:I, j in 1:J]
     @objective(model, Min, sum(costs))
     optimize!(model)
     return objective_value(model), true_cost(value.(x)), solve_time(model)
@@ -282,22 +282,20 @@ function fixed_charge_pwl(i, j, n)
 end
 
 # Discontinuous functions are supported by [`IndependentBranching`](@ref),
-# [`DisaggregatedLogarithmic`](@ref) and [`MultipleChoice`](@ref). The general
-# form of [`piecewiselinear`](@ref) takes the function and a vector of inputs,
-# and returns the outputs together with the formulation:
+# [`DisaggregatedLogarithmic`](@ref) and [`MultipleChoice`](@ref). A
+# [`PiecewiseLinear`](@ref) can also be built from a [`PWLFunction`](@ref):
 
 function solve_fixed_charge(n)
     model, x = transportation_model(HiGHS.Optimizer)
-    costs = map(Iterators.product(1:I, 1:J)) do (i, j)
-        y, _ = piecewiselinear(
-            model,
-            [x[i, j]],
+    costs = [
+        PiecewiseLinear(
             fixed_charge_pwl(i, j, n);
             method = IndependentBranching(),
             direction = Epigraph(),
-        )
-        return y[1]
-    end
+        )(
+            x[i, j],
+        ) for i in 1:I, j in 1:J
+    ]
     @objective(model, Min, sum(costs))
     optimize!(model)
     return objective_value(model), value.(x)
@@ -311,15 +309,14 @@ lower_fixed, x_fixed = solve_fixed_charge(17)
 # alone would choose:
 
 model, x = transportation_model(HiGHS.Optimizer)
-costs = [
-    piecewiselinear(
-        model,
-        x[i, j],
-        range(0, capacity(i, j); length = 17),
-        t -> cost(i, j, t);
+approximation = [
+    PiecewiseLinear(
+        t -> cost(i, j, t),
+        range(0, capacity(i, j); length = 17);
         direction = Epigraph(),
     ) for i in 1:I, j in 1:J
 ]
+costs = [approximation[i, j](x[i, j]) for i in 1:I, j in 1:J]
 @objective(model, Min, sum(costs))
 optimize!(model)
 routes(value.(x))

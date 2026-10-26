@@ -60,8 +60,11 @@ function test_relaxation()
     pwl = UnivariatePWLRelaxation(0:0.5:2, t -> t^2 - 0.1, t -> t^2 + 0.1)
     model = Model()
     @variable(model, x)
-    _, formulation =
-        piecewiselinear(model, (x,), pwl; method = IndependentBranching())
+    _, formulation = add_formulation(
+        model,
+        PiecewiseLinear(pwl; method = IndependentBranching()),
+        x,
+    )
     @test count(is_binary, formulation.variables) == 2
     return
 end
@@ -131,7 +134,11 @@ function test_binaries()
         pwl = PWLFunction(segments, Intervals())
         model = Model()
         @variable(model, x)
-        piecewiselinear(model, (x,), pwl; method = IndependentBranching(scheme))
+        add_formulation(
+            model,
+            PiecewiseLinear(pwl; method = IndependentBranching(scheme)),
+            x,
+        )
         @test num_constraints(model, VariableRef, MOI.ZeroOne) ==
               ceil(Int, log2(d))
     end

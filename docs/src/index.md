@@ -33,14 +33,15 @@ using JuMP, PiecewiseLinearOpt, HiGHS
 model = Model(HiGHS.Optimizer)
 set_silent(model)
 @variable(model, x)
-y = piecewiselinear(model, x, 0:0.5:2π, sin)
+f = PiecewiseLinear(sin, 0:0.5:2π)
+@expression(model, y, f(x))
 @objective(model, Min, y)
 optimize!(model)
 value(x), value(y)
 ```
 
 The output `y` equals the piecewise linear function of `x`, which is
-formulated with auxiliary variables and constraints. Functions of two
+formulated with auxiliary variables and constraints when `f(x)` is called. Functions of two
 variables work the same way, with breakpoints along each axis:
 
 ```@example quickstart
@@ -48,7 +49,10 @@ model = Model(HiGHS.Optimizer)
 set_silent(model)
 @variable(model, x)
 @variable(model, y)
-z = piecewiselinear(model, x, y, 0:0.25:1, 0:0.25:1, (a, b) -> (a - 0.3)^2 + (b - 0.6)^2)
+g = PiecewiseLinear(0:0.25:1, 0:0.25:1) do a, b
+    return (a - 0.3)^2 + (b - 0.6)^2
+end
+@expression(model, z, g(x, y))
 @objective(model, Min, z)
 optimize!(model)
 value(x), value(y), value(z)
@@ -59,8 +63,8 @@ value(x), value(y), value(z)
 The manual:
 
 - [Piecewise linear functions](@ref) describes how to construct functions.
-- [Adding functions to a model](@ref) describes [`piecewiselinear`](@ref) and
-  the formulations it returns.
+- [Adding functions to a model](@ref) describes [`PiecewiseLinear`](@ref),
+  [`add_formulation`](@ref) and the formulations they add.
 - [Formulation methods](@ref) gives an overview of the available methods and
   advice on choosing one.
 

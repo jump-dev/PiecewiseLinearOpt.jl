@@ -7,7 +7,7 @@
     PWLMethod
 
 The abstract type of the formulation methods, which are passed to
-[`piecewiselinear`](@ref) with the `method` keyword.
+[`PiecewiseLinear`](@ref) with the `method` keyword.
 
 A new method is a subtype of `PWLMethod` that implements
 [`formulate_pwl!`](@ref). The subtypes [`SOS2Method`](@ref) and
@@ -65,6 +65,22 @@ given direction. Throw an error if `pwl` is not supported, e.g. because it is
 discontinuous; the model is then restored.
 """
 function formulate_pwl! end
+
+# The fallback for any method and function it does not support. Its arguments
+# other than the method are untyped, so that any implementation for a specific
+# method is more specific than it.
+function formulate_pwl!(
+    formulation,
+    input_vars,
+    output_vars,
+    pwl,
+    method::PWLMethod,
+    direction,
+)
+    return error(
+        "No support for a R^$(length(input_vars)) -> R^$(length(output_vars)) piecewise linear function using the $method method.",
+    )
+end
 
 """
     formulate_sos2!(formulation::PWLFormulation, λ::Vector, method::PWLMethod)
@@ -131,7 +147,7 @@ end
 """
     Direction
 
-The abstract type of the `direction` keyword of [`piecewiselinear`](@ref),
+The abstract type of the `direction` keyword of [`PiecewiseLinear`](@ref),
 which gives how the outputs `y` relate to the function value `f(x)`:
 [`Graph`](@ref) (the default), [`Epigraph`](@ref) or
 [`Hypograph`](@ref).
@@ -410,6 +426,46 @@ end
 
 function PWLFunction{1,1}(x::AbstractVector, z::AbstractVector)
     return PWLFunction{1,1}(collect(x), collect(z))
+end
+
+# A univariate function given in pieces, with the strictly increasing
+# breakpoints x[k] and the function values z[k] of piece k. The pieces must be
+# ordered, and each piece must start where the previous one ends or later, so
+# that neighboring pieces may jump or leave a gap between them.
+function _pieces_pwl_function(x::AbstractVector, z::AbstractVector)
+    if length(x) != length(z)
+        error("Mismatch in the number of pieces of breakpoints and values.")
+    end
+    segments = SegmentPointRep{1,1}[]
+    last_x = -Inf
+    for (k, (xk, zk)) in enumerate(zip(x, z))
+        if length(xk) != length(zk)
+            error(
+                "Mismatch in the number of breakpoints and values of piece $k.",
+            )
+        elseif length(xk) < 2
+            error("Piece $k must have at least two breakpoints.")
+        end
+        xs = [convert(Float64, xi) for xi in xk]
+        zs = [convert(Float64, zi) for zi in zk]
+        _check_strictly_increasing(xs, "piece $k")
+        if xs[1] < last_x
+            error(
+                "Piece $k starts at $(xs[1]), before the end $last_x of the previous piece.",
+            )
+        end
+        last_x = xs[end]
+        for i in 1:(length(xs)-1)
+            push!(
+                segments,
+                SegmentPointRep{1,1}(
+                    [(xs[i],), (xs[i+1],)],
+                    [(zs[i],), (zs[i+1],)],
+                ),
+            )
+        end
+    end
+    return PWLFunction(segments, Intervals())
 end
 
 """

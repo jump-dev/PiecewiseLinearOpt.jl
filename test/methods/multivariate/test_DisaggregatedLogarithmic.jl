@@ -95,8 +95,11 @@ function test_default()
     )
     model = Model()
     @variable(model, x[1:3])
-    _, formulation =
-        piecewiselinear(model, x, PWLFunction([s], Unstructured{3}()))
+    _, formulation = add_formulation(
+        model,
+        PiecewiseLinear(PWLFunction([s], Unstructured{3}())),
+        x...,
+    )
     @test formulation.method == DisaggregatedLogarithmic()
     return
 end

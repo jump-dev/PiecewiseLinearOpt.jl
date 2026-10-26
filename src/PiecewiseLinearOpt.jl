@@ -70,7 +70,7 @@ include("methods/multivariate/ConvexCombination.jl")
 include("methods/multivariate/DisaggregatedLogarithmic.jl")
 include("methods/multivariate/MultipleChoice.jl")
 
-include("pwlinear.jl")
+include("piecewise_linear.jl")
 
 # Export every symbol that does not begin with an underscore, following JuMP
 const _EXCLUDE_SYMBOLS = [Symbol(@__MODULE__), :eval, :include]

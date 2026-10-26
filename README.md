@@ -34,12 +34,18 @@ using JuMP, PiecewiseLinearOpt, HiGHS
 model = Model(HiGHS.Optimizer)
 @variable(model, x)
 @variable(model, y)
-# A piecewise linear approximation of sin(x) with breakpoints 0, 0.5, ..., 6
-f = piecewiselinear(model, x, 0:0.5:2π, sin)
+# A piecewise linear approximation of sin with breakpoints 0, 0.5, ..., 6
+f = PiecewiseLinear(sin, 0:0.5:2π)
 # A piecewise linear approximation of a bivariate function on a grid, with
 # a formulation chosen with the `method` keyword
-g = piecewiselinear(model, x, y, 0:0.25:1, 0:0.25:1, (a, b) -> (a - 1)^2 + (b - 0.5)^2; method = SixStencil(ZigZagBinary()))
-@objective(model, Min, f + g)
+g = PiecewiseLinear(0:0.25:1, 0:0.25:1; method = SixStencil(ZigZagBinary())) do a, b
+    return (a - 1)^2 + (b - 0.5)^2
+end
+# Each call adds the function of its inputs to their model. Add a function of
+# the same inputs once, with @expression, to use it several times.
+@expression(model, fx, f(x))
+@constraint(model, fx >= -0.5)
+@objective(model, Min, fx + g(x, y))
 optimize!(model)
 ```
 

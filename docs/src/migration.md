@@ -4,10 +4,12 @@ Version 0.5 is a rewrite with a new interface. The main changes are:
 
 - Methods are values of their own types instead of symbols, e.g.
   `method = Logarithmic()` instead of `method = :Logarithmic`.
-- The general [`piecewiselinear`](@ref) method takes a vector of inputs and
-  returns a vector of outputs together with a [`PWLFormulation`](@ref). The
-  convenience methods for univariate and bivariate functions still return the
-  output only.
+- `piecewiselinear` is replaced by [`PiecewiseLinear`](@ref) objects, which
+  hold the function, the method and the direction, and are called with the
+  inputs to add the function to their model, e.g. `f(x)`. The function is given
+  before the breakpoints, so that a `do` block can be used.
+  [`add_formulation`](@ref) also returns the [`PWLFormulation`](@ref) with the
+  variables and constraints that were added.
 - The triangulation of bivariate functions is given as a value with the
   `triangulation` keyword instead of the `pattern` keyword, and the default is
   now [`K1Triangulation`](@ref) instead of best fit. The default method of
@@ -53,7 +55,8 @@ Version 0.5 is a rewrite with a new interface. The main changes are:
 
 | Version 0.4 | Version 0.5 |
 |:------------|:------------|
-| `z = piecewiselinear(m, x, d, f; method = :CC)` | `z = piecewiselinear(m, x, d, f; method = ConvexCombination())` |
-| `z = piecewiselinear(m, x, y, dx, dy, f; method = :Log)` | `z = piecewiselinear(m, x, y, dx, dy, f; method = SixStencil())` |
-| `z = piecewiselinear(m, x, pwl)` | `(z,), formulation = piecewiselinear(m, [x], pwl)` |
-| `z = piecewiselinear(m, x, y, pwl)` | `(z,), formulation = piecewiselinear(m, [x, y], pwl)` |
+| `z = piecewiselinear(m, x, d, f; method = :CC)` with a function `f` | `z = PiecewiseLinear(f, d; method = ConvexCombination())(x)` |
+| `z = piecewiselinear(m, x, d, fd)` with values `fd` | `z = PiecewiseLinear(d, fd)(x)` |
+| `z = piecewiselinear(m, x, y, dx, dy, f; method = :Log)` | `z = PiecewiseLinear(f, dx, dy; method = SixStencil())(x, y)` |
+| `z = piecewiselinear(m, x, pwl)` | `z = PiecewiseLinear(pwl)(x)`, or `(z,), formulation = add_formulation(m, PiecewiseLinear(pwl), x)` |
+| `z = piecewiselinear(m, x, y, pwl)` | `z = PiecewiseLinear(pwl)(x, y)` |

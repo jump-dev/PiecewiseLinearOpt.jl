@@ -84,7 +84,12 @@ function test_discontinuous_bivariate()
     pwl = PWLFunction([s1, s2], UnstructuredTriangulation())
     model = Model(OPTIMIZER)
     @variable(model, x[1:2])
-    y, _ = piecewiselinear(model, (x[1], x[2]), pwl; method = MultipleChoice())
+    y, _ = add_formulation(
+        model,
+        PiecewiseLinear(pwl; method = MultipleChoice()),
+        x[1],
+        x[2],
+    )
     @objective(model, Max, y[1])
     solve!(model)
     @test termination_status(model) == MOI.OPTIMAL
@@ -146,8 +151,11 @@ function test_coefficients()
     )
         model = Model()
         @variable(model, x[1:(length(pwl.segments[1].input_vals)-1)])
-        _, formulation =
-            piecewiselinear(model, x, pwl; method = MultipleChoice())
+        _, formulation = add_formulation(
+            model,
+            PiecewiseLinear(pwl; method = MultipleChoice()),
+            x...,
+        )
         coefficients = Float64[]
         for c in formulation.constraints
             object = constraint_object(c)

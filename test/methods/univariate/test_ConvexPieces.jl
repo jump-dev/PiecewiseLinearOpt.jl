@@ -66,12 +66,10 @@ function test_pieces()
             @test length(PLO._convex_pieces(pwl, direction)) == pieces
             model = Model(OPTIMIZER)
             @variable(model, x)
-            (y,), formulation = piecewiselinear(
+            (y,), formulation = add_formulation(
                 model,
-                [x],
-                pwl;
-                method = method,
-                direction = direction,
+                PiecewiseLinear(pwl; method = method, direction = direction),
+                x,
             )
             @test count(is_binary, formulation.variables) == binaries(pieces)
             # The output is pinned to the interpolated value in the direction
@@ -115,12 +113,10 @@ function test_relaxed_discontinuous()
 
         model = Model(OPTIMIZER)
         @variable(model, x)
-        (y,), _ = piecewiselinear(
+        (y,), _ = add_formulation(
             model,
-            [x],
-            pwl;
-            method = method,
-            direction = direction,
+            PiecewiseLinear(pwl; method = method, direction = direction),
+            x,
         )
         @objective(model, sense, y)
         for ((a, b), (c, e)) in zip(xs, ys)
@@ -154,13 +150,13 @@ function test_concave_costs()
             model,
             Min,
             sum(
-                piecewiselinear(
-                    model,
-                    x[i, j],
+                PiecewiseLinear(
                     0:4,
                     cost[i];
                     method = m,
                     direction = Epigraph(),
+                )(
+                    x[i, j],
                 ) for i in 1:2, j in 1:3
             )
         )

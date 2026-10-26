@@ -1,6 +1,6 @@
 # Formulation methods
 
-The `method` keyword of [`piecewiselinear`](@ref) chooses how a function is
+The `method` keyword of [`PiecewiseLinear`](@ref) chooses how a function is
 formulated with auxiliary variables and constraints. All methods give a
 correct model; they differ in size and in how fast a solver finds the optimum.
 Which method is fastest depends on the problem and the solver, so it is worth
@@ -53,7 +53,9 @@ Below, `d` is the number of segments of a univariate function.
 
 ## Univariate functions
 
-The default is [`Logarithmic`](@ref LogarithmicEmbedding).
+The default is [`Logarithmic`](@ref LogarithmicEmbedding) for continuous
+functions, [`MultipleChoice`](@ref) for discontinuous functions and
+[`DisaggregatedLogarithmic`](@ref) for relaxations.
 
 | Method | Integer variables | Discontinuous | Relaxation |
 |:-------|:------------------|:--------------|:-----------|
@@ -93,7 +95,7 @@ ds = [4, 8, 16, 32, 64, 128, 256]
 function model_size(method, d)
     model = Model()
     @variable(model, x)
-    _, formulation = piecewiselinear(model, [x], UnivariatePWLFunction(0:d, t -> t^2); method)
+    _, formulation = add_formulation(model, PiecewiseLinear(UnivariatePWLFunction(0:d, t -> t^2); method), x)
     nonzeros = sum(
         length(constraint_object(c).func.terms) for
         c in formulation.constraints if constraint_object(c).func isa AffExpr
@@ -200,7 +202,7 @@ for method in (
     model = Model(HiGHS.Optimizer)
     set_silent(model)
     @variable(model, x[1:2])
-    (z,), formulation = piecewiselinear(model, x, pwl; method = method)
+    (z,), formulation = add_formulation(model, PiecewiseLinear(pwl; method = method), x...)
     @objective(model, Min, z)
     optimize!(model)
     binaries = count(is_binary, formulation.variables)

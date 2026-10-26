@@ -78,12 +78,17 @@ function nonbound_constraints(model)
     return constraints
 end
 
-# Checks that piecewiselinear(model, args...; kwargs...) throws an error and
-# leaves the model unchanged
-function check_rejected(model, args...; kwargs...)
+# Checks that adding pwl of inputs, formulated as given by kwargs, throws an
+# error and leaves the model unchanged
+function check_rejected(model, inputs, pwl; output_vars = nothing, kwargs...)
     variables = all_variables(model)
     constraints = nonbound_constraints(model)
-    @test_throws ErrorException piecewiselinear(model, args...; kwargs...)
+    @test_throws ErrorException add_formulation(
+        model,
+        PiecewiseLinear(pwl; kwargs...),
+        inputs...;
+        output_vars = output_vars,
+    )
     @test all_variables(model) == variables
     @test nonbound_constraints(model) == constraints
     return
@@ -124,7 +129,8 @@ const TRIANGULATIONS = [
 # The formulation must record exactly what was added to a model that only
 # contained the inputs, and deleting it must remove all of it.
 function check_formulation(model, inputs, pwl, method)
-    y, formulation = piecewiselinear(model, inputs, pwl; method = method)
+    y, formulation =
+        add_formulation(model, PiecewiseLinear(pwl; method = method), inputs...)
     @test formulation isa PWLFormulation
     @test formulation.method === method
     @test all(yi -> yi in formulation.variables, y)
@@ -180,7 +186,7 @@ function _check_univariate_simple(method)
     s1 = SegmentPointRep{1,1}([(1.0,), (2.0,)], [(2.5,), (3.5,)])
     s2 = SegmentPointRep{1,1}([(2.0,), (3.0,)], [(3.5,), (1.0,)])
     pwl = PWLFunction([s1, s2], Intervals())
-    y, _ = piecewiselinear(model, (x,), pwl; method = method)
+    y, _ = add_formulation(model, PiecewiseLinear(pwl; method = method), x)
     @objective(model, Min, y[1])
     solve!(model)
     @test termination_status(model) == MOI.OPTIMAL
@@ -198,7 +204,7 @@ function _check_univariate_sizes(method)
         zs = sin.(xs)
         model = Model(OPTIMIZER)
         @variable(model, x)
-        y = piecewiselinear(model, x, xs, zs; method = method)
+        y = PiecewiseLinear(xs, zs; method = method)(x)
         for i in 1:(n-1)
             x0 = 0.3 * xs[i] + 0.7 * xs[i+1]
             y0 = 0.3 * zs[i] + 0.7 * zs[i+1]
@@ -220,7 +226,7 @@ function _check_univariate_sine(method)
     d = 7
     xs = collect(range(1; stop = 2π, length = (d + 1)))
     zs = sin.(xs)
-    y = piecewiselinear(model, x, xs, zs; method = method)
+    y = PiecewiseLinear(xs, zs; method = method)(x)
     @objective(model, Max, y)
     solve!(model)
     @test termination_status(model) == MOI.OPTIMAL
@@ -244,7 +250,7 @@ function _check_univariate_affine(method)
     zs = [0.0, 2.0, 1.0, 3.0, -1.0]
     model = Model(OPTIMIZER)
     @variable(model, x)
-    y = piecewiselinear(model, 2x + 1, xs, zs; method = method)
+    y = PiecewiseLinear(xs, zs; method = method)(2x + 1)
     for (x0, y0) in ((0.25, 0.5 * 0.0 + 0.5 * 2.0), (1.75, 0.5 * 3.0 - 0.5))
         fix(x, x0)
         for sense in (MAX_SENSE, MIN_SENSE)
@@ -266,14 +272,7 @@ function _check_univariate_direction(method)
     )
         model = Model(OPTIMIZER)
         @variable(model, x)
-        y = piecewiselinear(
-            model,
-            x,
-            xs,
-            zs;
-            method = method,
-            direction = direction,
-        )
+        y = PiecewiseLinear(xs, zs; method = method, direction = direction)(x)
         fix(x, 1.5)
         @objective(model, sense, y)
         solve!(model)
@@ -306,7 +305,7 @@ function _check_univariate_multiple_outputs(method)
     pwl = PWLFunction(segments, Intervals())
     model = Model(OPTIMIZER)
     @variable(model, x)
-    y, _ = piecewiselinear(model, (x,), pwl; method = method)
+    y, _ = add_formulation(model, PiecewiseLinear(pwl; method = method), x)
     @test length(y) == 2
     for x0 in (0.5, 1.25, 2.9)
         fix(x, x0)
@@ -332,7 +331,7 @@ function check_relaxation(method)
     pwl = UnivariatePWLRelaxation(xs, t -> f(t) - 0.1, t -> f(t) + 0.1)
     model = Model(OPTIMIZER)
     @variable(model, x)
-    (y,), _ = piecewiselinear(model, (x,), pwl; method = method)
+    (y,), _ = add_formulation(model, PiecewiseLinear(pwl; method = method), x)
     for t in (0.0, 0.3, 0.5, 1.25, 2.0)
         fix(x, t)
         i = min(searchsortedlast(xs, t), length(xs) - 1)
@@ -356,7 +355,7 @@ function check_relaxation(method)
     model = Model(OPTIMIZER)
     @variable(model, x)
     fix(x, 1)
-    (y,), _ = piecewiselinear(model, (x,), pwl; method = method)
+    (y,), _ = add_formulation(model, PiecewiseLinear(pwl; method = method), x)
     for sense in (MIN_SENSE, MAX_SENSE)
         @objective(model, sense, y)
         solve!(model)
@@ -373,7 +372,7 @@ function check_discontinuous(method)
         s1 = SegmentPointRep{1,1}([(0.0,), (1.0,)], [(0.0,), (1.0,)])
         s2 = SegmentPointRep{1,1}([(1.0,), (2.0,)], [(3.0,), (2.0,)])
         pwl = PWLFunction([s1, s2], Intervals())
-        y, _ = piecewiselinear(model, (x,), pwl; method = method)
+        y, _ = add_formulation(model, PiecewiseLinear(pwl; method = method), x)
         @objective(model, Max, y[1])
         solve!(model)
         @test termination_status(model) == MOI.OPTIMAL
@@ -395,7 +394,8 @@ function check_discontinuous(method)
         pwl = PWLFunction(segments, Intervals())
         model = Model(OPTIMIZER)
         @variable(model, x)
-        (y,), _ = piecewiselinear(model, (x,), pwl; method = method)
+        (y,), _ =
+            add_formulation(model, PiecewiseLinear(pwl; method = method), x)
         for ((a, b), (c, e)) in zip(xs, ys)
             fix(x, 0.3 * a + 0.7 * b)
             for sense in (MAX_SENSE, MIN_SENSE)
@@ -436,7 +436,12 @@ function check_bivariate_simple(method)
         [(0.0,), (3.0,), (2.0,)],
     )
     pwl = PWLFunction([s1, s2], UnstructuredTriangulation())
-    y, _ = piecewiselinear(model, (x[1], x[2]), pwl; method = method)
+    y, _ = add_formulation(
+        model,
+        PiecewiseLinear(pwl; method = method),
+        x[1],
+        x[2],
+    )
     @objective(model, Min, y[1])
     solve!(model)
     @test termination_status(model) == MOI.OPTIMAL
@@ -451,16 +456,11 @@ function check_bivariate_grid(method, triangulation)
     @variable(model, x[1:2])
     d = range(0; stop = 1, length = 8)
     f = (x1, x2) -> 2 * (x1 - 1 / 3)^2 + 3 * (x2 - 4 / 7)^4
-    z = piecewiselinear(
-        model,
-        x[1],
-        x[2],
-        d,
-        d,
-        f;
-        method = method,
-        triangulation = triangulation,
-    )
+    z =
+        PiecewiseLinear(f, d, d; method = method, triangulation = triangulation)(
+            x[1],
+            x[2],
+        )
     @objective(model, Min, z)
     solve!(model)
     @test termination_status(model) == MOI.OPTIMAL
@@ -489,7 +489,12 @@ function check_triangle_selection(method, triangulation, n)
     pwl = BivariatePWLFunction(d, d, f; triangulation = triangulation)
     model = Model(OPTIMIZER)
     @variable(model, x[1:2])
-    (z,), _ = piecewiselinear(model, (x[1], x[2]), pwl; method = method)
+    (z,), _ = add_formulation(
+        model,
+        PiecewiseLinear(pwl; method = method),
+        x[1],
+        x[2],
+    )
     for seg in pwl.segments
         fix(x[1], sum(v[1] for v in seg.input_vals) / 3)
         fix(x[2], sum(v[2] for v in seg.input_vals) / 3)
@@ -522,7 +527,7 @@ function check_bivariate_affine(method)
     f = (a, b) -> a^2 - b
     model = Model(OPTIMIZER)
     @variable(model, x[1:2])
-    z = piecewiselinear(model, 2x[1], x[2] + 1, d, d, f; method = method)
+    z = PiecewiseLinear(f, d, d; method = method)(2x[1], x[2] + 1)
     fix(x[1], 0.5)
     fix(x[2], 0.0)
     for sense in (MAX_SENSE, MIN_SENSE)
@@ -544,12 +549,11 @@ function check_bivariate_direction(method)
         ((Epigraph(), MIN_SENSE), (Hypograph(), MAX_SENSE))
         model = Model(OPTIMIZER)
         @variable(model, x[1:2])
-        (z,), _ = piecewiselinear(
+        (z,), _ = add_formulation(
             model,
-            (x[1], x[2]),
-            pwl;
-            method = method,
-            direction = direction,
+            PiecewiseLinear(pwl; method = method, direction = direction),
+            x[1],
+            x[2],
         )
         fix(x[1], sum(v[1] for v in seg.input_vals) / 3)
         fix(x[2], sum(v[2] for v in seg.input_vals) / 3)
@@ -575,7 +579,12 @@ function check_bivariate_multiple_outputs(method)
     pwl = PWLFunction(segments, base.structure)
     model = Model(OPTIMIZER)
     @variable(model, x[1:2])
-    z, _ = piecewiselinear(model, (x[1], x[2]), pwl; method = method)
+    z, _ = add_formulation(
+        model,
+        PiecewiseLinear(pwl; method = method),
+        x[1],
+        x[2],
+    )
     for seg in segments
         fix(x[1], sum(v[1] for v in seg.input_vals) / 3)
         fix(x[2], sum(v[2] for v in seg.input_vals) / 3)
@@ -637,7 +646,8 @@ function check_spanning_triangulation(method)
     spanning = grid_function(_SPANNING)
     model = Model(OPTIMIZER)
     @variable(model, x[1:2])
-    (z,), _ = piecewiselinear(model, x, spanning; method = method)
+    (z,), _ =
+        add_formulation(model, PiecewiseLinear(spanning; method = method), x...)
     fix(x[1], 1.0)
     fix(x[2], 0.5)
     for sense in (MAX_SENSE, MIN_SENSE)
@@ -669,8 +679,13 @@ function check_trivariate(method)
         pwl = PWLFunction(segments, Unstructured{3}())
         model = Model(OPTIMIZER)
         @variable(model, x[1:3])
-        (y,), _ =
-            piecewiselinear(model, (x[1], x[2], x[3]), pwl; method = method)
+        (y,), _ = add_formulation(
+            model,
+            PiecewiseLinear(pwl; method = method),
+            x[1],
+            x[2],
+            x[3],
+        )
         for seg in segments
             for i in 1:3
                 fix(x[i], sum(v[i] for v in seg.input_vals) / 4)

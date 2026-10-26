@@ -1,32 +1,49 @@
 # Adding functions to a model
 
-## Convenience methods
+## Function objects
 
-For univariate and bivariate functions, [`piecewiselinear`](@ref) takes the
-breakpoints and the function, or its values at the breakpoints, and returns the
-output:
+A [`PiecewiseLinear`](@ref) holds a piecewise linear function together with
+the method and direction to formulate it with. Univariate and bivariate
+functions are built from the function, or its values, and the breakpoints;
+other functions from a [`PWLFunction`](@ref). Keyword arguments choose the
+method, the direction and the triangulation of bivariate functions.
 
-```@example convenience
+The object belongs to no model, and is called like a function: with variables
+or affine expressions as inputs, the call adds the function to their model and
+returns the output.
+
+```@example objects
 using JuMP, PiecewiseLinearOpt, HiGHS
 model = Model(HiGHS.Optimizer)
 set_silent(model)
 @variable(model, 0 ≤ x ≤ 4)
 @variable(model, 0 ≤ y ≤ 4)
-cost_x = piecewiselinear(model, x, [0, 1, 2, 4], [0, 3, 4, 5])
-cost_y = piecewiselinear(model, y, 0:4, t -> sqrt(t); method = ZigZagBinary())
-@constraint(model, x + y == 5)
-@objective(model, Min, cost_x + cost_y)
+cost = PiecewiseLinear([0, 1, 2, 4], [0, 1, 1.5, 2])
+g = PiecewiseLinear(0:4, 0:4; method = SixStencil(ZigZagBinary())) do a, b
+    return 3 * sqrt(a * b)
+end
+@expression(model, cost_x, cost(x))
+@constraint(model, cost_x ≤ 1.5)
+@objective(model, Max, g(x, y) - cost_x - cost(y))
 optimize!(model)
 value(x), value(y), objective_value(model)
 ```
 
-The inputs may be variables or affine expressions, and keyword arguments choose
-the method, the direction and the triangulation of bivariate functions.
+Each call adds a new formulation with its own variables, also for the same
+inputs, so a function that is used several times, as `cost(x)` above, should be
+added once and stored, e.g. with `@expression`. Above, `cost(x)` and `cost(y)`
+have different inputs and need a formulation each.
 
-## The general method
+With constant inputs, the call evaluates the function instead:
 
-The general method takes a [`PWLFunction`](@ref) and a vector of inputs, and
-returns a vector of outputs together with a [`PWLFormulation`](@ref):
+```@example objects
+cost(1.5), g(1, 4)
+```
+
+## Formulations
+
+[`add_formulation`](@ref) adds a function like a call does, but returns a
+vector of outputs together with a [`PWLFormulation`](@ref):
 
 ```@example general
 using JuMP, PiecewiseLinearOpt, HiGHS
@@ -34,7 +51,7 @@ model = Model(HiGHS.Optimizer)
 set_silent(model)
 @variable(model, x[1:2])
 pwl = BivariatePWLFunction(0:0.5:2, 0:0.5:2, (a, b) -> a * b)
-z, formulation = piecewiselinear(model, x, pwl; name = "product")
+z, formulation = add_formulation(model, PiecewiseLinear(pwl), x...; name = "product")
 formulation
 ```
 
@@ -56,8 +73,7 @@ num_variables(model)
 
 By default, new output variables are created, bounded by the smallest and
 largest function values. Existing variables or expressions can be given with
-`output_vars` in the general method, or `output_var` in the convenience
-methods.
+`output_var` in the call, or `output_vars` in [`add_formulation`](@ref).
 
 The `direction` keyword relaxes the equality between output and function
 value, see [`Direction`](@ref), and the new output
@@ -70,13 +86,7 @@ using JuMP, PiecewiseLinearOpt, HiGHS
 model = Model(HiGHS.Optimizer)
 set_silent(model)
 @variable(model, x)
-y = piecewiselinear(
-    model,
-    x,
-    [0, 1, 2, 3],
-    [2, 0, 1, 0];
-    direction = Epigraph(),
-)
+y = PiecewiseLinear([0, 1, 2, 3], [2, 0, 1, 0]; direction = Epigraph())(x)
 @objective(model, Min, y + x / 10)
 optimize!(model)
 value(x), value(y)
@@ -108,11 +118,46 @@ pwl = PWLFunction(segments, Intervals())
 model = Model(HiGHS.Optimizer)
 set_silent(model)
 @variable(model, x)
-(s, c), _ = piecewiselinear(model, [x], pwl)
+s, c = PiecewiseLinear(pwl)(x)
 @objective(model, Max, s + c)
 optimize!(model)
 value(x), value(s), value(c)
 ```
+
+## Discontinuous functions
+
+A univariate function with jumps is given to [`PiecewiseLinear`](@ref) in
+pieces, each with its own function, or values, and breakpoints. For example,
+``f(x) = -x`` for ``x < 0`` and ``f(x) = 1 + x^2`` for ``x \ge 0``:
+
+```@example pieces
+using JuMP, PiecewiseLinearOpt, HiGHS
+f = PiecewiseLinear([t -> -t, t -> 1 + t^2], [[-2, 0], 0:0.5:2])
+```
+
+The default method for a discontinuous function is
+[`MultipleChoice`](@ref), see [Formulation methods](@ref). A strict
+inequality such as ``x < 0`` cannot be modeled, so at the jump the model may
+take the value of either piece:
+
+```@example pieces
+function value_range(x0)
+    model = Model(HiGHS.Optimizer)
+    set_silent(model)
+    @variable(model, x == x0)
+    @expression(model, fx, f(x))
+    return map((MIN_SENSE, MAX_SENSE)) do sense
+        @objective(model, sense, fx)
+        optimize!(model)
+        return value(fx)
+    end
+end
+value_range(-1), value_range(0), value_range(1.5)
+```
+
+If the side matters, end the left piece slightly before the jump, e.g. at
+`-1e-4`. The pieces may also leave a gap, which is then excluded from the
+domain.
 
 ## Separable reformulation of products
 
@@ -124,7 +169,7 @@ instead be written as a sum of univariate functions of linear expressions
 x y = \frac{1}{4} \left((x + y)^2 - (x - y)^2\right).
 ```
 
-As the inputs of [`piecewiselinear`](@ref) may be affine expressions, each
+As the inputs of a [`PiecewiseLinear`](@ref) may be affine expressions, each
 square is a univariate function of `x + y` or `x - y`. The univariate functions
 are cheaper than a bivariate function on a grid, so they can use many more
 breakpoints, which matters most when the optimum is not near the grid points.
@@ -140,9 +185,9 @@ set_silent(model)
 @constraint(model, x + 2y ≤ 4)
 square(t) = t^2 / 4
 # x + y is in [0, 6] and x - y in [-2, 4]
-u = piecewiselinear(model, x + y, 0:0.25:6, square; direction = Hypograph())
+u = PiecewiseLinear(square, 0:0.25:6; direction = Hypograph())(x + y)
 # The square is convex, so its epigraph needs no binary variables
-v = piecewiselinear(model, x - y, -2:0.25:4, square; method = ConvexPieces(), direction = Epigraph())
+v = PiecewiseLinear(square, -2:0.25:4; method = ConvexPieces(), direction = Epigraph())(x - y)
 @objective(model, Max, u - v)
 optimize!(model)
 value(x), value(y), objective_value(model)

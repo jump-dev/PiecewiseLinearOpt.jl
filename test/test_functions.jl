@@ -82,11 +82,11 @@ function test_matrix_values()
         z;
         triangulation = BestFitTriangulation(),
     )
-    # Matrix input in the convenience method
+    # Matrix input in PiecewiseLinear
     pwl = BivariatePWLFunction(d, d, f; triangulation = K1Triangulation())
     model = Model(OPTIMIZER)
     @variable(model, x[1:2])
-    w = piecewiselinear(model, x[1], x[2], d, d, z)
+    w = PiecewiseLinear(d, d, z)(x[1], x[2])
     fix(x[1], 1.5)
     fix(x[2], 0.5)
     @objective(model, Max, w)
@@ -186,11 +186,10 @@ function test_relaxation_construction()
         Incremental(),
         ConvexCombination(),
     )
-        @test_throws r"relaxation" piecewiselinear(
+        @test_throws r"relaxation" add_formulation(
             model,
-            (x,),
-            pwl;
-            method = method,
+            PiecewiseLinear(pwl; method = method),
+            x,
         )
         check_rejected(model, (x,), pwl; method = method)
     end
@@ -213,9 +212,7 @@ function test_non_finite_values()
         [(0.0,), (1.0,)],
         [(0.0, 1.0), (1.0, Inf)],
     )
-    model = Model()
-    @variable(model, x)
-    check_rejected(model, x, 0:2, log)
+    @test_throws ErrorException PiecewiseLinear(log, 0:2)
     return
 end
 

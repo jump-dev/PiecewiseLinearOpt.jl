@@ -73,7 +73,8 @@ function test_triangulation_checks()
     )
     model = Model()
     @variable(model, x[1:2])
-    _, formulation = piecewiselinear(model, x, pwl; method = K1())
+    _, formulation =
+        add_formulation(model, PiecewiseLinear(pwl; method = K1()), x...)
     @test formulation.method == K1()
     return
 end

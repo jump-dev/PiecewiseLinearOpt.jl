@@ -3,7 +3,8 @@
 ## Adding functions
 
 ```@docs
-piecewiselinear
+PiecewiseLinear
+add_formulation
 PWLFormulation
 Direction
 Graph

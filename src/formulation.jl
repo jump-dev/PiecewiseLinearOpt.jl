@@ -6,7 +6,7 @@
 """
     PWLFormulation
 
-The variables and constraints that [`piecewiselinear`](@ref) added to a model
+The variables and constraints that [`add_formulation`](@ref) added to a model
 to formulate a piecewise linear function.
 
 ## Fields

@@ -30,7 +30,7 @@ function runtests()
     return
 end
 
-function test_convenience_methods()
+function test_constructors()
     d = 0:0.05:1
     f = (xi, yi) -> xi^2 + yi^2
     pwl = BivariatePWLFunction(d, d, f)
@@ -38,7 +38,7 @@ function test_convenience_methods()
     model = Model(OPTIMIZER)
     @variable(model, x)
     @variable(model, y)
-    z1, _ = piecewiselinear(model, (x, y), pwl)
+    z1, _ = add_formulation(model, PiecewiseLinear(pwl), x, y)
     @constraint(model, x ≤ 0.75)
     @constraint(model, y ≤ 0.75)
     @objective(model, Max, z1[1])
@@ -51,7 +51,7 @@ function test_convenience_methods()
     model = Model(OPTIMIZER)
     @variable(model, x)
     @variable(model, y)
-    z2 = piecewiselinear(model, x, y, d, d, f)
+    z2 = PiecewiseLinear(f, d, d)(x, y)
     @constraint(model, x ≤ 0.75)
     @constraint(model, y ≤ 0.75)
     @objective(model, Max, z2)
@@ -88,7 +88,8 @@ function test_methods_agree()
             model,
             Min,
             sum(
-                piecewiselinear(model, a[i], b[i], d, d, f; method = method) for i in 1:2
+                PiecewiseLinear(f, d, d; method = method)(a[i], b[i]) for
+                i in 1:2
             )
         )
         solve!(model)
@@ -111,7 +112,7 @@ function test_default_method()
         pwl = BivariatePWLFunction(0:3, 0:3, f; triangulation = triangulation)
         model = Model(OPTIMIZER)
         @variable(model, x[1:2])
-        (z,), formulation = piecewiselinear(model, x, pwl)
+        (z,), formulation = add_formulation(model, PiecewiseLinear(pwl), x...)
         @test formulation.method == method
         fix(x[1], 1.25)
         fix(x[2], 2.5)
@@ -119,21 +120,21 @@ function test_default_method()
         solve!(model)
         @test value(z) ≈ pwl(1.25, 2.5) atol = 1e-5
     end
-    # The convenience method uses the K1 triangulation by default
+    # PiecewiseLinear uses the K1 triangulation by default
     model = Model()
     @variable(model, x)
     @variable(model, y)
-    piecewiselinear(model, x, y, 0:3, 0:3, f)
+    PiecewiseLinear(f, 0:3, 0:3)(x, y)
     @test count(is_binary, all_variables(model)) == 2 + 2 + 2
     # Segments without a known structure get a method for any triangulation
     pwl = BivariatePWLFunction(0:3, 0:3, f)
     unstructured = PWLFunction(segments(pwl), UnstructuredTriangulation())
     model = Model()
     @variable(model, x[1:2])
-    _, formulation = piecewiselinear(model, x, unstructured)
+    _, formulation = add_formulation(model, PiecewiseLinear(unstructured), x...)
     @test formulation.method == GreedyTriangleSelection()
     unstructured = PWLFunction(segments(pwl), Unstructured{2}())
-    _, formulation = piecewiselinear(model, x, unstructured)
+    _, formulation = add_formulation(model, PiecewiseLinear(unstructured), x...)
     @test formulation.method == DisaggregatedLogarithmic()
     return
 end
@@ -146,16 +147,28 @@ function test_stencil_levels()
     pwl = BivariatePWLFunction(0:1, 0:1, f)
     model = Model()
     @variable(model, x[1:2])
-    _, formulation = piecewiselinear(model, x, pwl; method = SixStencil())
+    _, formulation = add_formulation(
+        model,
+        PiecewiseLinear(pwl; method = SixStencil()),
+        x...,
+    )
     @test count(is_binary, formulation.variables) == 1
     # With every diagonal in the same direction, the three levels for the
     # other direction are left out
     pwl = BivariatePWLFunction(0:4, 0:4, f)
     model = Model()
     @variable(model, x[1:2])
-    _, formulation = piecewiselinear(model, x, pwl; method = SixStencil())
+    _, formulation = add_formulation(
+        model,
+        PiecewiseLinear(pwl; method = SixStencil()),
+        x...,
+    )
     @test count(is_binary, formulation.variables) == 2 + 2 + 3
-    _, formulation = piecewiselinear(model, x, pwl; method = NineStencil())
+    _, formulation = add_formulation(
+        model,
+        PiecewiseLinear(pwl; method = NineStencil()),
+        x...,
+    )
     @test count(is_binary, formulation.variables) == 2 + 2 + 9
     # Every constraint of a level has multipliers on both sides
     for method in (SixStencil(), NineStencil(), K1(), UnionJack())
@@ -170,7 +183,11 @@ function test_stencil_levels()
             )
             model = Model()
             @variable(model, x[1:2])
-            _, formulation = piecewiselinear(model, x, pwl; method = method)
+            _, formulation = add_formulation(
+                model,
+                PiecewiseLinear(pwl; method = method),
+                x...,
+            )
             for c in formulation.constraints
                 func = constraint_object(c).func
                 @test !(func isa AffExpr) || length(func.terms) ≥ 2

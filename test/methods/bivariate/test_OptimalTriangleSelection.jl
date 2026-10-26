@@ -101,8 +101,11 @@ function test_time_limit()
     model = Model(OPTIMIZER)
     @variable(model, x[1:2])
     method = OptimalTriangleSelection(OPTIMIZER; time_limit = 0)
-    (z,), formulation =
-        @test_logs (:warn,) piecewiselinear(model, x, pwl; method = method)
+    (z,), formulation = @test_logs (:warn,) add_formulation(
+        model,
+        PiecewiseLinear(pwl; method = method),
+        x...,
+    )
     @test count(is_binary, formulation.variables) == 6 + length(greedy)
     fix(x[1], 2.25)
     fix(x[2], 3.5)
@@ -110,13 +113,19 @@ function test_time_limit()
     solve!(model)
     @test value(z) ≈ pwl(2.25, 3.5) atol = 1e-5
     # The fallback is cached, and only computed again with a longer time limit
-    @test_logs piecewiselinear(model, x, pwl; method = method)
-    @test !PLO._OPTIMAL_COVER_CACHE[(nw_se, false)].optimal
-    piecewiselinear(
+    @test_logs add_formulation(
         model,
-        x,
-        pwl;
-        method = OptimalTriangleSelection(OPTIMIZER; time_limit = 60),
+        PiecewiseLinear(pwl; method = method),
+        x...,
+    )
+    @test !PLO._OPTIMAL_COVER_CACHE[(nw_se, false)].optimal
+    add_formulation(
+        model,
+        PiecewiseLinear(
+            pwl;
+            method = OptimalTriangleSelection(OPTIMIZER; time_limit = 60),
+        ),
+        x...,
     )
     @test PLO._OPTIMAL_COVER_CACHE[(nw_se, false)].optimal
     return

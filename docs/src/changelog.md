@@ -10,6 +10,12 @@ the new names.
 
 ### Added
 
+- [`PiecewiseLinear`](@ref) function objects, which are built independently of
+  a model, with the function given first so that a `do` block can be used, and
+  add the function to the model of their inputs when called, e.g. `f(x)`.
+  They replace `piecewiselinear`.
+- Univariate functions given in pieces, e.g. with jumps between them, with
+  `PiecewiseLinear(f::Vector{<:Function}, x::Vector{<:AbstractVector})`.
 - Functions with several outputs, with three or more inputs, and with
   discontinuities, built from their segments with [`PWLFunction`](@ref).
 - Piecewise linear relaxations, i.e. bands between a lower and an upper bound,
@@ -20,7 +26,7 @@ the new names.
 - The methods [`IndependentBranching`](@ref) (Lyu, Hicks and Huchette),
   [`ConvexPieces`](@ref), [`GreedyTriangleSelection`](@ref) and
   [`MultipleChoice`](@ref) for functions of any dimension.
-- [`piecewiselinear`](@ref) returns a [`PWLFormulation`](@ref) with the
+- [`add_formulation`](@ref) returns a [`PWLFormulation`](@ref) with the
   variables and constraints it added, which can be deleted from the model
   again.
 - Evaluation of functions with `pwl(x...)`, and bivariate functions from a
@@ -38,6 +44,10 @@ the new names.
   [`K1Triangulation`](@ref), and the default method depends on the
   triangulation: [`K1`](@ref), [`UnionJack`](@ref) or
   [`GreedyTriangleSelection`](@ref).
+- The default method of univariate functions is [`MultipleChoice`](@ref) for
+  discontinuous functions and [`DisaggregatedLogarithmic`](@ref) for
+  relaxations, instead of [`Logarithmic`](@ref LogarithmicEmbedding), which
+  supports neither.
 - The triangle selections of [`SixStencil`](@ref) and [`NineStencil`](@ref)
   leave out levels that separate nothing, so they use fewer binary variables on
   small grids and on triangulations with a single diagonal direction.

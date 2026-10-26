@@ -37,8 +37,11 @@ function test_size()
         model = Model()
         @variable(model, x)
         pwl = UnivariatePWLFunction(0:d, t -> t^2)
-        _, formulation =
-            piecewiselinear(model, [x], pwl; method = Incremental())
+        _, formulation = add_formulation(
+            model,
+            PiecewiseLinear(pwl; method = Incremental()),
+            x,
+        )
         # d fill variables, d - 1 binary variables and the output
         @test count(is_binary, formulation.variables) == d - 1
         @test length(formulation.variables) == 2d

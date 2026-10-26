@@ -102,11 +102,13 @@ function test_sos2_method()
         zs = sin.(xs)
         model = Model(OPTIMIZER)
         @variable(model, x)
-        (y,), formulation = piecewiselinear(
+        (y,), formulation = add_formulation(
             model,
-            [x],
-            UnivariatePWLFunction(xs, zs);
-            method = LinearBranching(),
+            PiecewiseLinear(
+                UnivariatePWLFunction(xs, zs);
+                method = LinearBranching(),
+            ),
+            x,
         )
         @test count(is_binary, formulation.variables) == max(n - 2, 0)
         for i in 1:(n-1)
@@ -145,8 +147,13 @@ function test_triangle_selection_method()
     model = Model()
     @variable(model, x[1:2])
     pwl = BivariatePWLFunction(0:3, 0:3, (a, b) -> a * b)
-    _, formulation = piecewiselinear(model, x, pwl; method = CellBinaries())
-    _, reference = piecewiselinear(model, x, pwl; method = K1())
+    _, formulation = add_formulation(
+        model,
+        PiecewiseLinear(pwl; method = CellBinaries()),
+        x...,
+    )
+    _, reference =
+        add_formulation(model, PiecewiseLinear(pwl; method = K1()), x...)
     @test count(is_binary, formulation.variables) ==
           count(is_binary, reference.variables) - 2 + 9
     # The axis method is taken from the field by default
@@ -161,12 +168,10 @@ function test_general_method()
     pwl = UnivariatePWLFunction(-2:2, t -> t^2)
     model = Model(OPTIMIZER)
     @variable(model, x)
-    (y,), formulation = piecewiselinear(
+    (y,), formulation = add_formulation(
         model,
-        [x],
-        pwl;
-        method = ConvexEpigraph(),
-        direction = Epigraph(),
+        PiecewiseLinear(pwl; method = ConvexEpigraph(), direction = Epigraph()),
+        x,
     )
     @test !any(is_binary, all_variables(model))
     for t in (-2.0, -0.5, 1.0, 1.75)
@@ -186,12 +191,14 @@ function test_general_method()
     @variable(model, x)
     for (f, direction) in
         ((t -> t^2, Graph()), (t -> t^2, Hypograph()), (t -> -t^2, Epigraph()))
-        @test_throws ErrorException piecewiselinear(
+        @test_throws ErrorException add_formulation(
             model,
-            [x],
-            UnivariatePWLFunction(-2:2, f);
-            method = ConvexEpigraph(),
-            direction = direction,
+            PiecewiseLinear(
+                UnivariatePWLFunction(-2:2, f);
+                method = ConvexEpigraph(),
+                direction = direction,
+            ),
+            x,
         )
         @test num_variables(model) == 1
         @test num_constraints(

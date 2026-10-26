@@ -29,6 +29,9 @@ ends at 6, together with `sin` itself (dashed):
 
 ![Two univariate piecewise linear functions with their breakpoints](../assets/univariate.svg)
 
+A univariate function may also jump between pieces, see
+[Discontinuous functions](@ref) for how to build one.
+
 ## Bivariate functions
 
 A bivariate function is given by breakpoints along each axis, which form a
@@ -105,7 +108,7 @@ using JuMP, HiGHS
 model = Model(HiGHS.Optimizer)
 set_silent(model)
 @variable(model, x == 1.25)
-(y,), _ = piecewiselinear(model, [x], pwl; method = IndependentBranching())
+(y,), _ = add_formulation(model, PiecewiseLinear(pwl; method = IndependentBranching()), x)
 @objective(model, Min, y)
 optimize!(model)
 y_min = value(y)
