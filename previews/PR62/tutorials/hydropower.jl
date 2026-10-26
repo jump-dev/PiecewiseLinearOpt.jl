@@ -109,8 +109,8 @@ revenue(q, v) = 2 * sum(price[t] * production(q[t], v[t]) for t in 1:T)
 # ## The piecewise linear approximation
 
 # The production function is approximated on a grid of discharges and volumes,
-# with a triangle in each cell of the grid. [`piecewiselinear`](@ref) takes
-# the breakpoints along each axis and the function. The production is
+# with a triangle in each cell of the grid. [`PiecewiseLinear`](@ref) takes
+# the function and the breakpoints along each axis. The production is
 # maximized, so its approximation only needs to bound the output from above,
 # which the [`Hypograph`](@ref) direction expresses. HiGHS is asked for a
 # solution within 0.1% of the optimum of the approximation.
@@ -118,19 +118,15 @@ revenue(q, v) = 2 * sum(price[t] * production(q[t], v[t]) for t in 1:T)
 function solve_pwl(n_q, n_v; method = K1(), triangulation = K1Triangulation())
     model, v, q, u = hydro_model()
     set_attribute(model, "mip_rel_gap", 1e-3)
-    p = [
-        piecewiselinear(
-            model,
-            q[t],
-            v[t],
-            range(0, q_max; length = n_q),
-            range(v_min, v_max; length = n_v),
-            production;
-            method = method,
-            triangulation = triangulation,
-            direction = Hypograph(),
-        ) for t in 1:T
-    ]
+    approximation = PiecewiseLinear(
+        production,
+        range(0, q_max; length = n_q),
+        range(v_min, v_max; length = n_v);
+        method = method,
+        triangulation = triangulation,
+        direction = Hypograph(),
+    )
+    p = [approximation(q[t], v[t]) for t in 1:T]
     @objective(model, Max, 2 * sum(price[t] * p[t] for t in 1:T))
     optimize!(model)
     @assert termination_status(model) == OPTIMAL
