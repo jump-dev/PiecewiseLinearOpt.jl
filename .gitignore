@@ -2,5 +2,10 @@
 *.jl.*.cov
 *.jl.mem
 Manifest.toml
+docs/build/
+docs/src/assets/triangulations.svg
+docs/src/assets/univariate.svg
 *.DS_Store
-docs/build
+.DS_Store
+.vscode/settings.json
+docs/src/tutorials/*.md
