@@ -9,7 +9,7 @@ Documenter.makedocs(;
     sitename = "PiecewiseLinearOpt.jl",
     authors = "Joey Huchette and contributors",
     # See https://github.com/JuliaDocs/Documenter.jl/issues/868
-    format = Documenter.HTML(
+    format = Documenter.HTML(;
         prettyurls = get(ENV, "CI", nothing) == "true",
         assets = String[],
     ),
